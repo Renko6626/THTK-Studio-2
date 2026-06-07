@@ -19,7 +19,7 @@
           {{ session.title }}
           <span
             class="text-gray-500 hover:text-red-400"
-            @click.stop="terminalStore.closeSession(session.id)"
+            @click.stop="terminalStore.closeSession(session.id).catch(() => {})"
           >×</span>
         </button>
         <button
