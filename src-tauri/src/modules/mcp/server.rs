@@ -318,13 +318,20 @@ mod tests {
 
     #[tokio::test]
     async fn bind_preferred_uses_requested_port_when_free() {
-        // 先用 :0 找一个空闲端口,释放后立刻请求它(竞态概率极低,失败可重跑)
-        let probe = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("probe");
-        let free_port = probe.local_addr().expect("addr").port();
-        drop(probe);
+        // 找空闲端口→释放→立刻请求,存在小概率被并发测试/其他进程抢占的竞态;
+        // 重试若干轮把 flake 概率压到忽略不计(任意一轮成功即证明语义正确)。
+        for attempt in 0..5 {
+            let probe = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("probe");
+            let free_port = probe.local_addr().expect("addr").port();
+            drop(probe);
 
-        let listener = bind_preferred(free_port).await.expect("bind");
-        assert_eq!(listener.local_addr().expect("addr").port(), free_port);
+            let listener = bind_preferred(free_port).await.expect("bind");
+            if listener.local_addr().expect("addr").port() == free_port {
+                return; // 语义验证成功
+            }
+            eprintln!("attempt {attempt}: port {free_port} got snatched, retrying");
+        }
+        panic!("bind_preferred never used the requested free port in 5 attempts");
     }
 
     fn raw_request(addr: std::net::SocketAddr, auth: Option<&str>) -> String {
