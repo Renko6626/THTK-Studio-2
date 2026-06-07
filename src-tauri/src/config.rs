@@ -5,6 +5,10 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
+fn default_mcp_port() -> u16 {
+    39127
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(default)]
 pub struct AppConfig {
@@ -20,6 +24,9 @@ pub struct AppConfig {
     pub default_game_version: String,
     // 编辑器主题 (给前端留的字段)
     pub theme: String,
+    // MCP 服务器首选监听端口；被占用时自动回退到随机端口
+    #[serde(default = "default_mcp_port")]
+    pub mcp_port: u16,
 }
 
 impl Default for AppConfig {
@@ -31,6 +38,7 @@ impl Default for AppConfig {
             tool_overrides: BTreeMap::new(),
             default_game_version: "20".to_string(),
             theme: "dark".to_string(),
+            mcp_port: default_mcp_port(),
         }
     }
 }

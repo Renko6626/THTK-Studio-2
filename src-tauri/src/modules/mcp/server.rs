@@ -248,6 +248,21 @@ fn with_bearer_auth(router: axum::Router, token: &str) -> axum::Router {
     ))
 }
 
+/// 优先绑定配置端口;被占用(多实例等)回退随机端口。
+pub async fn bind_preferred(port: u16) -> Result<tokio::net::TcpListener, String> {
+    if port != 0 {
+        match tokio::net::TcpListener::bind(("127.0.0.1", port)).await {
+            Ok(listener) => return Ok(listener),
+            Err(e) => {
+                eprintln!("[mcp] port {port} unavailable ({e}), falling back to ephemeral")
+            }
+        }
+    }
+    tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .map_err(|e| format!("MCP server bind failed: {e}"))
+}
+
 /// 绑定 127.0.0.1 随机端口，带 bearer token 校验，返回端口与 token。
 /// serve 循环在 tauri 异步运行时中后台运行。
 pub async fn start(app: AppHandle) -> Result<McpServerInfo, String> {
@@ -269,9 +284,8 @@ pub async fn start(app: AppHandle) -> Result<McpServerInfo, String> {
         &token,
     );
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-        .await
-        .map_err(|e| format!("MCP server bind failed: {e}"))?;
+    let mcp_port = app.state::<AppState>().config_manager.get_config().mcp_port;
+    let listener = bind_preferred(mcp_port).await?;
     let port = listener
         .local_addr()
         .map_err(|e| format!("MCP server addr failed: {e}"))?
@@ -288,8 +302,30 @@ pub async fn start(app: AppHandle) -> Result<McpServerInfo, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::with_bearer_auth;
+    use super::{bind_preferred, with_bearer_auth};
     use std::io::{Read, Write};
+
+    #[tokio::test]
+    async fn bind_preferred_falls_back_when_port_taken() {
+        let blocker = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("bind blocker");
+        let taken_port = blocker.local_addr().expect("addr").port();
+
+        let listener = bind_preferred(taken_port).await.expect("fallback bind");
+        let bound_port = listener.local_addr().expect("addr").port();
+
+        assert_ne!(bound_port, taken_port, "must fall back to a different port");
+    }
+
+    #[tokio::test]
+    async fn bind_preferred_uses_requested_port_when_free() {
+        // 先用 :0 找一个空闲端口,释放后立刻请求它(竞态概率极低,失败可重跑)
+        let probe = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("probe");
+        let free_port = probe.local_addr().expect("addr").port();
+        drop(probe);
+
+        let listener = bind_preferred(free_port).await.expect("bind");
+        assert_eq!(listener.local_addr().expect("addr").port(), free_port);
+    }
 
     fn raw_request(addr: std::net::SocketAddr, auth: Option<&str>) -> String {
         let mut stream = std::net::TcpStream::connect(addr).expect("connect");
