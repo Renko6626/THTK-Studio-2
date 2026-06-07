@@ -18,7 +18,13 @@ npm run build            # frontend build into ./dist
 cargo clean --manifest-path src-tauri/Cargo.toml   # reclaim the large target/ dir
 ```
 
-There is **no test runner configured** (`playwright` is a devDependency but no test script exists) and no linter. "Validation" means checking for type/build issues and import consistency by building.
+There is **no frontend test runner configured** (`playwright` is a devDependency but no test script exists) and no linter. "Validation" means checking for type/build issues and import consistency by building.
+
+Rust unit tests exist and run with:
+```bash
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+15 unit tests cover: pty (3), map_parser (3), mcp_config (3), mcp tools (3), ai_pack (2), auth (1). On Linux the GTK/WebKit headers must be visible — activate the conda `tauri-dev` environment first (sets `PKG_CONFIG_PATH` and `LD_LIBRARY_PATH`); see README "Linux 服务器开发" for details.
 
 `src-tauri/target/` is a Rust debug build cache and grows to several GB (the `windows` crate + incremental cache dominate); it and `node_modules/`, `dist/` are gitignored and regenerated locally.
 
@@ -37,8 +43,9 @@ Before implementing, identify whether the task is a frontend view/panel, editor 
 - `main.rs` — entry + command registration (see the `invoke_handler!` list for the full API surface).
 - `app_state.rs` — global `AppState`: `ConfigManager`, current project root, file watcher handle.
 - `config.rs` — app config read/write (still uses `Result<_, String>` + some unwrap; MVP-era).
-- `common/` — shared capabilities: `fs_utils` (lazy shallow file-tree scan + `get_dir_children` on-demand), `fs_ops` (file CRUD), `file_watcher` (notify + debounce → Tauri event emit), `cmd_runner` (external process exec with Shift-JIS decode + hidden console on Windows), `toolchain` (tool path resolution + version detection), `terminal` (one-shot shell exec — **not yet a real PTY**), `system_clipboard`, `project_config`.
-- `modules/ecl/` — the one fully-wired toolchain: `commands` (Tauri commands), `compiler` (builds `thecl` args, runs it), `error_parser` (thecl stderr → `Diagnostic` with normalized absolute paths), `map_parser` (eclmap parsing). New toolchains (thmsg/thstd/thanm) should follow this module shape and reuse the structured-result pattern.
+- `common/` — shared capabilities: `fs_utils` (lazy shallow file-tree scan + `get_dir_children` on-demand), `fs_ops` (file CRUD), `file_watcher` (notify + debounce → Tauri event emit), `cmd_runner` (external process exec with Shift-JIS decode + hidden console on Windows), `toolchain` (tool path resolution + version detection), `terminal` (one-shot shell exec — **superseded by PTY terminal, pending cleanup**), `system_clipboard`, `project_config`, `pty` (PTY session management: portable-pty, cross-platform shell detection, ConPTY-safe waiter-thread exit detection, 16ms output batching), `mcp_config` (non-destructive `.mcp.json` merge — preserves existing entries, updates thtk-studio port/token on each launch).
+- `modules/ecl/` — the one fully-wired toolchain: `commands` (Tauri commands), `compiler` (builds `thecl` args, runs it), `error_parser` (thecl stderr → `Diagnostic` with normalized absolute paths), `map_parser` (eclmap parsing + global register parsing via `!gvar_names`/`!gvar_types`). New toolchains (thmsg/thstd/thanm) should follow this module shape and reuse the structured-result pattern.
+- `modules/mcp/` — in-process MCP server (rmcp 1.7, Streamable HTTP, random port on 127.0.0.1, Bearer token rotated each launch). Six tools: `get_workspace_info`, `check_ecl`, `compile_ecl`, `decompile_ecl`, `lookup_ecl_semantics`, `report_to_user`. Blocking work runs via `spawn_blocking`.
 
 **Encoding matters**: `save_file`'s `is_source` flag decides UTF-8 (`.decl`/`.dmsg` source) vs Shift-JIS (raw game text). Don't lose this distinction.
 
@@ -46,11 +53,18 @@ Before implementing, identify whether the task is a frontend view/panel, editor 
 
 - `api/index.js` — single bridge from frontend to Tauri `invoke` commands.
 - `stores/` (Pinia) — keep **domain state separate from UI state**: `project` (workspace/tree), `editor` (tabs/active/dirty/session), `terminal`, `explorerView`/`workbenchPanels` (pure UI selection & visibility), `buildDialog`, `toolchainSettings`, `workbenchReports`.
-- `composables/` — complex behavior is extracted here, not left in SFCs (e.g. `useWorkbenchSession`, `useWorkbenchShortcuts`, `useBeforeUnloadGuard`, `useFileWatcher`, `useTheclActions`, `useFileTree{DnD,Actions}`). New complex behavior follows this pattern; `App.vue` and `FileTree.vue` are the components most prone to bloat — push logic down.
+- `composables/` — complex behavior is extracted here, not left in SFCs (e.g. `useWorkbenchSession`, `useWorkbenchShortcuts`, `useBeforeUnloadGuard`, `useFileWatcher`, `useTheclActions`, `useFileTree{DnD,Actions}`, `useMcpBridge` — listens for `report_to_user` MCP tool calls and publishes structured cards to the output panel). New complex behavior follows this pattern; `App.vue` and `FileTree.vue` are the components most prone to bloat — push logic down.
 - `services/` — domain logic that is legitimately frontend-side:
   - `services/toolchains/registry.js` — **registry-driven extensibility point**. `TOOLCHAIN_REGISTRY` maps tool id → descriptor (label, exe name, build-dialog form, request builder, executor). `thecl` is fully implemented; `thmsg`/`thanm`/`thstd`/`thdat` are registered stubs (`supportsBuildDialog: false`) waiting for wiring. Add a new tool by adding a descriptor here.
   - `services/workbench/editorViews.js` — `WORKBENCH_EDITOR_VIEWS` registry mapping view type → editor component (`text` → Monaco, `binary-script` → BinaryScriptView). New file-type workspaces register a view here.
   - `services/languages/ecl/` — the ECL language service: Monaco providers (completion, hover, definition, references, signature help, document symbols), `tokenizer`/`theme` for highlighting, `static-diagnostics` + `toolchain-diagnostics` (thecl output → Monaco markers), and `semantic-loader`/`vocabulary`/`dynamic-vocabulary` which load **eclmap semantic data** to drive the providers. `register.js` wires it all into Monaco.
+  - `services/terminal/sessionRuntime.js` — module-level xterm.js runtime; holds `Terminal` instances outside the Vue component tree so sessions survive component unmount/remount. `TerminalPanel.vue` is the multi-tab shell UI (scrollback 5000 lines).
+
+## Agent channel
+
+Running `claude` (claude code) inside the built-in terminal automatically discovers the thtk-studio MCP server: the project root `.mcp.json` is non-destructively maintained by the Rust backend on each project open (port and Bearer token updated; existing custom entries preserved). From inside claude, `/mcp` lists six tools covering workspace info, ECL compile/decompile/check, semantic lookup, and reporting.
+
+The "生成 AI 辅助包" menu action writes `.claude/skills/ecl-modding/` (SKILL.md created once and not overwritten; `references/` regenerated from the current eclmap). This gives claude code domain vocabulary and workflow guidance for ECL modding without manual setup.
 
 ## Toolchain integration notes
 
