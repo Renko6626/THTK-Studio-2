@@ -1,0 +1,1677 @@
+anim { "enemy.anm"; "st01enm.anm"; }
+ecli { "default.ecl"; "st01bs.ecl"; "st01mbs.ecl"; }
+
+void MainBossSpell();
+
+void GirlA01(var A)
+{
+    enemy_set_hitbox(24.0f, 24.0f);
+    enemy_set_collision(16.0f, 16.0f);
+!HL67
+    @GirlA01_at() async;
+!*
+    move_velocity_abs(1.9634954f + (%RAND_FLOAT_SIGNED * 0.34906584f), 3.0f);
+    move_velocity_abs_interp(60, 1, 0.3926991f + (%RAND_FLOAT_SIGNED * 0.17453292f), 1.0f);
+    ecl_time_sub(120);
+    ecl();
+
+    move_speed_abs_interp(60, 1, 2.0f);
+    goto fuckfuckfuck @ 0;
+GirlA01_428:
+    ecl_time_sub(1000);
+GirlA01_448:
+    if (1) goto GirlA01_428 @ 0;
+    return;
+}
+
+void GirlA01_at()
+{
+    var A;
+    shooter_reset(0);
+    shoot_aim_mode(0, 0);
+    bullet_sprite(0, 5, 6);
+    bullet_count(0, 1, 1);
+    shoot_angle(0, 0.0fabcd, 0.34906584f);
+!E67
+    0;
+!N67
+    0;
+!H67
+    3.0f;
+!L67
+    5.0f;
+!*
+    bullet_speed(0, [-1.0f], 1.0f);
+    bullet_effects_add(0, 0, 1, 1, -9999994, -9999994.0f, -9999994.0f);
+    $A = 100;
+    goto GirlA01_at_500 @ 0;
+GirlA01_at_380:
+    shoot_now(0);
+!E67
+    0;
+!N67
+    0;
+!H67
+    60;
+!L67
+    15;
+!*
+    ecl_time_sub([-1]);
+GirlA01_at_500:
+    if ($A--) goto GirlA01_at_380 @ 0;
+    return;
+}
+
+void GirlA02(var A)
+{
+    enemy_set_hitbox(24.0f, 24.0f);
+    enemy_set_collision(16.0f, 16.0f);
+    move_velocity_abs(1.9634954f + (%RAND_FLOAT_SIGNED * 0.34906584f), 3.0f);
+    move_orbit_rel(%RAND_ANGLE, 0.017453292f, 32.0f, 0.0f);
+    move_velocity_abs_interp(60, 1, 0.3926991f + (%RAND_FLOAT_SIGNED * 0.17453292f), 1.0f);
+!NHL67
+    @GirlA02_at() async;
+!*
+    float AA;
+    ecl_time_sub(120);
+    move_speed_abs_interp(60, 1, 2.0f);
+    goto GirlA02_480 @ 0;
+GirlA02_460:
+    ecl_time_sub(1000);
+GirlA02_480:
+    if (1) goto GirlA02_460 @ 0;
+    return;
+}
+
+void GirlA02_at()
+{
+    var A;
+    
+    shooter_reset(0);
+    shoot_aim_mode(0, 2);
+    bullet_sprite(0, 5, 6);
+!E67
+    1;
+!N67
+    1;
+!H67
+    1;
+!L67
+    10;
+!*
+    bullet_count(0, [-1], 1);
+    shoot_angle(0, 0.0f, 0.34906584f);
+    bullet_speed(0, 2.0f, 1.0f);
+    bullet_effects_add(0, 0, 1, 1, -9999994, -9999994.0f, -9999994.0f);
+!E67
+    0;
+!N67
+    $RAND_INT % 300;
+!H67
+    $RAND_INT % 60;
+!L67
+    $RAND_INT % 30;
+!*
+    ecl_time_sub([-1]);
+    $A = 100;
+    goto GirlA02_at_708 @ 0;
+GirlA02_at_588:
+    shoot_now(0);
+!E67
+    0;
+!N67
+    300;
+!H67
+    60;
+!L67
+    30;
+!*
+    ecl_time_sub([-1]);
+GirlA02_at_708:
+    if ($A--) goto GirlA02_at_588 @ 0;
+    return;
+}
+
+void GirlA03(var A)
+{
+    enemy_set_hitbox(24.0f, 24.0f);
+    enemy_set_collision(16.0f, 16.0f);
+    move_velocity_abs(1.5707964f + (%RAND_FLOAT_SIGNED * 0.34906584f), 3.0f);
+    move_velocity_abs_interp(120, 1, 1.5707964f + (%RAND_FLOAT_SIGNED * 0.34906584f), 2.0f);
+!HL67
+    @GirlA03_at() async;
+!*
+    ecl_time_sub(120);
+    move_speed_abs_interp(60, 1, 2.0f);
+    goto GirlA03_448 @ 0;
+GirlA03_428:
+    ecl_time_sub(1000);
+GirlA03_448:
+    if (1) goto GirlA03_428 @ 0;
+    return;
+}
+
+void GirlA03_at()
+{
+    var A;
+    shooter_reset(0);
+    shoot_aim_mode(0, 0);
+    bullet_sprite(0, 5, 6);
+    bullet_count(0, 1, 1);
+    shoot_angle(0, 0.0f, 0.34906584f);
+!E67
+    0;
+!N67
+    0;
+!H67
+    2.0f;
+!L67
+    3.5f;
+!*
+    bullet_speed(0, [-1.0f], 1.0f);
+    bullet_effects_add(0, 0, 1, 1, -9999994, -9999994.0f, -9999994.0f);
+    ecl_time_sub($RAND_INT % 60);
+    $A = 100;
+    goto GirlA03_at_576 @ 0;
+GirlA03_at_456:
+    shoot_now(0);
+!E67
+    0;
+!N67
+    0;
+!H67
+    300;
+!L67
+    30;
+!*
+    ecl_time_sub([-1]);
+GirlA03_at_576:
+    if ($A--) goto GirlA03_at_456 @ 0;
+    return;
+
+}
+
+void GirlA03_at_l()
+{
+    var A;
+    ecl_time_sub(30);
+    shooter_reset(0);
+    shoot_aim_mode(0, 2);
+    bullet_sprite(0, 7, 4);
+!E67
+    1;
+!N67
+    1;
+!H67
+    1;
+!L67
+    1;
+!E67
+    3;
+!N67
+    3;
+!H67
+    3;
+!L67
+    6;
+!*
+    bullet_count(0, [-1], [-2]);
+    shoot_angle(0, 0.0f, 0.05235988f);
+!E67
+    1.0f;
+!N67
+    1.0f;
+!H67
+    1.0f;
+!L67
+    1.0f;
+!E67
+    2.2f;
+!N67
+    2.2f;
+!H67
+    2.2f;
+!L67
+    1.5f;
+!*
+    bullet_speed(0, [-1.0f], [-2.0f]);
+    bullet_effects(0, 0, 0, 1, 1, -9999994, -9999994.0f, -9999994.0f);
+    $A = 1;
+    goto GirlA03_at_l_684 @ 0;
+GirlA03_at_l_644:
+    shoot_now(0);
+    ecl_time_sub(30);
+GirlA03_at_l_684:
+    if ($A--) goto GirlA03_at_l_644 @ 0;
+    return;
+}
+
+void GirlA04(var A)
+{
+    enemy_set_hitbox(24.0f, 24.0f);
+    enemy_set_collision(16.0f, 16.0f);
+    move_velocity_abs(-1.3744467f + (%RAND_FLOAT_SIGNED * 0.17453292f), 3.0f);
+    move_velocity_abs_interp(120, 3, 0.0f + (%RAND_FLOAT_SIGNED * 0.34906584f), 1.0f);
+!NHL67
+    @GirlA04_at() async;
+!*
+    ecl_time_sub(120);
+    move_speed_abs_interp(60, 1, 2.0f);
+    goto GirlA04_448 @ 0;
+GirlA04_428:
+    ecl_time_sub(1000);
+GirlA04_448:
+    if (1) goto GirlA04_428 @ 0;
+    return;
+}
+
+void GirlA04_at()
+{
+    var A;
+    shooter_reset(0);
+    shoot_aim_mode(0, 0);
+    bullet_sprite(0, 5, 6);
+    bullet_count(0, 1, 1);
+    shoot_angle(0, 0.0f, 0.34906584f);
+!E67
+    2.0f;
+!N67
+    2.0f;
+!H67
+    3.0f;
+!L67
+    4.0f;
+!*
+    bullet_speed(0, [-1.0f], 1.0f);
+    bullet_effects_add(0, 0, 1, 1, -9999994, -9999994.0f, -9999994.0f);
+!E67
+    120;
+!N67
+    120;
+!H67
+    90;
+!L67
+    90;
+!*
+    ecl_time_sub([-1]);
+    ecl_time_sub($RAND_INT % 30);
+    $A = 100;
+    goto GirlA04_at_676 @ 0;
+GirlA04_at_556:
+    shoot_now(0);
+!E67
+    180;
+!N67
+    180;
+!H67
+    50;
+!L67
+    20;
+!*
+    ecl_time_sub([-1]);
+GirlA04_at_676:
+    if ($A--) goto GirlA04_at_556 @ 0;
+    return;
+}
+
+void GirlA05(var A)
+{
+    enemy_set_hitbox(24.0f, 24.0f);
+    enemy_set_collision(16.0f, 16.0f);
+    move_velocity_abs(1.5707964f + (%RAND_FLOAT_SIGNED * 0.17453292f), 2.0f);
+    move_velocity_abs_interp(120, 3, 1.5707964f + (%RAND_FLOAT_SIGNED * 0.34906584f), 0.5f);
+!HL67
+    @GirlA05_at() async;
+!*
+    ecl_time_sub(120);
+    move_speed_abs_interp(60, 1, 2.0f);
+    goto GirlA05_448 @ 0;
+GirlA05_428:
+    ecl_time_sub(1000);
+GirlA05_448:
+    if (1) goto GirlA05_428 @ 0;
+    return;
+}
+
+void GirlA05_at()
+{
+    var A;
+    shooter_reset(0);
+    shoot_aim_mode(0, 0);
+    bullet_sprite(0, 5, 6);
+    bullet_count(0, 1, 1);
+    shoot_angle(0, 0.0f, 0.34906584f);
+!E67
+    0;
+!N67
+    0;
+!H67
+    3.0f;
+!L67
+    4.0f;
+!*
+    bullet_speed(0, [-1.0f], 1.0f);
+    bullet_effects_add(0, 0, 1, 1, -9999994, -9999994.0f, -9999994.0f);
+    ecl_time_sub($RAND_INT % 30);
+    $A = 100;
+    goto GirlA05_at_576 @ 0;
+GirlA05_at_456:
+    shoot_now(0);
+!E67
+    0;
+!N67
+    0;
+!H67
+    60;
+!L67
+    30;
+!*
+    ecl_time_sub([-1]);
+GirlA05_at_576:
+    if ($A--) goto GirlA05_at_456 @ 0;
+    return;
+}
+
+void GirlA05_at_l()
+{
+    var A;
+    ecl_time_sub(30);
+    shooter_reset(0);
+    shoot_aim_mode(0, 2);
+    bullet_sprite(0, 7, 4);
+!E67
+    1;
+!N67
+    1;
+!H67
+    1;
+!L67
+    1;
+!E67
+    3;
+!N67
+    3;
+!H67
+    3;
+!L67
+    6;
+!*
+    bullet_count(0, [-1], [-2]);
+    shoot_angle(0, 0.0f, 0.05235988f);
+!E67
+    1.0f;
+!N67
+    1.0f;
+!H67
+    1.0f;
+!L67
+    1.0f;
+!E67
+    2.2f;
+!N67
+    2.2f;
+!H67
+    2.2f;
+!L67
+    1.5f;
+!*
+    bullet_speed(0, [-1.0f], [-2.0f]);
+    bullet_effects(0, 0, 0, 1, 1, -9999994, -9999994.0f, -9999994.0f);
+    $A = 1;
+    goto GirlA05_at_l_684 @ 0;
+GirlA05_at_l_644:
+    shoot_now(0);
+    ecl_time_sub(30);
+GirlA05_at_l_684:
+    if ($A--) goto GirlA05_at_l_644 @ 0;
+    return;
+}
+
+void GirlA06(var A)
+{
+    enemy_set_hitbox(24.0f, 24.0f);
+    enemy_set_collision(16.0f, 16.0f);
+    move_orbit_rel(%RAND_ANGLE, 0.017453292f, 64.0f, 0.0f);
+    move_velocity_abs(3.1415927f, 2.0f);
+    ecl_time_sub(120);
+    move_velocity_abs_interp(120, 3, 0.0f + (%RAND_FLOAT_SIGNED * 0.34906584f), 0.5f);
+!HL67
+    @GirlA06_at() async;
+!*
+    move_speed_abs_iagnterp(60, 1, 1.5f);
+    goto GirlA06_388 @ 0;
+GirlA06_368:
+    ecl_time_sub(1000);
+GirlA06_388:
+    if (1) goto GirlA06_368 @ 0;
+    return;
+}
+
+void GirlA06_at()
+{
+    var A;
+    shooter_reset(0);
+    shoot_aim_mode(0, 0);
+    bullet_sprite(0, 5, 6);
+    bullet_count(0, 1, 1);
+    shoot_angle(0, 0.0f, 0.34906584f);
+    bullet_speed(0, 2.0f, 1.0f);
+    bullet_effects_add(0, 0, 1, 1, -9999994, -9999994.0f, -9999994.0f);
+    ecl_time_sub($RAND_INT % 30);
+    $A = 100;
+    goto GirlA06_at_496 @ 0;
+GirlA06_at_376:
+    shoot_now(0);
+!E67
+    0;
+!N67
+    0;
+!H67
+    60;
+!L67
+    30;
+!*
+    ecl_time_sub([-1]);
+GirlA06_at_496:
+    if ($A--) goto GirlA06_at_376 @ 0;
+    return;
+}
+
+void GirlB01()
+{
+    anm_source(2);
+    anm_set_slot_main(0, 20);
+    anm_set_slot(1, 323);
+    enemy_set_hitbox(24.0f, 24.0f);
+    enemy_set_collision(16.0f, 16.0f);
+    move_velocity_abs(0.19634955f, 2.0f);
+    move_orbit_rel(%RAND_ANGLE, -0.034906585f, 40.0f, -0.25f);
+    move_velocity_abs_interp(160, 1, 0.0f + (%RAND_FLOAT_SIGNED * 0.17453292f), 1.0f);
+    @GirlB01_at() async;
+    ecl_time_sub(160);
+    move_speed_abs_interp(60, 1, 0.0f);
+    move_orbit_rel(0.0f, 0.0f, 0.0f, 0.0f);
+    ecl_time_sub(60);
+    move_velocity_abs(%PLAYER_ANGLE, 0.0f);
+    move_speed_abs_interp(60, 0, 2.0f);
+    goto GirlB01_560 @ 0;
+GirlB01_540:
+    ecl_time_sub(1000);
+GirlB01_560:
+    if (1) goto GirlB01_540 @ 0;
+    enemy_delete();
+}
+
+void GirlB01_at()
+{
+    var A;
+!E67
+    160;
+!N67
+    160;
+!H67
+    40;
+!L67
+    40;
+!*
+    ecl_time_sub([-1]);
+    shooter_reset(0);
+    shoot_aim_mode(0, 0);
+    bullet_sprite(0, 5, 6);
+!E67
+    1;
+!N67
+    5;
+!H67
+    7;
+!L67
+    9;
+!*
+    bullet_count(0, [-1], 1);
+    shoot_angle(0, 0.0f, 0.34906584f);
+    bullet_speed(0, 0.5f, 1.0f);
+    bullet_effects_add(0, 0, 1, 1, -9999994, -9999994.0f, -9999994.0f);
+!E67
+    2.0f;
+!N67
+    2.0f;
+!H67
+    3.0f;
+!L67
+    3.5f;
+!*
+    bullet_effects_add(0, 0, 21, 120, -9999994, [-1.0f], -1000000.0f);
+    $A = 100;
+    goto GirlB01_at_724 @ 0;
+GirlB01_at_604:
+    shoot_now(0);
+!E67
+    600;
+!N67
+    600;
+!H67
+    60;
+!L67
+    40;
+!*
+    ecl_time_sub([-1]);
+GirlB01_at_724:
+    if ($A--) goto GirlB01_at_604 @ 0;
+    return;
+}
+
+void GirlB02()
+{
+    anm_source(2);
+    anm_set_slot_main(0, 20);
+    anm_set_slot(1, 323);
+    enemy_set_hitbox(24.0f, 24.0f);
+    enemy_set_collision(16.0f, 16.0f);
+    item_bonus_slots_reset();
+    item_bonus_slot_set(1, 1);
+    item_bonus_slot_set(2, 2);
+    __stone_value_set(50);
+    move_velocity_abs(1.5707964f, 2.0f);
+    move_orbit_rel(%RAND_ANGLE, -0.034906585f, 40.0f, -0.25f);
+    move_velocity_abs_interp(100, 1, 1.5707964f, 0.0f);
+    ecl_time_sub(100);
+    move_speed_abs_interp(60, 1, 0.0f);
+    @GirlB02_at() async;
+    ecl_time_sub(60);
+    move_velocity_abs(%PLAYER_ANGLE, 0.0f);
+    move_speed_abs_interp(60, 0, 2.0f);
+    goto GirlB02_520 @ 0;
+GirlB02_500:
+    ecl_time_sub(1000);
+GirlB02_520:
+    if (1) goto GirlB02_500 @ 0;
+    enemy_delete();
+}
+
+void GirlB02_at()
+{
+    var A;
+    shooter_reset(0);
+    shoot_aim_mode(0, 3);
+    bullet_sprite(0, 5, 6);
+!E67
+    1;
+!N67
+    1;
+!H67
+    1;
+!L67
+    2;
+!E67
+    6;
+!N67
+    12;
+!H67
+    24;
+!L67
+    24;
+!*
+    bullet_count(0, [-1], [-2]);
+    shoot_angle(0, 0.0f, 0.34906584f);
+    bullet_speed(0, 0.5f, 0.1f);
+    bullet_effects_add(0, 0, 1, 1, -9999994, -9999994.0f, -9999994.0f);
+!E67
+    1.5f;
+!N67
+    2.0f;
+!H67
+    3.0f;
+!L67
+    4.0f;
+!*
+    bullet_effects_add(0, 0, 21, 120, -9999994, [-1.0f], -1000000.0f);
+    $A = 100;
+    goto GirlB02_at_732 @ 0;
+GirlB02_at_584:
+    shoot_angle(0, %RAND_ANGLE, 0.0f);
+    shoot_now(0);
+!E67
+    600;
+!N67
+    600;
+!H67
+    60;
+!L67
+    30;
+!*
+    ecl_time_sub([-1]);
+GirlB02_at_732:
+    if ($A--) goto GirlB02_at_584 @ 0;
+    return;
+}
+
+void GirlBlueA01()
+{
+    anm_source(2);
+    anm_set_slot_main(0, 0);
+    anm_set_slot(1, 323);
+    @GirlA01(1);
+    enemy_delete();
+}
+
+void GirlBlueA01n()
+{
+    anm_source(2);
+    anm_set_slot_main(0, 0);
+    anm_set_slot(1, 323);
+    item_reward_set(2);
+    item_timed_bonus_slot_set(1, 1);
+    item_timed_bonus_duration(60);
+!NHL67
+    @GirlA01_at() async;
+!*
+    @GirlA01(0);
+    enemy_delete();
+}
+
+void GirlBlueA02()
+{
+    anm_source(2);
+    anm_set_slot_main(0, 0);
+    anm_set_slot(1, 323);
+    @GirlA02(1);
+    enemy_delete();
+}
+
+void GirlBlueA02n()
+{
+    anm_source(2);
+    anm_set_slot_main(0, 0);
+    anm_set_slot(1, 323);
+    item_reward_set(2);
+    item_timed_bonus_slot_set(1, 1);
+    item_timed_bonus_duration(60);
+!NHL67
+    @GirlA02_at() async;
+!*
+    @GirlA02(0);
+    enemy_delete();
+}
+
+void GirlBlueA03()
+{
+    anm_source(2);
+    anm_set_slot_main(0, 0);
+    anm_set_slot(1, 323);
+    @GirlA03(1);
+    enemy_delete();
+}
+
+void GirlBlueA03n()
+{
+    anm_source(2);
+    anm_set_slot_main(0, 0);
+    anm_set_slot(1, 323);
+    item_reward_set(2);
+    item_timed_bonus_slot_set(1, 1);
+    item_timed_bonus_duration(60);
+!NHL67
+    @GirlA03_at() async;
+!*
+    @GirlA03(0);
+    enemy_delete();
+}
+
+void GirlBlueA04()
+{
+    anm_source(2);
+    anm_set_slot_main(0, 0);
+    anm_set_slot(1, 323);
+    @GirlA04(1);
+    enemy_delete();
+}
+
+void GirlBlueA05()
+{
+    anm_source(2);
+    anm_set_slot_main(0, 0);
+    anm_set_slot(1, 323);
+    @GirlA05(1);
+    enemy_delete();
+}
+
+void GirlBlueA06()
+{
+    anm_source(2);
+    anm_set_slot_main(0, 0);
+    anm_set_slot(1, 323);
+    @GirlA06(1);
+    enemy_delete();
+}
+
+void GirlC01()
+{
+    anm_source(2);
+    anm_set_slot_main(0, 30);
+    anm_set_slot(1, 324);
+    enemy_set_hitbox(32.0f, 32.0f);
+    enemy_set_collision(24.0f, 24.0f);
+    item_bonus_slots_reset();
+    item_bonus_slot_set(1, 3);
+    item_bonus_slot_set(2, 3);
+    __stone_value_set(100);
+    move_velocity_abs(1.5707964f, 2.0f);
+    move_speed_abs_interp(120, 1, 0.0f);
+    ecl_time_sub(120);
+    @GirlC01_at() async;
+    ecl_time_sub(400);
+    move_velocity_abs(-1.5707964f, 0.0f);
+    move_speed_abs_interp(60, 0, 2.0f);
+    __stone_value_set(100);
+    goto GirlC01_476 @ 0;
+GirlC01_456:
+    ecl_time_sub(1000);
+GirlC01_476:
+    if (1) goto GirlC01_456 @ 0;
+    enemy_delete();
+}
+
+void GirlC01_at()
+{
+    var A, B, C;
+    shooter_reset(0);
+    shoot_aim_mode(0, 1);
+    bullet_sprite(0, 8, 4);
+    bullet_count(0, 1, 3);
+    shoot_angle(0, 0.0f, 0.34906584f);
+!E67
+    1.8f;
+!N67
+    1.8f;
+!H67
+    2.5f;
+!L67
+    3.8f;
+!*
+    bullet_speed(0, [-1.0f], 2.0f);
+    bullet_effects_add(0, 0, 1, 1, -9999994, -9999994.0f, -9999994.0f);
+    bullet_effects_add(0, 1, 0, -9999994, -9999994, -9999994.0f, -9999994.0f);
+    %A = %PLAYER_ANGLE;
+    %B = %A;
+    $C = 1000;
+    goto GirlC01_at_1308 @ 0;
+GirlC01_at_504:
+    shoot_angle(0, %A, 0.0f);
+    shoot_now(0);
+    shoot_angle(0, %B, 0.0f);
+    shoot_now(0);
+!E67
+    %A = %A + 0.349066f;
+!N67
+    %A = %A + 0.174533f;
+!H67
+    %A = %A + 0.087266f;
+!L67
+    %A = %A + 0.087266f;
+!E67
+    %B = %B - 0.349066f;
+!N67
+    %B = %B - 0.174533f;
+!H67
+    %B = %B - 0.087266f;
+!L67
+    %B = %B - 0.087266f;
+!E67
+    20;
+!N67
+    10;
+!H67
+    5;
+!L67
+    5;
+!*
+    ecl_time_sub([-1]);
+GirlC01_at_1308:
+    if ($C--) goto GirlC01_at_504 @ 0;
+    return;
+}
+
+void GirlC02()
+{
+    anm_source(2);
+    anm_set_slot_main(0, 30);
+    anm_set_slot(1, 324);
+    enemy_set_hitbox(32.0f, 32.0f);
+    enemy_set_collision(24.0f, 24.0f);
+    item_bonus_slots_reset();
+    item_bonus_slot_set(1, 3);
+    item_bonus_slot_set(2, 3);
+    __stone_value_set(50);
+    move_velocity_abs(1.5707964f, 4.0f);
+    move_speed_abs_interp(60, 1, 0.0f);
+    ecl_time_sub(60);
+    @GirlC02_at() async;
+    ecl_time_sub(400);
+    move_speed_abs_interp(60, 0, 1.0f);
+    goto GirlC02_432 @ 0;
+GirlC02_412:
+    ecl_time_sub(1000);
+GirlC02_432:
+    if (1) goto GirlC02_412 @ 0;
+    enemy_delete();
+}
+
+void GirlC02_at()
+{
+    var A, B, C, D, E, F;
+    shooter_reset(0);
+    shoot_aim_mode(0, 1);
+    bullet_sprite(0, 5, 2);
+    bullet_count(0, 1, 1);
+    shoot_angle(0, 0.0f, 0.34906584f);
+!E67
+    1.8f;
+!N67
+    2.8f;
+!H67
+    3.8f;
+!L67
+    4.8f;
+!*
+    bullet_speed(0, [-1.0f], 1.0f);
+    bullet_effects_add(0, 0, 1, 1, -9999994, -9999994.0f, -9999994.0f);
+    bullet_effects_add(0, 1, 0, -9999994, -9999994, -9999994.0f, -9999994.0f);
+    %A = %PLAYER_ANGLE;
+    %B = %A;
+    %C = 2.8f;
+    set_int_difficulty($E, 10, 10, 10, 10);
+    goto GirlC02_at_972 @ 0;
+GirlC02_at_540:
+    %A = %PLAYER_ANGLE;
+    $D = 1;
+    shoot_angle(0, %A, 0.017453292f);
+    set_int_difficulty($F, 3, 7, 7, 9);
+    goto GirlC02_at_828 @ 0;
+GirlC02_at_708:
+    shoot_now(0);
+!E67
+    20;
+!N67
+    10;
+!H67
+    10;
+!L67
+    5;
+!*
+    ecl_time_sub([-1]);
+GirlC02_at_828:
+    if ($F--) goto GirlC02_at_708 @ 0;
+!E67
+    90;
+!N67
+    90;
+!H67
+    40;
+!L67
+    5;
+!*
+    ecl_time_sub([-1]);
+GirlC02_at_972:
+    if ($E--) goto GirlC02_at_540 @ 0;
+    return;
+}
+
+void GirlD01()
+{
+    anm_source(2);
+    anm_set_slot_main(0, 40);
+    anm_set_slot(1, 325);
+    enemy_set_hitbox(32.0f, 32.0f);
+    enemy_set_collision(24.0f, 24.0f);
+    item_bonus_slots_reset();
+    item_bonus_slot_set(1, 5);
+    item_bonus_slot_set(2, 5);
+    __stone_value_set(100);
+    move_velocity_abs(1.5707964f, 2.0f);
+    move_speed_abs_interp(120, 1, 0.0f);
+    ecl_time_sub(120);
+    @GirlD01_at() async;
+    ecl_time_sub(400);
+    move_velocity_abs(-1.5707964f, 0.0f);
+    move_speed_abs_interp(60, 0, 2.0f);
+    goto GirlD01_456 @ 0;
+GirlD01_436:
+    ecl_time_sub(1000);
+GirlD01_456:
+    if (1) goto GirlD01_436 @ 0;
+    enemy_delete();
+}
+
+void GirlD01_at()
+{
+    var A, B, C;
+    shooter_reset(0);
+    shoot_aim_mode(0, 3);
+    bullet_sprite(0, 7, 4);
+!E67
+    3;
+!N67
+    3;
+!H67
+    5;
+!L67
+    5;
+!*
+    bullet_count(0, [-1], 1);
+    shoot_angle(0, 0.0f, 0.34906584f);
+!E67
+    1.4f;
+!N67
+    1.4f;
+!H67
+    2.2f;
+!L67
+    3.0f;
+!*
+    bullet_speed(0, [-1.0f], 1.0f);
+    bullet_effects_add(0, 0, 1, 1, -9999994, -9999994.0f, -9999994.0f);
+    bullet_effects_add(0, 1, 0, -9999994, -9999994, -9999994.0f, -9999994.0f);
+    %A = %PLAYER_ANGLE;
+    %B = %A;
+    $C = 1000;
+    goto GirlD01_at_932 @ 0;
+GirlD01_at_584:
+    shoot_angle(0, %A, 0.0f);
+    shoot_now(0);
+    shoot_angle(0, %B, 0.0f);
+    shoot_now(0);
+    %A = %A + 3.883222f;
+    %B = %B - 1.941611f;
+!E67
+    30;
+!N67
+    10;
+!H67
+    5;
+!L67
+    3;
+!*
+    ecl_time_sub([-1]);
+GirlD01_at_932:
+    if ($C--) goto GirlD01_at_584 @ 0;
+    return;
+}
+
+void GirlD02()
+{
+    anm_source(2);
+    anm_set_slot_main(0, 40);
+    anm_set_slot(1, 325);
+    enemy_set_hitbox(32.0f, 32.0f);
+    enemy_set_collision(24.0f, 24.0f);
+    item_bonus_slots_reset();
+    item_bonus_slot_set(1, 8);
+    item_bonus_slot_set(2, 8);
+    __stone_value_set(70);
+    move_velocity_abs(1.5707964f, 2.0f);
+    move_speed_abs_interp(120, 1, 0.0f);
+    ecl_time_sub(120);
+    @GirlD02_at() async;
+    ecl_time_sub(560);
+    move_velocity_abs(-1.5707964f, 0.0f);
+    move_speed_abs_interp(60, 0, 2.0f);
+    goto GirlD02_456 @ 0;
+GirlD02_436:
+    ecl_time_sub(1000);
+GirlD02_456:
+    if (1) goto GirlD02_436 @ 0;
+    enemy_delete();
+}
+
+void GirlD02_at()
+{
+    var A, B, C;
+    shooter_reset(0);
+    shoot_aim_mode(0, 3);
+    bullet_sprite(0, 7, 4);
+    bullet_count(0, 3, 1);
+    shoot_angle(0, 0.0f, 0.34906584f);
+!E67
+    1.4f;
+!N67
+    1.4f;
+!H67
+    3.0f;
+!L67
+    4.0f;
+!*
+    bullet_speed(0, [-1.0f], 1.0f);
+    bullet_effects_add(0, 0, 1, 1, -9999994, -9999994.0f, -9999994.0f);
+    bullet_effects_add(0, 1, 0, -9999994, -9999994, -9999994.0f, -9999994.0f);
+    %A = %PLAYER_ANGLE;
+    %B = %A;
+    $C = 1000;
+    goto GirlD02_at_1308 @ 0;
+GirlD02_at_504:
+    shoot_angle(0, %A, 0.0f);
+    shoot_now(0);
+    shoot_angle(0, %B, 0.0f);
+    shoot_now(0);
+!E67
+    %A = %A + 2.588815f;
+!N67
+    %A = %A + 1.941611f;
+!H67
+    %A = %A + 1.941611f;
+!L67
+    %A = %A + 1.941611f;
+!E67
+    %B = %B - 1.941611f;
+!N67
+    %B = %B - 1.213507f;
+!H67
+    %B = %B - 1.213507f;
+!L67
+    %B = %B - 1.213507f;
+!E67
+    30;
+!N67
+    10;
+!H67
+    5;
+!L67
+    3;
+!*
+    ecl_time_sub([-1]);
+GirlD02_at_1308:
+    if ($C--) goto GirlD02_at_504 @ 0;
+    return;
+}
+
+void GirlRedA01()
+{
+    anm_source(2);
+    anm_set_slot_main(0, 5);
+    anm_set_slot(1, 323);
+    @GirlA01(1);
+    enemy_delete();
+}
+
+void GirlRedA01n()
+{
+    anm_source(2);
+    anm_set_slot_main(0, 5);
+    anm_set_slot(1, 323);
+    item_reward_set(1);
+    item_timed_bonus_slot_set(2, 1);
+    item_timed_bonus_duration(60);
+    @GirlA01(0);
+    enemy_delete();
+}
+
+void GirlRedA02()
+{
+    anm_source(2);
+    anm_set_slot_main(0, 5);
+    anm_set_slot(1, 323);
+    @GirlA02(1);
+    enemy_delete();
+}
+
+void GirlRedA02n()
+{
+    anm_source(2);
+    anm_set_slot_main(0, 5);
+    anm_set_slot(1, 323);
+    item_reward_set(1);
+    @GirlA02(0);
+    enemy_delete();
+    
+}
+
+void GirlRedA03()
+{
+    anm_source(2);
+    anm_set_slot_main(0, 5);
+    anm_set_slot(1, 323);
+    @GirlA03(1);
+    enemy_delete();
+}
+
+void GirlRedA03n()
+{
+    anm_source(2);
+    anm_set_slot_main(0, 5);
+    anm_set_slot(1, 323);
+    item_reward_set(1);
+    @GirlA03(0);
+    enemy_delete();
+}
+
+void GirlRedA04()
+{
+    anm_source(2);
+    anm_set_slot_main(0, 5);
+    anm_set_slot(1, 323);
+    @GirlA04(1);
+    enemy_delete();
+}
+
+void GirlRedA05()
+{
+    anm_source(2);
+    anm_set_slot_main(0, 5);
+    anm_set_slot(1, 323);
+    @GirlA05(1);
+    enemy_delete();
+}
+
+void GirlRedA06()
+{
+    anm_source(2);
+    anm_set_slot_main(0, 5);
+    anm_set_slot(1, 323);
+    @GirlA06(1);
+    enemy_delete();
+}
+
+void LogoEnemy()
+{
+    ecl_time_sub(600);
+    stage_logo();
+    return;
+}
+
+void MainBoss()
+{
+    msg_wait();
+    chapter_set(43);
+    enemy_create_abs("Boss", 144.0f, -16.0f, 40, 1000, 0);
+    msg_wait();
++1: //1
+    boss_wait();
+    chapter_set(81);
++60: //61
+    msg_read(1);
+    msg_wait();
+    return;
+    return;
+}
+
+void MainBossDebug()
+{
+    std_interrupt(1);
+    chapter_set(41);
++10: //10
+    msg_read(0);
+    @MainBoss();
+    return;
+}
+
+void MainBossDebug2()
+{
+    std_interrupt(1);
+    chapter_set(41);
++10: //10
+    msg_read(-1);
+    @MainBoss();
+    return;
+}
+
+void MainBossTest()
+{
+    msg_wait();
+    chapter_set(43);
+    enemy_create_abs("Boss", 144.0f, -16.0f, 40, 1000, 0);
+    msg_wait();
++1: //1
+    boss_wait();
+    chapter_set(81);
++60: //61
+    msg_read(1);
+    msg_wait();
+    goto MainBossTest_252 @ 61;
+MainBossTest_232:
+    ecl_time_sub(1000);
+MainBossTest_252:
+    if (1) goto MainBossTest_232 @ 61;
+    return;
+}
+
+void MainFront()
+{
+    @MainSub00();
+    ecl_time_sub(420);
+    __debug_unknown_A(6, "DebugSkipStopFunc");
+    @MainSub01();
+    ecl_time_sub(240);
+    __debug_unknown_A(7, "DebugSkipStopFunc");
+    @MainSub02();
+    ecl_time_sub(100);
+    __debug_unknown_A(8, "DebugSkipStopFunc");
+    @MainSub03();
+    ecl_time_sub(300);
+    @MainSub04();
+    ecl_time_sub(60);
+    @MainSub05();
+    ecl_time_sub(60);
+    __debug_unknown_A(9, "DebugSkipStopFunc");
+    @MainSub06();
+    ecl_time_sub(100);
+    return;
+}
+
+void MainLatter()
+{
+    ecl_time_sub(520);
+    @MainSub07();
+    __debug_unknown_A(11, "DebugSkipStopFunc");
+    @MainSub08();
+    ecl_time_sub(200);
+    __debug_unknown_A(12, "DebugSkipStopFunc");
+    @MainSub09();
+    return;
+}
+
+void MainLatterB()
+{
+    boss_wait();
+    ecl_time_sub(60);
+    return;
+}
+
+void MainMBossDebug()
+{
+    chapter_set(22);
+    enemy_create_abs("MBoss", 112.0f, -32.0f, 40, 1000, 0);
+    goto MainMBossDebug_148 @ 0;
+MainMBossDebug_128:
+    ecl_time_sub(1000);
+MainMBossDebug_148:
+    if (1) goto MainMBossDebug_128 @ 0;
+    return;
+}
+
+void MainMsgDebug()
+{
+    std_interrupt(1);
++10: //10
+    msg_read(0);
+    msg_wait();
++1: //11
+    msg_wait();
++60: //71
+    msg_read(1);
+    msg_wait();
+    goto MainMsgDebug_184 @ 4071;
+MainMsgDebug_168:
++4000: //4071
+    nop();
+MainMsgDebug_184:
+    if (1) goto MainMsgDebug_168 @ 71;
+    return;
+}
+
+void MainSub00()
+{
+    var A, B;
+    %A = _f(-120);
+    $B = 4;
+    goto MainSub00_320 @ 0;
+MainSub00_140:
+    enemy_create_rel("GirlRedA01", %A, -16.0f, 160, 10, 1);
+    ecl_time_sub(30);
+    enemy_create_rel_mirror("GirlRedA01", -%A, -16.0f, 160, 10, 1);
+    ecl_time_sub(30);
+MainSub00_320:
+    if ($B--) goto MainSub00_140 @ 0;
+    ecl_time_sub(90);
+    enemy_create_rel("GirlRedA01", -120.0f, -16.0f, 160, 10, 1);
+    enemy_create_rel_mirror("GirlRedA01", 120.0f, -16.0f, 160, 10, 1);
+    ecl_time_sub(10);
+    enemy_create_rel("GirlBlueA01", -70.0f, -16.0f, 160, 10, 2);
+    enemy_create_rel_mirror("GirlBlueA01", 70.0f, -16.0f, 160, 10, 2);
+    ecl_time_sub(10);
+    enemy_create_rel("GirlRedA01", -20.0f, -16.0f, 160, 10, 1);
+    enemy_create_rel_mirror("GirlRedA01", 20.0f, -16.0f, 160, 10, 1);
+    %EF0 = _f(0);
+    %EF1 = _f(300);
+    return;
+}
+
+void MainSub01()
+{
+    var A, B, C;
+    $A = 4;
+    goto MainSub01_336 @ 0;
+MainSub01_100:
+    enemy_create_rel_mirror("GirlRedA02", %RAND_FLOAT_SIGNED * _f(100), -32.0f, 160, 10, 1);
+    enemy_create_rel("GirlRedA02", %RAND_FLOAT_SIGNED * _f(100), -32.0f, 160, 10, 1);
+    ecl_time_sub(30);
+MainSub01_336:
+    if ($A--) goto MainSub01_100 @ 0;
+    $B = 4;
+    goto MainSub01_680 @ 0;
+MainSub01_444:
+    enemy_create_rel("GirlBlueA02", %RAND_FLOAT_SIGNED * _f(100), -32.0f, 160, 10, 2);
+    enemy_create_rel_mirror("GirlBlueA02", %RAND_FLOAT_SIGNED * _f(100), -32.0f, 160, 10, 2);
+    ecl_time_sub(30);
+MainSub01_680:
+    if ($B--) goto MainSub01_444 @ 0;
+    $C = 6;
+    goto MainSub01_1024 @ 0;
+MainSub01_788:
+    enemy_create_rel_mirror("GirlRedA02", %RAND_FLOAT_SIGNED * _f(100), -32.0f, 160, 10, 1);
+    enemy_create_rel("GirlRedA02", %RAND_FLOAT_SIGNED * _f(100), -32.0f, 160, 10, 1);
+    ecl_time_sub(30);
+MainSub01_1024:
+    if ($C--) goto MainSub01_788 @ 0;
+    enemy_create_rel_mirror("GirlRedA02", %RAND_FLOAT_SIGNED * _f(100), -32.0f, 160, 10, 1);
+    enemy_create_rel("GirlRedA02", %RAND_FLOAT_SIGNED * _f(100), -32.0f, 160, 10, 1);
+    return;
+}
+
+void MainSub02()
+{
+    var A, B, C, D, E;
+    %A = %PLAYER_X2;
+    %B = _f(232);
+    %C = _f(96);
+    unless (%A < _f(0)) goto MainSub02_308 @ 0;
+    enemy_create_rel_mirror("GirlC01", -120.0f, -32.0f, 2000, 10, 1);
+    goto MainSub02_356 @ 0;
+MainSub02_308:
+    enemy_create_rel("GirlC01", 120.0f, -32.0f, 2000, 10, 1);
+MainSub02_356:
+    $D = 3;
+    goto MainSub02_828 @ 0;
+MainSub02_420:
+    unless (%A < _f(0)) goto MainSub02_572 @ 0;
+    enemy_create_rel_mirror("GirlB01", %B, %C, 400, 10, 1);
+    goto MainSub02_656 @ 0;
+MainSub02_572:
+    enemy_create_rel("GirlB01", -%B, %C, 400, 10, 1);
+MainSub02_656:
+    %C = %C - _f(16);
+    %B = %B + _f(16);
+    ecl_time_sub(30);
+MainSub02_828:
+    if ($D--) goto MainSub02_420 @ 0;
+    ecl_time_sub(170);
+    unless (%A >= _f(0)) goto MainSub02_1044 @ 0;
+    enemy_create_rel_mirror("GirlC01", -120.0f, -32.0f, 2000, 10, 1);
+    goto MainSub02_1092 @ 0;
+MainSub02_1044:
+    enemy_create_rel("GirlC01", 120.0f, -32.0f, 2000, 10, 1);
+MainSub02_1092:
+    $E = 3;
+    goto MainSub02_1564 @ 0;
+MainSub02_1156:
+    unless (%A >= _f(0)) goto MainSub02_1308 @ 0;
+    enemy_create_rel_mirror("GirlB01", %B, %C, 400, 10, 1);
+    goto MainSub02_1392 @ 0;
+MainSub02_1308:
+    enemy_create_rel("GirlB01", -%B, %C, 400, 10, 1);
+MainSub02_1392:
+    %C = %C + _f(16);
+    %B = %B - _f(16);
+    ecl_time_sub(30);
+MainSub02_1564:
+    if ($E--) goto MainSub02_1156 @ 0;
+    ecl_time_sub(170);
+    return;
+}
+
+void MainSub03()
+{
+    enemy_create_rel_mirror("GirlD01", 0.0f, -32.0f, 3000, 10, 1);
+    return;
+}
+
+void MainSub04()
+{
+    var A, B;
+    %A = _f(-100);
+    $B = 6;
+    goto MainSub04_500 @ 0;
+MainSub04_140:
+    enemy_create_rel("GirlRedA03", %A, -16.0f, 160, 10, 1);
+    ecl_time_sub(20);
+    enemy_create_rel("GirlRedA03", -%A, -16.0f, 160, 10, 1);
+    ecl_time_sub(20);
+    enemy_create_rel("GirlBlueA03", %A, -16.0f, 160, 10, 1);
+    ecl_time_sub(20);
+    enemy_create_rel("GirlBlueA03", -%A, -16.0f, 160, 10, 1);
+    ecl_time_sub(20);
+MainSub04_500:
+    if ($B--) goto MainSub04_140 @ 0;
+    return;
+}
+
+void MainSub05()
+{
+    var A, B;
+    %A = _f(-212);
+    $B = 4;
+    goto MainSub05_828 @ 0;
+MainSub05_140:
+    enemy_create_rel("GirlRedA04", %A + _f($RAND_INT % 32), 464.0f, 180, 10, 1);
+    ecl_time_sub(20);
+    enemy_create_rel_mirror("GirlRedA04", (-%A) + _f($RAND_INT % 32), 464.0f, 280, 10, 1);
+    ecl_time_sub(20);
+    enemy_create_rel("GirlBlueA04", %A + _f($RAND_INT % 32), 464.0f, 280, 10, 1);
+    ecl_time_sub(20);
+    enemy_create_rel_mirror("GirlBlueA04", (-%A) + _f($RAND_INT % 32), 464.0f, 280, 10, 1);
+    ecl_time_sub(20);
+MainSub05_828:
+    if ($B--) goto MainSub05_140 @ 0;
+    ecl_time_sub(20);
+    return;
+}
+
+void MainSub06()
+{
+    var A;
+    %A = _f(-100);
+    enemy_create_rel("GirlB02", 0.0f, -24.0f, 500, 10, 1);
+    ecl_time_sub(100);
+    enemy_create_rel("GirlB02", 96.0f, -24.0f, 500, 10, 1);
+    ecl_time_sub(100);
+    enemy_create_rel("GirlB02", -96.0f, -24.0f, 500, 10, 1);
+    ecl_time_sub(100);
+    enemy_create_rel("GirlB02", 0.0f, -24.0f, 500, 10, 1);
+    ecl_time_sub(100);
+    enemy_create_rel("GirlB02", 120.0f, -24.0f, 500, 10, 1);
+    ecl_time_sub(60);
+    enemy_create_rel("GirlB02", -120.0f, -24.0f, 500, 10, 1);
+    ecl_time_sub(60);
+    enemy_create_rel("GirlB02", -96.0f, -24.0f, 500, 10, 1);
+    ecl_time_sub(50);
+    enemy_create_rel("GirlB02", 96.0f, -24.0f, 500, 10, 1);
+    ecl_time_sub(50);
+    enemy_create_rel("GirlB02", 64.0f, -24.0f, 500, 10, 1);
+    enemy_create_rel("GirlB02", -64.0f, -24.0f, 500, 10, 1);
+    ecl_time_sub(100);
+    return;
+}
+
+void MainSub07()
+{
+    var A;
+    $A = 14;
+    goto MainSub07_408 @ 0;
+MainSub07_100:
+    enemy_create_rel_mirror("GirlBlueA05", (%RAND_FLOAT_SIGNED * _f(30)) + _f(100), -32.0f, 160, 10, 2);
+    enemy_create_rel("GirlBlueA05", (%RAND_FLOAT_SIGNED * _f(30)) - _f(100), -32.0f, 160, 10, 2);
+    ecl_time_sub(50);
+MainSub07_408:
+    if ($A--) goto MainSub07_100 @ 0;
+    return;
+}
+
+void MainSub08()
+{
+    enemy_create_rel("GirlC02", 0.0f, -32.0f, 1400, 10, 2);
+    ecl_time_sub(60);
+    enemy_create_rel("GirlC02", -120.0f, -48.0f, 1400, 10, 2);
+    enemy_create_rel("GirlC02", 120.0f, -48.0f, 1400, 10, 2);
+    ecl_time_sub(120);
+    enemy_create_rel("GirlC02", 64.0f, -24.0f, 1400, 10, 2);
+    ecl_time_sub(60);
+    enemy_create_rel("GirlC02", -64.0f, -24.0f, 1400, 10, 2);
+    ecl_time_sub(140);
+    return;
+}
+
+void MainSub09()
+{
+    var A;
+    enemy_create_rel("GirlD02", 0.0f, -32.0f, 3800, 10, 2);
+    ecl_time_sub(60);
+    $A = 16;
+    goto MainSub09_476 @ 0;
+MainSub09_168:
+    enemy_create_rel_mirror("GirlRedA06", -256.0f, _f(64) + (%RAND_FLOAT * _f(32)), 160, 10, 2);
+    enemy_create_rel("GirlRedA06", 256.0f, _f(64) + (%RAND_FLOAT * _f(32)), 160, 10, 2);
+    ecl_time_sub(30);
+MainSub09_476:
+    if ($A--) goto MainSub09_168 @ 0;
+    return;
+}
+
+void MapleEnemy()
+{
+    var A;
+    enemy_flags_set(32);
+    $A = 1000000;
+    goto MapleEnemy_164 @ 0;
+MapleEnemy_120:
+    anm_create_zero_front(1, 95);
+    ecl_time_sub(4);
+MapleEnemy_164:
+    if ($A--) goto MapleEnemy_120 @ 0;
+    ecl_time_sub(500);
+    enemy_delete();
+}
+
+void main()
+{
+    enemy_flags_set(32);
+    ecl_time_sub(1);
+    chapter_set(0);
+    enemy_create_abs("MapleEnemy", 0.0f, 0.0f, 40, 1000, 1);
+    unless ($SPELL_ID >= 0) goto main_352 @ 0;
+    @MainBossSpell();
+    goto main_308 @ 0;
+main_288:
+    ecl_time_sub(1000);
+main_308:
+    if (1) goto main_288 @ 0;
+main_352:
+    __debug_unknown_A(1, "MainMBossDebug");
+    __debug_unknown_A(2, "MainBossDebug");
+    __debug_unknown_A(3, "MainBossDebug2");
+    __debug_unknown_A(4, "MainMsgDebug");
+    __debug_unknown_A(5, "MainLatter");
+    __debug_unknown_A(20, "MainBossDebug2");
+    __debug_unknown_A(21, "MainBossDebug2");
+    __debug_unknown_A(22, "MainBossDebug2");
+    __debug_unknown_A(23, "MainBossDebug2");
+    __debug_unknown_A(24, "MainBossDebug2");
+    __debug_unknown_A(25, "MainBossDebug2");
+    __debug_unknown_A(26, "MainBossDebug2");
+    __debug_unknown_A(27, "MainBossDebug2");
+    __debug_unknown_A(28, "MainBossDebug2");
+    __debug_unknown_A(29, "MainBossDebug2");
+    __debug_unknown_A(6, "DebugSkipFunc");
+    __debug_unknown_A(7, "DebugSkipFunc");
+    __debug_unknown_A(8, "DebugSkipFunc");
+    __debug_unknown_A(9, "DebugSkipFunc");
+    __debug_unknown_A(9, "DebugSkipFunc");
+    __debug_unknown_A(10, "DebugSkipFunc");
+    __debug_unknown_A(11, "DebugSkipFunc");
+    __debug_unknown_A(12, "DebugSkipFunc");
+    __debug_unknown_A(13, "DebugSkipFunc");
+    __debug_unknown_A(14, "DebugSkipFunc");
+    __debug_unknown_A(15, "DebugSkipFunc");
+    __debug_unknown_A(16, "DebugSkipFunc");
+    __debug_unknown_A(17, "DebugSkipFunc");
+    __debug_unknown_A(18, "DebugSkipFunc");
+    __debug_unknown_A(19, "DebugSkipFunc");
+    @LogoEnemy() async;
+    __debug_unknown_A(30, "NoEnemyDebug");
+    __debug_unknown_A(6, "DebugSkipFunc");
++60: //60
+    nop();
+    @MainFront();
+    __debug_unknown_A(10, "DebugSkipStopFunc");
+    enemy_kill_all();
+    bullet_clear_radius(640.0f);
+    ecl_time_sub(2);
+    enemy_create_abs("MBoss", -192.0f, -32.0f, 40, 1000, 1);
+    ecl_time_sub(160);
+    @MainLatter();
+    ecl_time_sub(290);
+    ecl_time_sub(60);
+    enemy_kill_all();
+    bullet_clear_radius(640.0f);
+    __debug_unknown_A(13, "DebugSkipStopFunc");
+    ecl_time_sub(200);
+    chapter_set(41);
+    msg_read(0);
+    @MainBoss();
+    goto main_2164 @ 60;
+main_2144:
+    ecl_time_sub(1000);
+main_2164:
+    if (1) goto main_2144 @ 60;
+    enemy_delete();
+}
+
+void testFunc()
+{
+    shooter_reset(0);
+    shoot_aim_mode(0, 2);
+    bullet_sprite(0, 8, 2);
+!E67
+    1;
+!N67
+    1;
+!H67
+    1;
+!L67
+    1;
+!E67
+    32;
+!N67
+    32;
+!H67
+    3;
+!L67
+    5;
+!*
+    bullet_count(0, [-1], [-2]);
+    shoot_angle(0, 0.0f, 0.032724924f);
+!E67
+    1.0f;
+!N67
+    1.0f;
+!H67
+    1.0f;
+!L67
+    2.0f;
+!E67
+    2.0f;
+!N67
+    0.6f;
+!H67
+    3.0f;
+!L67
+    5.5f;
+!*
+    bullet_speed(0, [-1.0f], [-2.0f]);
+    bullet_effects(0, 0, 0, 1, 1, -9999994, -9999994.0f, -9999994.0f);
+    bullet_effects(0, 1, 1, 0, -9999994, -9999994, -9999994.0f, -9999994.0f);
+    goto testFunc_672 @ 0;
+testFunc_632:
+    shoot_now(0);
+    ecl_time_sub(60);
+testFunc_672:
+    if (1) goto testFunc_632 @ 0;
+    return;
+}

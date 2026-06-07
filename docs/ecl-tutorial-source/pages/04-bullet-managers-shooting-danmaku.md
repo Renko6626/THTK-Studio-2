@@ -1,0 +1,211 @@
+[title=Bullet managers, shooting danmaku]
+[requireEclmap=17]
+
+## Bullet managers
+Now that we have spawned our beautiful fairy, we should give a meaning to its existence by making it shoot some bullets! However, shooting bullets in ECL is a bit more involved that just calling 1 instruction, but in the end that makes it easier to manage. Every enemy comes with a set of 16 bullet managers, with IDs from 0 to 15. Using IDs other than these can cause unpredictable issues, such as making your fridge explode. A bullet manager (also etMgr for short) has the following properties (among many others, but these are most important):
+- bullet sprite and color
+- bullet angle
+- bullet aim mode (more on that later)
+- bullet speed
+- bullet amount
+- \.\.\.and a lot more
+
+A really nice thing about bullet managers is that they allow for easily defining some simple bullet formations, such as rings or fans. But first, we should focus on shooting a single bullet. etMgr can be initialized by using the [ins=600,13] instruction.  
+[code] anim {
+     "enemy.anm";
+ }
+
+ void main() {
+     [ins=502,17](32);
+     [ins=23,17](60);
+     [ins=300,17]("MyEnemy", 0f, 128f, 1000, 100, 0);
+     [ins=23,17](10000);
+ }
+ 
+ void MyEnemy() {
+     [ins=302,17](2);
+     [ins=306,17](0, 0);
+     [ins=600,17](0); // initialize etMgr on slot 0
+     [ins=602,17](0, 6, 1); // in etMgr on slot 0, set bullet sprite and color: 6 -> outline bullet, 1 -> red  
+     [ins=601,17](0); // shoot the bullet from etMgr on slot 0 - properties other than the sprite and color are default  
+     [ins=23,17](10000);
+ }
+[/code]  
+After running the code above ingame, our fairy will shoot a single red bullet right as it spawns. Said bullet will actually be aimed at the player, since that's the default. Now, we shall discuss how bullet managers can be used to shoot multiple bullets at once.  
+  
+As you probably noticed, bullet sprite and color are defined with just numbers. You can refer to [this image](https://cdn.discordapp.com/attachments/395767870119870466/570658618316161041/BULLET_IDS.png) by Dai for all bullet numbers (only valid for [game=15]LoLK[/game] onward). In the future, usage of the MERLIN library, which defines the bullet sprites and colors as text, will be explained.
+
+## Bullet counts, aim modes
+As mentioned earlier, bullet managers actually allow creating simple patterns that can then be fired by using just one [ins=601,17] instruction. There are 4 main instructions that define a bullet manager pattern: [ins=604,17], [ins=605,17], [ins=606,17] and [ins=607,17]:
+- [ins=607,17] sets the aim mode, which determines how the other properties will actually be interpreted.
+- [ins=606,17] sets the `cnt1` and `cnt2` properties of the bullet manager. How it's interpreted exactly depends on the aim mode, but in general the pattern fired by the manager will have `cnt1*cnt2` bullets.
+- [ins=605,17] sets the `spd1` and `spd2` properties of the manager. In general `spd1` should be higher than `spd2` and the bullets will move with speeds ranging from `spd2` to `spd1`, but again, how it's interpreted exactly depends on the aim mode.
+- [ins=604,17] sets the `ang1` and `ang2` properties of the manager. In general, `ang1` offsets the pattern angle from the one defined by the aim mode, while `ang2` is related to the difference between angles of individual bullets in the pattern.
+
+With this in mind, we can now discuss how individual aim modes work.
+### Modes 0 and 1 - the "fan" modes
+#### Aim mode 0
+These modes shoot a pattern that looks like a fan. What I mean is something like this:  
+[img=content/ecl-tutorial/files/4/fan.png]  
+The following properties were given to the bullet manager to shoot the pattern above:  
+[code][ins=607,17](0, 0);
+[ins=606,17](0, 6, 3);
+[ins=605,17](0, 3f, 2f);
+[ins=604,17](0, 0f, rad(10));[/code]  
+- first, we have the [ins=607,17] instruction that sets the aim mode to 0. Technically it's not needed, since 0 is the default.
+- right after it, [ins=606,17] sets the bullet counts. As you can see on the image, this makes for `cnt1` (6) bullets shot in `cnt2` (3) layers. Do note that they were all shot from the same point, and their difference in position is only a result of different angles and speeds.
+- [ins=605,17] sets the maximum speed, `spd1`, and minimum speed, `spd2`. The bullets in the first layer move with `spd1` speed, while bullets in the last layer move with `spd2` speed, and anything in between moves with speed between `spd1` and `spd2`.  
+**Note:** the formula used to calculate the speed was different in earlier games, which resulted in bullets never actually moving with `spd2` speed. In all games from [game=125]DS[/game] onwards, however, the last layer does move with `spd2` speed.
+- [ins=604,17] sets angle of the entire pattern `ang1` (in case of aim 0, this is relative to angle to player) and the angle difference between individual bullets in a layer `ang2`. Both these values are in radians, so if you want to use the more human-readable degrees you have to use the `rad` syntax, as illustrated by the value of `ang2`. Since `ang1` is 0, the pattern is aimed directly at the player - however, since the amount of bullets in a single layer (`cnt1`) is even, the actual bullets will all be aimed *around* the player, in order to keep symmetry. If `ang1` was a positive value, the pattern angle would be rotated clockwise, while negative values would result in a counterclockwise rotation.  
+- If `cnt1` is greater than 1 and `ang2` is 0, **all bullets in the same layer will overlap**, effectively making it only one bullet. Similarly, if `cnt2` is greater than 1 and `spd2` is the same as `spd1`, **then all layers will be overlapping**. Remember to always set all needed properties for whatever you're creating.
+  
+#### Aim mode 1
+Aim mode 1 is very similar to aim mode 0, almost identical in fact. The only difference is that it's not aimed at the player, so the value given in `ang1` represents the absolute bullet angle. This means that the angles work as follow:
+- `rad(0)` - straight right,
+- `rad(90)` - straight down,
+- `rad(180)` - straight left,
+- `rad(270)`, or `rad(-90)` - straight up.
+  
+So if we were to modify the properties from earlier to use aim mode 1:  
+[code][ins=607,17](0, 1);
+[ins=606,17](0, 6, 3);
+[ins=605,17](0, 3f, 2f);
+[ins=604,17](0, 0f, rad(10));[/code]  
+The fairy would shoot the bullets straight right instead of straight at the player.
+
+### Aim modes 2, 3, 4 and 5 - the ring modes
+#### Aim mode 2
+As you can most likely deduce from the title of this section, these aim modes are designed to shoot rings. However, as I'll demonstrate, they can also be used to create some cool-looking bullet formations that aren't quite rings at all. But before that, let's actually shoot a ring by using aim mode 2.  
+[code] anim {
+     "enemy.anm";
+ }
+
+ void main() {
+     [ins=502,17](32);
+     [ins=23,17](60);
+     [ins=300,17]("MyEnemy", 0f, 128f, 1000, 100, 0);
+     [ins=23,17](10000);
+ }
+ 
+ void MyEnemy() {
+     [ins=302,17](2);
+     [ins=306,17](0, 0);
+     [ins=600,17](0); // initialize etMgr on slot 0
+     [ins=607,17](0, 2); // use aim mode 2 for etMgr on slot 0
+     [ins=602,17](0, 6, 1); // in etMgr on slot 0, set bullet sprite and color: 6 -> outline bullet, 1 -> red  
+     [ins=606,17](0, 20, 1); // set cnt1 to 20 and cnt2 to 1
+     [ins=601,17](0); // shoot the bullet from etMgr on slot 0
+     [ins=23,17](10000);
+ }[/code]  
+What this code results in is this:  
+[img=content/ecl-tutorial/files/4/ring.png]  
+This is a ring of `cnt1` bullets, which in this case is 20. It's also aimed at the player, since aim mode 2 aims at the player like aim mode 0. However, in this case, the amount of bullets doesn't matter, and one of them will always be aimed at the player. Notice how we didn't need to set `ang2` to define the distance between individual bullets here - in ring aim modes, this is calculated automatically. You might be curious what `ang2` does, then. We can check it by using these properties: 
+[flex] 
+[img=content/ecl-tutorial/files/4/ring2.png]  
+[code][ins=606,17](0, 5, 3); // 3 layers of 5 bullets
+[ins=605,17](0, 3f, 2f); // spd1, spd2
+[ins=604,17](0, 0f, rad(10)); // ang2 = rad(10) [/code]  
+[/flex]
+...eh? What the heck? That's not a ring at all! Or is it? Let's examine this pattern closely. We know that there should be 3 layers here... Let's look at each of them individually: 
+ 
+[img=content/ecl-tutorial/files/4/ring2b.png]  
+The 5 highlighted bullets are the first layer. And sure enough, they are indeed a ring (well, a ring of a notably low bullet density). We can look at the second layer in a similar way - 5 bullets forming a ring, but this is where `ang2` affects stuff: the entire ring gets rotated by `ang2`, relative to the layer before it. This also happens to the third layer. So, while this formation sure doesn't look like it, it actually consists of just 3 low-density rings. This is what I meant earlier when I said that ring aim modes can be used to create bullet formations that aren't seen as rings at all. Anyway, summing aim mode 2 up:
+- `cnt1` is the number of bullets in a single ring, `cnt2` is the number of layers (so the number of rings in this case)
+- `spd1` and `spd2` work exactly the same as in aim modes 0 and 1
+- `ang1` rotates where the ring initially aims (same concept as in mode 0), `ang2` is the angle difference between every next layer.
+
+#### Aim mode 3
+The difference between aim mode 2 and aim mode 3 is the same as the difference between modes 0 and 1 - aim 2 aims towards the player automatically, while aim 3 does not. Everything else works in the exact the same way. I\.\.\. don't think there is much else to say about this, is there?
+
+#### Aim mode 4
+You may recall that with aim mode 0, setting `cnt1` to an even number would result in all bullets being aimed around the player. This was not the case with aim mode 2, however, since no matter what `cnt1` was, the ring would always be aimed at the player (unless changed with `ang1`, that is). This is where aim mode 4 comes in handy: it always shoots a ring that's aimed around the player.  
+[img=content/ecl-tutorial/files/4/ring3.png]  
+This formation uses the same properties as in the first example as aim mode 2, except the mode is 4 now.
+
+#### Aim mode 5
+Mode 5 is the final ring aim mode. It functions similarly to aim mode 3, as in, it's not aimed at the player at all. The way it's different from aim mode 3 is that while mode 3 aims straight right (since it's angle = 0), mode 5 sort of shoots around straight right. This may sound a bit confusing, but it basically means that everywhere aim 3 would have a bullet, aim 5 is going to have a gap instead and vice versa. This can be illustrated with a simple example:  
+[flex]
+[code][ins=600,17](0);
+[ins=602,17](0, 6, 1);    
+[ins=606,17](0, 20, 1);
+[ins=605,17](0, 2f, 2f);
+    
+[ins=607,17](0, 3);
+[ins=601,17](0);
+[ins=23,17](10);
+[ins=607,17](0, 5);
+[ins=601,17](0);[/code]
+[img=content/ecl-tutorial/files/4/ring4.png]  
+[/flex]
+Notice how aim mode is changed between individual shots, while maintaining all other properties of the bullet manager. This neat thing about managers makes it possible to avoid a bunch of code copypasting.
+
+#### More fun with rings
+Before we leave rings for good, there is another useful technique that can be used to shoot some neat formations. Have you thought about what would happen if we used multiple layers with non-zero (but small) `ang2`, but with `spd1` and `spd2` being the same?  
+[flex]
+[code][ins=607,17](0, 3);   
+[ins=606,17](0, 10, 3);
+[ins=604,17](0, 0f, rad(5));
+[ins=605,17](0, 2f, 2f);[/code]
+[img=content/ecl-tutorial/files/4/ring5.png]
+[/flex]  
+What I like about ECL is that you can create stuff in a really simple way if you know how to utilize all the tools you have. This makes ECL code often very clear and readable if you know how everything works.
+
+### Modes 6, 7, 8 - randomness
+#### Aim mode 6
+Aim mode 6 is based on mode 1, but it has a very significant difference in the meaning of `ang2`. In mode 1 it represents the distance between individual bullets in a layer, but in mode 6 every bullet in a layer has a random angle in the range `[ang1 - ang2, ang1 + ang2]`. For example:
+[flex]
+[code][ins=607,17](0, 6);   
+[ins=606,17](0, 10, 3);
+[ins=604,17](0, rad(90), rad(50));
+[ins=605,17](0, 2f, 1f);[/code]
+[img=content/ecl-tutorial/files/4/rand1.png]
+[/flex]
+As you can see, it's... not pretty. Generally, the "pattern" is aimed with `ang1` angle, and `ang2` sort of represents how much the angle can differ from `ang1` for every individual bullet.
+
+#### Aim mode 7
+This mode is based on mode 3, which was the statically aimed ring. Let's see what it does based on some examples:
+[flex]
+[code][ins=607,17](0, 7);   
+[ins=606,17](0, 10, 3);
+[ins=604,17](0, 0f, 0f);
+[ins=605,17](0, 2f, 1f);[/code]
+[img=content/ecl-tutorial/files/4/rand2.png]
+[/flex]
+The thing that's really noticeable is that there are no "layers" here - every bullet in what would normally be a layer, has a random speed between `spd1` and `spd1 + spd2`. Other than that, it's a pretty standard statically aimed ring, but things change drastically when we set `ang2` to a non-zero value: 
+[flex]
+[code][ins=607,17](0, 7);   
+[ins=606,17](0, 10, 3);
+[ins=604,17](0, 0f, rad(3));
+[ins=605,17](0, 2f, 1f);[/code]
+[img=content/ecl-tutorial/files/4/rand3.png]
+[/flex]
+Now our ring has become a garbled mess! However, there is actually no angle randomization applied here, even if it looks like it - `ang2` still works like in mode 3. Same for `ang1` actually - it determines where the "first" bullet of the ring is aimed. All in all, this aim mode is just mode 3 but with randomized bullet speeds.
+
+#### Aim mode 8
+Aim mode 8, also called the meek mode, offers complete randomization. Bullet angle randomization works in the same way as in mode 6 and speed randomization works like in mode 7.
+[flex]
+[code][ins=607,17](0, 8);   
+[ins=606,17](0, 10, 3);
+[ins=604,17](0, rad(90), rad(30));
+[ins=605,17](0, 2f, 1f);[/code]
+[img=content/ecl-tutorial/files/4/rand4.png]
+[/flex]
+As you can see, `ang1` had to be set to `rad(90)` to aim the pattern down. There is not much that can be said about this messy bullet cluster - they all have speeds between `2f` and `3f`, and angles between `rad(120)` and `rad(60)`.
+
+#### The RNG is jank, yo
+Every time you say "random" in ECL, you have to account for the fact that the random number generator used by ZUN is... not very good at being random. It uses a 16bit seed for generating a 32bit number, which means that there are only 65536 possible outputs out of over 4 billion 32bit numbers. It wouldn't be so bad if it was at least properly "random", but it, uh, isn't. This becomes very noticable when shooting a bunch of "random" bullets:
+[flex]
+[code] // note: in this example bullet type
+ // was changed to a smaller one (id=1)
+[ins=607,17](0, 8); 
+[ins=606,17](0, 100, 5);
+[ins=604,17](0, 0f, rad(180));
+[ins=605,17](0, 2f, 1f);[/code]
+[img=content/ecl-tutorial/files/4/randjank.png]
+[/flex]
+As you can see, there are very clear paths the player could take to get through what *should* be a completely random bullet cluster. There are ways to get around this janky behaviour, but it requires manually shooting bullets in a loop (loops will be discussed soon). Though, generally it shouldn't matter unless you're shooting large amounts of random bullets.
+
+### The other aim modes
+This part got a bit long, didn't it? There are still some aim modes that need to be discussed (the pyramid mode and the peanut mode), but they are not used super often. We will talk about them later. The next part will be about what are variables, different types of variables and how to use them.
+
+[/requireEclmap]

@@ -1,0 +1,169 @@
+[title=ECL - combining multiple ECL files]
+
+[requireEclmap=17]
+## Compiler directives
+Often, a compiler can have some features that you can tell it to use. In thecl, they can be accessed through the use of directives. However, if every single one of them used some unique syntax, it'd be really hard to remember them all. That's why all directives share a similar, common syntax: `#directive <parameters>`. Currently, thecl does not have too many directives, but there are some useful things:  
+- `#eclmap "map.eclm"` - loads an eclmap - for example, you can put `#eclmap th17.eclm` at the beginning of your ECL source file in order to avoid having to put `-m th17.eclm` in the command line parameters.
+- `#include "file.tecl"` - will be explained below.
+- `#nowarn "true"` - disables some warnings, usage **NOT** recommended.  
+- `#message "Some text"` - will print a message in console when the line gets parsed.
+- `#set`, `#ifset`, other related directives - will be explained below.
+
+*Note:* at some point there also were `#ins` and `#timeline_ins` directives, but they are deprecated now; Instead, `insdef` syntax should be used. It will be explained in a later part.
+
+## Combining multiple ECL files
+Sometimes, it may happen that it's more convenient to have ECL code in more than 1 file. For example, it'd make sense to keep the boss attack code and stage code in separate places, to make things easier to organize. Or, you could even have different files for every single boss attack. There are 2 different ways of doing that, and we'll talk about them now.
+
+### The `#include` directive
+`#include "file.tecl"` is used to tell the compiler to load another file and parse it. There isn't too much logic to it, it basically works as if you copied the entire content of `file.tecl` and pasted it in the place of the `#include "file.tecl"` directive. For example, let's say we have 2 files: `main.tecl` and `lib.tecl`:  
+[code] // main.tecl
+ anim {
+     "enemy.anm";
+ }
+ 
+ #include "lib.tecl"
+
+ void main() {
+     [ins=502,17](FLAG_INTANGIBLE);
+     stop();
+ } [/code]  
+[code] // lib.tecl
+ global FLAG_INTANGIBLE = 32;
+
+ void stop() {
+     while(1)
+        [ins=23,17](1000);
+ } [/code]  
+Compiling `main.tecl` will work as if we just had one file that looks like this:  
+[code] anim {
+     "enemy.anm";
+ }
+ 
+ global FLAG_INTANGIBLE = 32;
+
+ void stop() {
+     while(1)
+        [ins=23,17](1000);
+ } 
+
+ void main() {
+     [ins=502,17](FLAG_INTANGIBLE);
+     stop();
+ } [/code]  
+Of course, thecl has to somehow find `lib.tecl` - it will look for it in the same folder where `main.tecl` is, since the `#include` path is always relative to the current file. What you should absolutely **NOT** try to do is make a file `#include` itself, since thecl has no protection against that at the moment, so it'll probably consume a whole lot of memory and eventually crash. 
+
+### Preventing the same file from being included multiple times
+Sometimes, you could have a situation as follows:
+- there are 3 ECL source files: `src1.tecl`, `src2.tecl`, `lib.tecl`
+- both `src1.tecl` and `src2.tecl` use the `#include` directive to load `lib.tecl`.
+- `src1.tecl` and `src2.tecl` are compiled separately.
+- However, at some point, you add an `all.tecl` file, which includes both `src` files. This results in `lib.tecl` file to be `#included` twice.
+- But you still want to be able to compile `src1.tecl` and `src2.tecl` separately, so you can't just remove the `lib.tecl` from one of them!
+- What do you do?
+
+The `#set`, `#ifset` etc directives mentioned a bit earlier have the power to solve this problem. Basically, you just have to add a few of them to `lib.tecl`:
+[code] #ifnset LIB_TECL_INCLUDED
+ #set LIB_TECL_INCLUDED
+ 
+ global FLAG_INTANGIBLE = 32;
+
+ void stop() {
+     while(1)
+        wait(1000);
+ } 
+
+ #endif [/code]  
+The first time `lib.tecl` is included, thecl comes across the `#ifnset LIB_TECL_INCLUDED` directive. This makes it check whether the flag `LIB_TECL_INCLUDED` has been set, and if it hasn't, it proceeds normally; but if the flag is set, then it will skip parsing everything until an `#endif` (or an `#else`). The 1st time this is `#include`d, nothing set the flag yet, so thecl won't skip anything.  
+
+Right after that, the flag gets set by the `#set LIB_TECL_INCLUDED` directive. This makes it so that next time this file is included, the result of the `#ifnset` check will be different, and everything until the `#endif` will be skipped! So essentially, the content of the file will only be included once, despite the file itself technically being included 2 times.   
+  
+There is a whole bunch of directives to do stuff like this:
+- `#set FLAG` - sets a flag
+- `#unset FLAG` - clears a flag
+- `#ifset FLAG` - parse code below (until an `#endif` or `#else`) only if flag is set
+- `#ifnset FLAG` - parse code below (until an `#endif` or `#else`) only if flag is not set
+- `#else` - parse code below (until an `#endif` ) only if the code above was skipped due to `#ifset`/`#ifnset` condition failing
+- `#endif` - end the check
+  
+By the way, these can be nested just fine; In other words:  
+[code] #ifset SOMETHING
+ #ifset OTHERTHING
+
+ // (do stuff if both SOMETHING and OTHERTHING are set)
+
+ #else
+
+ // (do stuff if only SOMETHING is set)
+
+ #endif
+
+ // (do stuff if SOMETHING is set, regardless of OTHERTHING)
+
+ #endif [/code]  
+this will work without issues.
+
+
+### The `ecli` list
+The `ecli` list works in a similar way to `anim` - it tells the game itself to load additional ECL files. As such, `ecli` operates on *compiled* files, whereas `#include` uses *source* files. The syntax for creating `ecli` lists is the same as for `anim`:  
+[code] ecli {
+    "file1.ecl";
+    "file2.ecl";
+ }[/code]  
+While the game normally doesn't have files named like this, thcrap is actually able to add them if you put them in the patch directory. If you don't, then the game will probably explode.  
+  
+The fact that `ecli` operates on compiled files makes it a bit more tricky to use. Let's say we have an existing, compiled file called `lib.ecl`, that is a result of compiling `lib.tecl` that was shown earlier. Let's use `ecli` to use it in our source file, `main.tecl`:  
+[code] // main.tecl
+ anim {
+     "enemy.anm";
+ }
+ 
+ ecli {
+     "lib.ecl";
+ }
+
+ void main() {
+     [ins=502,17](FLAG_INTANGIBLE);
+     stop();
+ } [/code]  
+When we try to compile it, thecl bursts in flames:  
+`thecl.exe:main.tecl:10,29: warning: FLAG_INTANGIBLE not found as a variable or global definition, treating like a label instead.`  
+`thecl.exe:main.tecl:10,29: instr_set_types: in sub main: wrong argument type for opcode 502 (expected: S, got: o)`  
+`thecl.exe:th10_instr_serialize: in sub main: unknown sub call "stop" (use the #nowarn "true" directive to disable this warning)`  
+Where have we gone wrong?  
+  
+First of all, global definitions are not present in the compiled files - so thecl doesn't know what the heck `FLAG_INTANGIBLE` means, which causes the first 2 errors. Though, it actually doesn't matter that the global def is not present in the compiled file, as thecl does not check it **at all**. That's why it also doesn't realize that the `stop` sub exists in the `lib.ecl` file. Fortunately, thecl has a useful feature for dealing with this, which was actually mentioned at the very beginning of the tutorial - the `-h` option for generating "header" files.  
+`thecl -h 17 -m th17.eclm lib.tecl libH.tecl`  
+This command makes thecl generate a "header" file. We can open it in any text editor to see what it contains:  
+[code] void stop(); [/code]  
+It's a forward declaration of the `stop` sub! However, the global definition is nowhere to be found - the only thing that's automatically generated in the header files are the sub declarations. This is because the `-h` option is supposed to only generate information about what will be contained in the compiled file and well, global definitions aren't. Anyway, now we can use `#include "libH.tecl"` to get rid of the unknown sub error:  
+[code] // main.tecl
+ anim {
+     "enemy.anm";
+ }
+ 
+ ecli {
+     "lib.ecl";
+ }
+ #include "libH.tecl"
+
+ void main() {
+     // the global definition was removed, as it's not in libH.tecl
+     // you could define it somewhere
+     [ins=502,17](32);
+     stop();
+ } [/code]  
+At this point, you may have noticed that we're in a funny situation where in order to use `ecli`, we have to use `#include` as well (unless you put all necessary declarations in the source file manually). This generally makes `ecli` less useful, although it does have some advantages.
+
+### `#include` vs `ecli`
+Finally, here's a table that compares `#include` and `ecli`:  
+| `#include`                                                  | `ecli`                                       |
+|:------------------------------------------------------------|:---------------------------------------------|
+| Uses source files.                                          | Uses compiled files.                         |
+| Allows putting all sorts of things in the included file.     | Only includes the subs.                      |
+| Doesn't need any extra work.                                | Requires corresponding header files.         |
+| Updating included file results in having to recompile all files that included it. | Updates to the included file can be made without having to recompile everything, unless existing subs have significantly changed.|
+| If a file is included in multiple files, you'll end up with these ECL files having the same subs, wasting space. | No space will be wasted by including the same compiled file in multiple files. |
+  
+In the next part, we will talk about using the MERLIN library.
+
+[/requireEclmap]

@@ -1,0 +1,105 @@
+{
+  "source": "https://priw8.github.io/#b=ecl-tutorial/&p=1",
+  "capturedAt": "2026-04-02",
+  "pages": [
+    {
+      "page": 1,
+      "title": "ECL - preparing",
+      "filename": "01-ecl-preparing.md",
+      "url": "https://priw8.github.io/content/ecl-tutorial/1.md",
+      "bytes": 5762
+    },
+    {
+      "page": 2,
+      "title": "Instructions and Subroutines",
+      "filename": "02-instructions-and-subroutines.md",
+      "url": "https://priw8.github.io/content/ecl-tutorial/2.md",
+      "bytes": 11864
+    },
+    {
+      "page": 3,
+      "title": "Basic enemy spawning",
+      "filename": "03-basic-enemy-spawning.md",
+      "url": "https://priw8.github.io/content/ecl-tutorial/3.md",
+      "bytes": 8800
+    },
+    {
+      "page": 4,
+      "title": "Bullet managers, shooting danmaku",
+      "filename": "04-bullet-managers-shooting-danmaku.md",
+      "url": "https://priw8.github.io/content/ecl-tutorial/4.md",
+      "bytes": 15751
+    },
+    {
+      "page": 5,
+      "title": "ECL - variables",
+      "filename": "05-ecl-variables.md",
+      "url": "https://priw8.github.io/content/ecl-tutorial/5.md",
+      "bytes": 8287
+    },
+    {
+      "page": 6,
+      "title": "Expressions, return types",
+      "filename": "06-expressions-return-types.md",
+      "url": "https://priw8.github.io/content/ecl-tutorial/6.md",
+      "bytes": 8948
+    },
+    {
+      "page": 7,
+      "title": "ECL - the stack",
+      "filename": "07-ecl-the-stack.md",
+      "url": "https://priw8.github.io/content/ecl-tutorial/7.md",
+      "bytes": 6734
+    },
+    {
+      "page": 8,
+      "title": "ECL - conditional statements",
+      "filename": "08-ecl-conditional-statements.md",
+      "url": "https://priw8.github.io/content/ecl-tutorial/8.md",
+      "bytes": 10993
+    },
+    {
+      "page": 9,
+      "title": "ECL - loops",
+      "filename": "09-ecl-loops.md",
+      "url": "https://priw8.github.io/content/ecl-tutorial/9.md",
+      "bytes": 2634
+    },
+    {
+      "page": 10,
+      "title": "ECL - enemy positioning",
+      "filename": "10-ecl-enemy-positioning.md",
+      "url": "https://priw8.github.io/content/ecl-tutorial/10.md",
+      "bytes": 5479
+    },
+    {
+      "page": 11,
+      "title": "ECL - global definitions",
+      "filename": "11-ecl-global-definitions.md",
+      "url": "https://priw8.github.io/content/ecl-tutorial/11.md",
+      "bytes": 3488
+    },
+    {
+      "page": 12,
+      "title": "ECL - combining multiple ECL files",
+      "filename": "12-ecl-combining-multiple-ecl-files.md",
+      "url": "https://priw8.github.io/content/ecl-tutorial/12.md",
+      "bytes": 9697
+    },
+    {
+      "page": 13,
+      "title": "ECL extras #1 - the MERLIN library",
+      "filename": "13-ecl-extras-1-the-merlin-library.md",
+      "url": "https://priw8.github.io/content/ecl-tutorial/13.md",
+      "bytes": 3619
+    }
+  ],
+  "skipped": [
+    {
+      "page": 14,
+      "url": "https://priw8.github.io/content/ecl-tutorial/14.md",
+      "status": 404,
+      "snippet": "<!DOCTYPE html>\n<html>\n  <head>\n    <meta http-equiv=\"Content-type\" content=\"text/html; charset=utf-8\">\n    <meta http-e"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(echo \"---exit:$?\")",
+      "Bash(find:*)",
+      "Bash(xargs grep:*)",
+      "Bash(grep -E \"\\\\.\\(js|ts\\)$\")",
+      "Bash(ls -d /e/Tauri/THTK-Studio/*/)",
+      "Bash(npx vite:*)",
+      "Bash(cargo check:*)",
+      "Bash(CARGO_HTTP_CHECK_REVOKE=false cargo check)"
+    ]
+  }
+}

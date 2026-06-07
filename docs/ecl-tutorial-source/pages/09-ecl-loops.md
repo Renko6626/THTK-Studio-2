@@ -1,0 +1,61 @@
+[title=ECL - loops]
+
+[requireEclmap=17]
+
+## Loops and stuff
+Loops are what allows the same piece of code to be repeated multiple times. In ECL, they are pretty simple, as there are only 2 types of loops available - the `while` loop and the `times` loop. Both of them are very useful. 
+  
+### The while loop
+The main idea of a `while` loop is repeating the same piece of code as long as some condition is true. For example, we can make an enemy shoot bullets only until its HP reaches a certain amount:  
+[code] while([var=-9954,17] > 500) {
+     // assume that the bullet manager was properly initialized beforehand
+     [ins=601,17](0);
+     [ins=23,17](30);
+ }[/code]  
+  
+We can also use the `while` loop to simply execute something multiple times:  
+[code] int a = 30;
+ while(a--) {
+     // assume that the bullet manager was properly initialized beforehand
+     [ins=601,17](0);
+     [ins=23,17](30);
+ }[/code]  
+(in this case using `a--` is fine, since the value it pushes to the stack is "consumed" by the while loop check)  
+  
+It is also possible to stop the execution of a loop in the middle through the use of the `break;` statement:  
+[code] while(condition) {
+     ...
+     if (someOtherCondition) {
+         break; // immediately end the loop
+     }
+     ...
+ }[/code]  
+  
+...or, perhaps you want to jump back to the condition checking without executing the rest of the code in a loop? This can be done with a `continue;` statement:  
+[code] while(condition) {
+     ...
+     if (someOtherCondition) {
+         continue; // jump back to the condition check
+     }
+     ...
+ }[/code]  
+  
+You can also write `while` loops without curly brackets, and it will work like in the case of the `if` statement:  
+[code] int a = 30;
+ while(a--)
+     [ins=601,17](0);
+ [/code]  
+
+### The times loop
+The times loop is very, very simple. Take a look at this code. Can you guess what it does?  
+[code] times(10) {
+     [ins=23,17](20);
+ }[/code]  
+Yes, it does, in fact, execute what's inside the loop 10 times, wowie! And honestly that's all there really is to it. Similarly to the `while` loop, you can also use the `break;` and `continue;` statements here. Despite its simplicity though, it's a really neat thing to have for a simple task, such as spawning 10 enemies in a row with some delay in between them.  
+
+### Loops and scoping
+Since loops can use code blocks, they create scopes too. They follow exactly the same logic as `if` statement scoping.
+  
+In the next part of chapter one of the tutorial we will talk about how enemy positioning works, because it's actually a bit more involved than you'd expect.
+
+[/requireEclmap]
