@@ -150,10 +150,14 @@ impl PtyManager {
             let code = child.wait().ok().map(|status| status.exit_code());
             // Remove BEFORE calling on_exit so that any code inside on_exit
             // that calls write/kill on this id sees a clean "not found" error.
-            sessions_clone
+            // Take the session out under the lock but drop it AFTER releasing
+            // the lock: dropping `master` can block briefly on Windows
+            // (ClosePseudoConsole flushes output) and must not hold the map.
+            let removed = sessions_clone
                 .lock()
                 .unwrap_or_else(|e| e.into_inner())
                 .remove(&id);
+            drop(removed);
             on_exit(id, code);
         });
 
@@ -172,6 +176,8 @@ impl PtyManager {
                 .map(|s| Arc::clone(&s.writer))
                 .ok_or_else(|| format!("PTY session {id} not found"))?
         };
+        // 注意:必须绑定到具名变量再返回——尾表达式里的 MutexGuard 临时值
+        // 会借用 writer_arc 并活过它的析构点,直接返回无法通过借用检查 (E0597)。
         let result = writer_arc
             .lock()
             .unwrap_or_else(|e| e.into_inner())
