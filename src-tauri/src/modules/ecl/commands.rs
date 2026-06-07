@@ -139,7 +139,7 @@ pub async fn generate_ai_assist_pack(
         .clone()
         .ok_or("No project root set")?;
 
-    let map_path = crate::modules::mcp::tools::resolve_map_path(&config)?;
+    let map_path = crate::modules::mcp::tools::resolve_map_path(&config, Some(&root))?;
     let semantics = map_parser::parse_ecl_map_file(&map_path)?;
     super::ai_pack::generate(&root, &semantics)
 }

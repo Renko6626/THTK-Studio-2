@@ -27,7 +27,7 @@ fn json_result(value: serde_json::Value) -> Result<CallToolResult, McpError> {
 
 /// spec §6：工具错误统一带结构化 data {code, message, hint}
 fn tool_error(message: String) -> McpError {
-    let hint = if message.contains("not configured") {
+    let hint = if message.contains("configured") {
         "在 THTK-Studio 设置中配置 thtk 工具路径 (thtk_dir / thecl_path / eclmap_path)"
     } else {
         "检查文件路径是否为绝对路径，以及 get_workspace_info 中工具链是否可用"
@@ -126,8 +126,9 @@ impl ThtkMcp {
         Parameters(params): Parameters<SourcePathParams>,
     ) -> Result<CallToolResult, McpError> {
         let config = self.config();
+        let root = self.project_root();
         let value = tokio::task::spawn_blocking(move || {
-            tools::check_ecl(&config, &params.source_path)
+            tools::check_ecl(&config, root.as_deref(), &params.source_path)
         })
         .await
         .map_err(|e| McpError::internal_error(format!("task join: {e}"), None))?
@@ -141,8 +142,9 @@ impl ThtkMcp {
         Parameters(params): Parameters<CompileParams>,
     ) -> Result<CallToolResult, McpError> {
         let config = self.config();
+        let root = self.project_root();
         let value = tokio::task::spawn_blocking(move || {
-            tools::compile_ecl(&config, &params.source_path, params.output_path)
+            tools::compile_ecl(&config, root.as_deref(), &params.source_path, params.output_path)
         })
         .await
         .map_err(|e| McpError::internal_error(format!("task join: {e}"), None))?
@@ -156,8 +158,9 @@ impl ThtkMcp {
         Parameters(params): Parameters<DecompileParams>,
     ) -> Result<CallToolResult, McpError> {
         let config = self.config();
+        let root = self.project_root();
         let value = tokio::task::spawn_blocking(move || {
-            tools::decompile_ecl(&config, &params.binary_path, params.output_path)
+            tools::decompile_ecl(&config, root.as_deref(), &params.binary_path, params.output_path)
         })
         .await
         .map_err(|e| McpError::internal_error(format!("task join: {e}"), None))?
@@ -173,8 +176,10 @@ impl ThtkMcp {
         Parameters(params): Parameters<LookupParams>,
     ) -> Result<CallToolResult, McpError> {
         let config = self.config();
+        let root = self.project_root();
         let value = tokio::task::spawn_blocking(move || {
-            let map_path = tools::resolve_map_path(&config).map_err(tool_error)?;
+            let map_path =
+                tools::resolve_map_path(&config, root.as_deref()).map_err(tool_error)?;
             tools::lookup_semantics(&map_path, &params.query).map_err(tool_error)
         })
         .await
