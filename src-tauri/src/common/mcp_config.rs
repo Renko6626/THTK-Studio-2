@@ -107,6 +107,56 @@ pub fn upsert_opencode_entry(project_root: &str, port: u16) -> Result<(), String
     fs::write(&path, serialized).map_err(|e| format!("Failed to write opencode.json: {e}"))
 }
 
+/// 在项目级 .codex/config.toml 写入/更新 [mcp_servers.thtk-studio](保格式,
+/// 不动用户已有内容与注释)。返回 Ok(true) 表示本次新建了 entry(供 trust 提示)。
+/// token 走 bearer_token_env_var = "THTK_MCP_TOKEN"(PTY 注入),不落盘。
+pub fn upsert_codex_entry(project_root: &str, port: u16) -> Result<bool, String> {
+    let dir = Path::new(project_root).join(".codex");
+    let path = dir.join("config.toml");
+
+    let content = if path.exists() {
+        fs::read_to_string(&path).map_err(|e| format!("Failed to read .codex/config.toml: {e}"))?
+    } else {
+        String::new()
+    };
+
+    let mut doc: toml_edit::DocumentMut = content
+        .parse()
+        .map_err(|e| format!(".codex/config.toml is not valid TOML, refusing to overwrite: {e}"))?;
+
+    // Ensure mcp_servers exists as an implicit table (no stray [mcp_servers] header)
+    if doc.as_table().get("mcp_servers").is_none() {
+        let mut t = toml_edit::Table::new();
+        t.set_implicit(true);
+        doc.as_table_mut()["mcp_servers"] = toml_edit::Item::Table(t);
+    } else if let Some(t) = doc.as_table_mut()
+        .get_mut("mcp_servers")
+        .and_then(|i| i.as_table_mut())
+    {
+        t.set_implicit(true);
+    }
+
+    // Determine whether thtk-studio entry already exists
+    let created = doc
+        .as_table()
+        .get("mcp_servers")
+        .and_then(|s| s.as_table())
+        .and_then(|s| s.get("thtk-studio"))
+        .is_none();
+
+    // Build the entry table
+    let mut entry = toml_edit::Table::new();
+    entry["url"] = toml_edit::value(format!("http://127.0.0.1:{port}/mcp"));
+    entry["bearer_token_env_var"] = toml_edit::value("THTK_MCP_TOKEN");
+
+    doc["mcp_servers"]["thtk-studio"] = toml_edit::Item::Table(entry);
+
+    fs::create_dir_all(&dir).map_err(|e| format!("Failed to create .codex dir: {e}"))?;
+    fs::write(&path, doc.to_string())
+        .map_err(|e| format!("Failed to write .codex/config.toml: {e}"))?;
+    Ok(created)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -244,5 +294,96 @@ mod tests {
             fs::read_to_string(dir.path().join("opencode.json")).unwrap(),
             bad_content
         );
+    }
+
+    // ---- upsert_codex_entry tests ----
+
+    #[test]
+    fn codex_creates_when_absent() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path().to_string_lossy().to_string();
+
+        let result = upsert_codex_entry(&root, 39127);
+        assert!(result.is_ok(), "upsert failed: {:?}", result.err());
+        assert_eq!(result.unwrap(), true, "should return true (new entry)");
+
+        let config_path = dir.path().join(".codex").join("config.toml");
+        let content = fs::read_to_string(&config_path).expect("read config.toml");
+
+        // Parse and verify the values
+        let doc: toml_edit::DocumentMut = content.parse().expect("valid toml");
+        let url = doc["mcp_servers"]["thtk-studio"]["url"]
+            .as_str()
+            .expect("url is string");
+        assert!(url.contains("39127"), "url should contain port 39127, got: {url}");
+        assert_eq!(url, "http://127.0.0.1:39127/mcp");
+
+        let btev = doc["mcp_servers"]["thtk-studio"]["bearer_token_env_var"]
+            .as_str()
+            .expect("bearer_token_env_var is string");
+        assert_eq!(btev, "THTK_MCP_TOKEN");
+
+        // Assert no stray empty [mcp_servers] header — entry should appear as [mcp_servers.thtk-studio]
+        assert!(
+            content.contains("[mcp_servers.thtk-studio]"),
+            "file should contain [mcp_servers.thtk-studio], got:\n{content}"
+        );
+        assert!(
+            !content.contains("[mcp_servers]\n[mcp_servers.thtk-studio]"),
+            "file should NOT have stray [mcp_servers] header before [mcp_servers.thtk-studio]"
+        );
+    }
+
+    #[test]
+    fn codex_preserves_content_and_comments() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path().to_string_lossy().to_string();
+        let seed = "# my comment\nmodel = \"o3\"\n\n[mcp_servers.other]\nurl = \"http://x/mcp\"\n";
+        let codex_dir = dir.path().join(".codex");
+        fs::create_dir_all(&codex_dir).expect("create .codex dir");
+        fs::write(codex_dir.join("config.toml"), seed).expect("seed");
+
+        // First call: thtk-studio absent → should return true (created)
+        let result = upsert_codex_entry(&root, 39127);
+        assert!(result.is_ok(), "first upsert failed: {:?}", result.err());
+        assert_eq!(result.unwrap(), true, "first call should return true (new entry)");
+
+        let content = fs::read_to_string(codex_dir.join("config.toml")).expect("read");
+        assert!(content.contains("# my comment"), "comment should be preserved");
+        assert!(content.contains("model = \"o3\""), "model key should be preserved");
+        assert!(content.contains("[mcp_servers.other]"), "[mcp_servers.other] should be preserved");
+
+        // Second call: thtk-studio now exists → should return false (updated)
+        let content_before = fs::read_to_string(codex_dir.join("config.toml")).expect("read before 2nd");
+        let result2 = upsert_codex_entry(&root, 39127);
+        assert!(result2.is_ok(), "second upsert failed: {:?}", result2.err());
+        assert_eq!(result2.unwrap(), false, "second call should return false (entry existed)");
+
+        // File content should be functionally identical for same port
+        let content_after = fs::read_to_string(codex_dir.join("config.toml")).expect("read after 2nd");
+        // Parse both and check the key values are the same
+        let doc_before: toml_edit::DocumentMut = content_before.parse().expect("valid toml before");
+        let doc_after: toml_edit::DocumentMut = content_after.parse().expect("valid toml after");
+        assert_eq!(
+            doc_before["mcp_servers"]["thtk-studio"]["url"].as_str(),
+            doc_after["mcp_servers"]["thtk-studio"]["url"].as_str(),
+        );
+    }
+
+    #[test]
+    fn codex_refuses_invalid_toml() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path().to_string_lossy().to_string();
+        let bad_content = "not [ valid";
+        let codex_dir = dir.path().join(".codex");
+        fs::create_dir_all(&codex_dir).expect("create .codex dir");
+        fs::write(codex_dir.join("config.toml"), bad_content).expect("seed");
+
+        let result = upsert_codex_entry(&root, 39127);
+        assert!(result.is_err(), "should return Err for invalid TOML");
+
+        // File should be byte-identical
+        let content_after = fs::read_to_string(codex_dir.join("config.toml")).expect("read");
+        assert_eq!(content_after, bad_content, "file should be unchanged after error");
     }
 }

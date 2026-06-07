@@ -100,6 +100,24 @@ fn set_project_root(state: State<AppState>, path: String, app_handle: tauri::App
                 eprintln!("[mcp] failed to update opencode.json: {error}");
             }
         }
+        if common::mcp_config::cli_available("codex") {
+            match common::mcp_config::upsert_codex_entry(&path, info.port) {
+                Ok(true) => {
+                    use tauri::Emitter;
+                    let _ = app_handle.emit(
+                        "mcp://report",
+                        serde_json::json!({
+                            "title": "已写入 codex 项目配置",
+                            "body": ".codex/config.toml 已生成 thtk-studio MCP entry。codex 的项目级配置仅在受信目录生效:首次在本项目使用 codex 时,请在其提示中信任本目录。",
+                            "level": "info",
+                            "path": null,
+                        }),
+                    );
+                }
+                Ok(false) => {}
+                Err(error) => eprintln!("[mcp] failed to update .codex/config.toml: {error}"),
+            }
+        }
     }
 }
 

@@ -38,6 +38,7 @@ rmcp = { version = "1.7", features = ["server", "macros", "transport-streamable-
 axum = "0.8"           # 承载 rmcp StreamableHttpService 的 HTTP 框架
 tokio = { version = "1", features = ["net", "rt-multi-thread", "macros", "time"] } # MCP server 异步运行时
 uuid = { version = "1", features = ["v4"] }  # MCP bearer token 生成
+toml_edit = "0.23"  # codex config.toml 保格式编辑
 
 [dev-dependencies]
 tempfile = "3"
