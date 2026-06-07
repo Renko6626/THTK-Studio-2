@@ -8,3 +8,4 @@ pub mod fs_ops;
 pub mod system_clipboard;
 pub mod terminal;
 pub mod toolchain;
+pub mod pty;
