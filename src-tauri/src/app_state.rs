@@ -15,6 +15,9 @@ pub struct AppState {
 
     // PTY 终端会话管理 (内含 Mutex)
     pub pty_manager: crate::common::pty::PtyManager,
+
+    // MCP server 运行信息 (端口 + token)，启动成功后写入
+    pub mcp_server: Mutex<Option<crate::modules::mcp::server::McpServerInfo>>,
 }
 
 impl AppState {
@@ -24,6 +27,7 @@ impl AppState {
             current_project_root: Mutex::new(None),
             file_watcher: Mutex::new(FileWatcherState::new()),
             pty_manager: crate::common::pty::PtyManager::default(),
+            mcp_server: Mutex::new(None),
         }
     }
 }

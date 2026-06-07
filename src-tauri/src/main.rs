@@ -86,6 +86,14 @@ fn set_project_root(state: State<AppState>, path: String, app_handle: tauri::App
     drop(root);
 
     file_watcher::start_watching(&state.file_watcher, &app_handle, &path);
+
+    // 项目根就绪后，把 MCP server 接入信息写进 .mcp.json（非破坏性）
+    let mcp = state.mcp_server.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some(info) = mcp.as_ref() {
+        if let Err(error) = common::mcp_config::upsert_mcp_entry(&path, info.port, &info.token) {
+            eprintln!("[mcp] failed to update .mcp.json: {error}");
+        }
+    }
 }
 
 // ----------------------------------------------------------------
@@ -135,6 +143,21 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         // 注册 State
         .manage(app_state)
+        .setup(|app| {
+            // MCP server：绑定很快，同步等待拿到端口；失败不阻止应用启动
+            use tauri::Manager;
+            let handle = app.handle().clone();
+            match tauri::async_runtime::block_on(modules::mcp::server::start(handle)) {
+                Ok(info) => {
+                    let state = app.state::<AppState>();
+                    *state.mcp_server.lock().unwrap_or_else(|e| e.into_inner()) = Some(info);
+                }
+                Err(error) => {
+                    eprintln!("[mcp] failed to start MCP server, agent tools unavailable: {error}");
+                }
+            }
+            Ok(())
+        })
         // 注册所有命令
         .invoke_handler(tauri::generate_handler![
             get_settings,
