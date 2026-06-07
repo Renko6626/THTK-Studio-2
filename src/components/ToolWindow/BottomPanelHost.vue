@@ -16,6 +16,14 @@
       <div class="flex items-center gap-2">
         <button
           type="button"
+          class="h-6 px-2 text-[12px] rounded-sm border border-transparent bg-transparent text-gray-400 hover:text-gray-200 hover:border-[#3b82f6]/60"
+          :title="workbenchPanelsStore.bottomMaximized ? '还原面板高度' : '最大化面板'"
+          @click="workbenchPanelsStore.toggleBottomMaximized()"
+        >
+          {{ workbenchPanelsStore.bottomMaximized ? '⌄' : '⌃' }}
+        </button>
+        <button
+          type="button"
           class="h-6 px-2 text-[11px] rounded-sm border border-transparent bg-transparent text-gray-400 hover:text-gray-200 hover:border-[#3b82f6]/60"
           @click="workbenchPanelsStore.hideBottomPanel()"
         >

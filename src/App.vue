@@ -6,9 +6,6 @@
           :show-left-sidebar="true"
           :show-right-sidebar="workbenchPanelsStore.rightVisible"
           :show-bottom-panel="workbenchPanelsStore.bottomVisible"
-          :left-sidebar-width="280"
-          :right-sidebar-width="320"
-          :bottom-panel-height="240"
         >
           <template #left-sidebar>
             <FileTree />
