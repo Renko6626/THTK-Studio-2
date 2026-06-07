@@ -23,16 +23,50 @@ export const useTerminalStore = defineStore('terminal', {
   },
 
   actions: {
-    async openSession() {
+    /**
+     * 打开终端会话。
+     * @param shell 指定 shell(如 "cmd.exe");null = 后端自动探测
+     * @param label tab 标题里展示的 shell 名(如 "cmd")
+     */
+    async openSession({ shell = null, label = null } = {}) {
       const projectStore = useProjectStore()
+      const cwd = projectStore.rootPath || null
       this.pendingOpenCount += 1
       try {
-        const id = await openTerminalSession({
-          cwd: projectStore.rootPath || null,
-          onExit: (sessionId) => this.markExited(sessionId)
-        })
+        let id
+        let effectiveLabel = label
+        try {
+          id = await openTerminalSession({
+            shell,
+            cwd,
+            onExit: (sessionId) => this.markExited(sessionId)
+          })
+        } catch (error) {
+          if (!shell) throw error
+          // 指定 shell 启动失败 → 回退到默认探测,并告知用户
+          useWorkbenchReportsStore().publishToolResult({
+            ownerKey: 'terminal:shell-fallback',
+            source: 'terminal',
+            operation: 'open',
+            scriptKind: 'shell',
+            title: `"${label || shell}" 启动失败,已回退默认 shell`,
+            path: null,
+            success: false,
+            message: String(error),
+            diagnostics: []
+          })
+          effectiveLabel = null
+          id = await openTerminalSession({
+            shell: null,
+            cwd,
+            onExit: (sessionId) => this.markExited(sessionId)
+          })
+        }
         titleCounter += 1
-        this.sessions.push({ id, title: `终端 ${titleCounter}`, exited: false })
+        const title = effectiveLabel
+          ? `终端 ${titleCounter} (${effectiveLabel})`
+          : `终端 ${titleCounter}`
+        this.sessions.push({ id, title, exited: false })
         this.setActive(id)
         return id
       } catch (error) {

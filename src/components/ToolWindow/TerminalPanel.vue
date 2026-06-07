@@ -24,12 +24,26 @@
         </button>
         <button
           type="button"
-          class="h-6 px-2 text-[12px] rounded-sm text-gray-400 hover:text-gray-200 hover:bg-white/8 shrink-0"
-          title="新建终端"
+          class="h-6 pl-2 pr-1 text-[12px] rounded-l-sm text-gray-400 hover:text-gray-200 hover:bg-white/8 shrink-0"
+          title="新建终端(默认 shell)"
           @click="terminalStore.openSession()"
         >
           ＋
         </button>
+        <n-dropdown
+          trigger="click"
+          :options="shellOptions"
+          placement="bottom-start"
+          @select="openWithShell"
+        >
+          <button
+            type="button"
+            class="h-6 px-1 text-[10px] rounded-r-sm text-gray-400 hover:text-gray-200 hover:bg-white/8 shrink-0"
+            title="选择 shell 新建终端"
+          >
+            ▾
+          </button>
+        </n-dropdown>
       </div>
       <div class="flex items-center gap-2">
         <button
@@ -55,6 +69,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { NDropdown } from 'naive-ui'
 import { useTerminalStore } from '../../stores/terminal'
 import { useWorkbenchPanelsStore } from '../../stores/workbenchPanels'
 import { mountAllSessions, showSession, fitSession } from '../../services/terminal/sessionRuntime'
@@ -63,6 +78,34 @@ const terminalStore = useTerminalStore()
 const workbenchPanelsStore = useWorkbenchPanelsStore()
 const hostRef = ref(null)
 let resizeObserver = null
+
+// 按平台列出常用 shell;key 即传给后端的可执行名(PATH 解析),
+// 启动失败时 store 会回退默认探测并提示。
+const isWindows = navigator.userAgent.includes('Windows')
+const shellOptions = isWindows
+  ? [
+      { label: 'PowerShell 7 (pwsh)', key: 'pwsh.exe' },
+      { label: 'Windows PowerShell', key: 'powershell.exe' },
+      { label: 'CMD', key: 'cmd.exe' },
+      { label: 'Git Bash', key: 'bash.exe' }
+    ]
+  : [
+      { label: '默认 ($SHELL)', key: '__default__' },
+      { label: 'bash', key: 'bash' },
+      { label: 'zsh', key: 'zsh' },
+      { label: 'fish', key: 'fish' }
+    ]
+
+function openWithShell(key) {
+  if (key === '__default__') {
+    terminalStore.openSession()
+    return
+  }
+  const option = shellOptions.find((item) => item.key === key)
+  // tab 标题用短名(去掉 .exe / 括号说明)
+  const label = key.replace(/\.exe$/i, '')
+  terminalStore.openSession({ shell: key, label: option ? label : key })
+}
 
 // BottomPanelHost 里终端用 v-show 常驻，本组件挂载时面板未必真的可见；
 // 只有终端面板实际可见时才自动开首个会话 / 重新 show（避免启动即建 PTY）。
