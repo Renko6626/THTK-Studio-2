@@ -24,7 +24,7 @@ Rust unit tests exist and run with:
 ```bash
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
-15 unit tests cover: pty (3), map_parser (3), mcp_config (3), mcp tools (3), ai_pack (2), auth (1). On Linux the GTK/WebKit headers must be visible — activate the conda `tauri-dev` environment first (sets `PKG_CONFIG_PATH` and `LD_LIBRARY_PATH`); see README "Linux 服务器开发" for details.
+15 unit tests cover: pty (3), map_parser (3), mcp_config (3), mcp tools (3), ai_pack (2), auth (1). On Linux the GTK/WebKit dev headers must be visible to compile the Tauri crate — install them via apt, or without sudo use the conda `tauri-dev` environment (exports `PKG_CONFIG_PATH` / `LD_LIBRARY_PATH`); both paths are documented in README "Linux 服务器开发".
 
 `src-tauri/target/` is a Rust debug build cache and grows to several GB (the `windows` crate + incremental cache dominate); it and `node_modules/`, `dist/` are gitignored and regenerated locally.
 

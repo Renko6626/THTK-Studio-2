@@ -126,6 +126,27 @@ sudo apt install -y \
 
 还需安装 Rust 工具链（rustup）和 Node.js（建议 LTS）。
 
+#### 无 sudo 时的 conda 替代方案
+
+服务器上没有 root 权限时，可用 conda-forge 提供开发库（gtk3 / webkit2gtk4.1 都有现成包）：
+
+```bash
+conda create -n tauri-dev -y -c conda-forge gtk3 webkit2gtk4.1 libsoup pkg-config nsis
+```
+
+之后每次编译/跑测试前设置环境（或写进 shell 配置）：
+
+```bash
+P=$(conda info --base)/envs/tauri-dev
+export PKG_CONFIG_PATH=$P/lib/pkgconfig:$P/share/pkgconfig
+export LD_LIBRARY_PATH=$P/lib    # 测试二进制运行时需要
+export PATH=$P/bin:$PATH
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+注意：headless 服务器上 `tauri dev` 能编译但弹不出窗口（需 `ssh -X` 转发）；
+交叉打包 Windows 安装包用 `cargo-xwin`（`npm run tauri build -- --runner cargo-xwin --target x86_64-pc-windows-msvc`），该路径不依赖 GTK。
+
 ### 2. 拉取后初始化
 
 ```bash
