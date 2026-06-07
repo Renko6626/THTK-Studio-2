@@ -87,36 +87,26 @@ fn set_project_root(state: State<AppState>, path: String, app_handle: tauri::App
 
     file_watcher::start_watching(&state.file_watcher, &app_handle, &path);
 
-    // 项目根就绪后，把 MCP server 接入信息写进 .mcp.json（非破坏性）
-    let mcp = state.mcp_server.lock().unwrap_or_else(|e| e.into_inner());
-    if let Some(info) = mcp.as_ref() {
-        if let Err(error) = common::mcp_config::upsert_mcp_entry(&path, info.port, &info.token) {
-            eprintln!("[mcp] failed to update .mcp.json: {error}");
-        }
-        if common::mcp_config::cli_available("opencode") {
-            if let Err(error) =
-                common::mcp_config::upsert_opencode_entry(&path, info.port)
-            {
-                eprintln!("[mcp] failed to update opencode.json: {error}");
-            }
-        }
-        if common::mcp_config::cli_available("codex") {
-            match common::mcp_config::upsert_codex_entry(&path, info.port) {
-                Ok(true) => {
-                    use tauri::Emitter;
-                    let _ = app_handle.emit(
-                        "mcp://report",
-                        serde_json::json!({
-                            "title": "已写入 codex 项目配置",
-                            "body": ".codex/config.toml 已生成 thtk-studio MCP entry。codex 的项目级配置仅在受信目录生效:首次在本项目使用 codex 时,请在其提示中信任本目录。",
-                            "level": "info",
-                            "path": null,
-                        }),
-                    );
-                }
-                Ok(false) => {}
-                Err(error) => eprintln!("[mcp] failed to update .codex/config.toml: {error}"),
-            }
+    // 取出端口/token 后立即放锁,避免持锁做文件 IO(pty_create 等会争用这把锁)
+    let endpoint = {
+        let mcp = state.mcp_server.lock().unwrap_or_else(|e| e.into_inner());
+        mcp.as_ref().map(|info| (info.port, info.token.clone()))
+    };
+
+    if let Some((port, token)) = endpoint {
+        // 项目根就绪后,把 MCP server 接入信息写进各客户端配置(非破坏性)。
+        let cards = common::mcp_config::register_clients(&path, port, &token);
+        use tauri::Emitter;
+        for card in cards {
+            let _ = app_handle.emit(
+                "mcp://report",
+                serde_json::json!({
+                    "title": card.title,
+                    "body": card.body,
+                    "level": card.level,
+                    "path": null,
+                }),
+            );
         }
     }
 }

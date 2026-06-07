@@ -175,6 +175,57 @@ pub fn upsert_codex_entry(project_root: &str, port: u16) -> Result<bool, String>
     Ok(created)
 }
 
+/// 推送到输出面板的注册结果卡片。无 Tauri 依赖,便于单测。
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RegistrationCard {
+    pub title: String,
+    pub body: String,
+    pub level: String, // "info" | "error"
+}
+
+/// 在项目根注册所有 MCP 客户端配置。无 Tauri 依赖,返回需要推送到输出面板的卡片。
+/// .mcp.json 总是写;opencode.json / .codex/config.toml 仅在检测到 CLI 时写。
+pub fn register_clients(project_root: &str, port: u16, token: &str) -> Vec<RegistrationCard> {
+    let mut cards = Vec::new();
+
+    if let Err(e) = upsert_mcp_entry(project_root, port, token) {
+        cards.push(RegistrationCard {
+            title: "更新 .mcp.json 失败".to_string(),
+            body: e,
+            level: "error".to_string(),
+        });
+    }
+
+    if cli_available("opencode") {
+        if let Err(e) = upsert_opencode_entry(project_root, port) {
+            cards.push(RegistrationCard {
+                title: "更新 opencode.json 失败".to_string(),
+                body: e,
+                level: "error".to_string(),
+            });
+        }
+    }
+
+    if cli_available("codex") {
+        match upsert_codex_entry(project_root, port) {
+            Ok(true) => cards.push(RegistrationCard {
+                title: "已写入 codex 项目配置".to_string(),
+                body: ".codex/config.toml 已生成 thtk-studio MCP entry。codex 的项目级配置仅在受信目录生效:首次在本项目使用 codex 时,请在其提示中信任本目录。".to_string(),
+                level: "info".to_string(),
+            }),
+            Ok(false) => {}
+            Err(e) => cards.push(RegistrationCard {
+                title: "更新 .codex/config.toml 失败".to_string(),
+                body: e,
+                level: "error".to_string(),
+            }),
+        }
+    }
+
+    cards
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -510,5 +561,47 @@ mod tests {
             .as_integer()
             .expect("startup_timeout_sec is integer");
         assert_eq!(timeout, 60, "startup_timeout_sec should be preserved");
+    }
+
+    // ---- register_clients tests ----
+
+    #[test]
+    fn register_clients_writes_mcp_json_always() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path().to_string_lossy().to_string();
+
+        let cards = register_clients(&root, 39127, "tok");
+
+        // .mcp.json 必须被写入并包含我们的 entry
+        let content = fs::read_to_string(dir.path().join(".mcp.json")).expect("read .mcp.json");
+        let value: Value = serde_json::from_str(&content).expect("json");
+        assert_eq!(
+            value["mcpServers"]["thtk-studio"]["url"],
+            "http://127.0.0.1:39127/mcp"
+        );
+        // 不依赖 CI 是否有 opencode/codex:只断言没有针对 .mcp.json 的错误卡片
+        assert!(
+            !cards
+                .iter()
+                .any(|c| c.level == "error" && c.title.contains(".mcp.json")),
+            "should not report a .mcp.json error, got: {cards:?}"
+        );
+    }
+
+    #[test]
+    fn register_clients_reports_error_on_unwritable() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path().to_string_lossy().to_string();
+        // 非法 JSON 强制 upsert_mcp_entry 走拒绝覆盖的 Err 路径
+        fs::write(dir.path().join(".mcp.json"), "{not json").expect("seed");
+
+        let cards = register_clients(&root, 39127, "tok");
+
+        assert!(
+            cards
+                .iter()
+                .any(|c| c.level == "error" && c.title.contains(".mcp.json")),
+            "should report a .mcp.json error card, got: {cards:?}"
+        );
     }
 }
