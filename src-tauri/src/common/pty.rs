@@ -70,6 +70,7 @@ impl PtyManager {
         cwd: Option<String>,
         cols: u16,
         rows: u16,
+        envs: Vec<(String, String)>,
         on_output: impl Fn(u32, Vec<u8>) + Send + 'static,
         on_exit: impl FnOnce(u32, Option<u32>) + Send + 'static,
     ) -> Result<u32, String> {
@@ -90,6 +91,9 @@ impl PtyManager {
             let mut cmd = CommandBuilder::new(&candidate);
             if let Some(dir) = cwd.as_deref().filter(|d| !d.trim().is_empty()) {
                 cmd.cwd(dir);
+            }
+            for (key, value) in &envs {
+                cmd.env(key, value);
             }
             match pair.slave.spawn_command(cmd) {
                 Ok(spawned) => {
@@ -276,6 +280,20 @@ pub async fn pty_create(
     let cols = cols.max(1);
     let rows = rows.max(1);
 
+    let envs = {
+        let mcp = state.mcp_server.lock().unwrap_or_else(|e| e.into_inner());
+        match mcp.as_ref() {
+            Some(info) => vec![
+                (
+                    "THTK_MCP_URL".to_string(),
+                    format!("http://127.0.0.1:{}/mcp", info.port),
+                ),
+                ("THTK_MCP_TOKEN".to_string(), info.token.clone()),
+            ],
+            None => Vec::new(),
+        }
+    };
+
     let out_app = app.clone();
     let exit_app = app;
     state.pty_manager.create(
@@ -283,6 +301,7 @@ pub async fn pty_create(
         cwd,
         cols,
         rows,
+        envs,
         move |id, bytes| {
             // 注:lossy 转换在 UTF-8 多字节序列跨 chunk 边界时可能产生替换字符,
             // 实际终端输出以行为主,可接受;后续如有问题改为累积解码。
@@ -338,6 +357,7 @@ mod tests {
                 None,
                 80,
                 24,
+                Vec::new(),
                 move |_id, bytes| {
                     let _ = tx.send(bytes);
                 },
@@ -382,6 +402,7 @@ mod tests {
                 None,
                 80,
                 24,
+                Vec::new(),
                 |_, _| {},
                 move |_, code| {
                     let _ = exit_tx.send(code);
@@ -415,6 +436,7 @@ mod tests {
                 None,
                 80,
                 24,
+                Vec::new(),
                 move |_id, bytes| {
                     let _ = tx.send(bytes);
                 },
@@ -440,5 +462,39 @@ mod tests {
             collected.contains("fallback_ok"),
             "PTY output from default shell was: {collected}"
         );
+    }
+
+    #[test]
+    fn env_injection_roundtrip() {
+        let manager = PtyManager::default();
+        let (tx, rx) = mpsc::channel::<Vec<u8>>();
+        let id = manager
+            .create(
+                Some("sh".to_string()),
+                None,
+                80,
+                24,
+                vec![("THTK_TEST_ENV".to_string(), "env_ok_42".to_string())],
+                move |_id, bytes| {
+                    let _ = tx.send(bytes);
+                },
+                |_, _| {},
+            )
+            .expect("create");
+
+        manager.write(id, "echo VAL=$THTK_TEST_ENV\n").expect("write");
+
+        let mut collected = String::new();
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while Instant::now() < deadline {
+            if let Ok(bytes) = rx.recv_timeout(Duration::from_millis(200)) {
+                collected.push_str(&String::from_utf8_lossy(&bytes));
+                if collected.contains("VAL=env_ok_42") {
+                    break;
+                }
+            }
+        }
+        assert!(collected.contains("VAL=env_ok_42"), "output: {collected}");
+        let _ = manager.kill(id);
     }
 }
