@@ -2,44 +2,72 @@ use serde_json::{json, Value};
 use std::fs;
 use std::path::Path;
 
-/// 在项目根的 .mcp.json 中写入/更新 thtk-studio 这一个 server entry,
-/// 不动用户已有的其他 server 和顶层键。文件不是合法 JSON 时报错而非覆盖。
-pub fn upsert_mcp_entry(project_root: &str, port: u16, token: &str) -> Result<(), String> {
-    let path = Path::new(project_root).join(".mcp.json");
+/// MCP 接入点环境变量名(PTY 注入 + 外部配置引用共用)
+pub const MCP_URL_ENV: &str = "THTK_MCP_URL";
+pub const MCP_TOKEN_ENV: &str = "THTK_MCP_TOKEN";
+
+/// 构造本机 MCP server 的 URL(单一来源,避免 4 处各写一遍)
+pub fn mcp_url(port: u16) -> String {
+    format!("http://127.0.0.1:{port}/mcp")
+}
+
+/// 读取(或新建)项目根下的 JSON 配置,定位/创建顶层嵌套对象键,
+/// 交给 mutator 改它,再非破坏写回(保格式拒绝非法 JSON)。
+fn upsert_json_config(
+    project_root: &str,
+    file_name: &str,
+    nested_key: &str,
+    mutate: impl FnOnce(&mut serde_json::Map<String, serde_json::Value>) -> Result<(), String>,
+) -> Result<(), String> {
+    let path = Path::new(project_root).join(file_name);
 
     let mut root: Value = if path.exists() {
         let content = fs::read_to_string(&path)
-            .map_err(|e| format!("Failed to read .mcp.json: {e}"))?;
+            .map_err(|e| format!("Failed to read {file_name}: {e}"))?;
         serde_json::from_str(&content)
-            .map_err(|e| format!(".mcp.json is not valid JSON, refusing to overwrite: {e}"))?
+            .map_err(|e| format!("{file_name} is not valid JSON, refusing to overwrite: {e}"))?
     } else {
         json!({})
     };
 
-    let root_object = root
-        .as_object_mut()
-        .ok_or_else(|| ".mcp.json top level is not an object, refusing to overwrite".to_string())?;
+    let root_object = root.as_object_mut().ok_or_else(|| {
+        format!("{file_name} top level is not an object, refusing to overwrite")
+    })?;
 
-    let servers = root_object
-        .entry("mcpServers")
+    let nested = root_object
+        .entry(nested_key)
         .or_insert_with(|| json!({}));
-    let servers_object = servers
+    let nested_object = nested
         .as_object_mut()
-        .ok_or_else(|| ".mcp.json mcpServers is not an object".to_string())?;
+        .ok_or_else(|| format!("{file_name} {nested_key} is not an object"))?;
 
-    servers_object.insert(
-        "thtk-studio".to_string(),
-        json!({
-            "type": "http",
-            "url": format!("http://127.0.0.1:{port}/mcp"),
-            "headers": { "Authorization": format!("Bearer {token}") }
-        }),
-    );
+    mutate(nested_object)?;
 
     let mut serialized = serde_json::to_string_pretty(&root)
-        .map_err(|e| format!("Failed to serialize .mcp.json: {e}"))?;
+        .map_err(|e| format!("Failed to serialize {file_name}: {e}"))?;
     serialized.push('\n'); // POSIX 尾换行,避免 git diff 噪音
-    fs::write(&path, serialized).map_err(|e| format!("Failed to write .mcp.json: {e}"))
+    fs::write(&path, serialized).map_err(|e| format!("Failed to write {file_name}: {e}"))
+}
+
+/// 写入 claude code 的 .mcp.json。注意:Authorization 头里写的是**字面 token**,
+/// 不是 ${THTK_MCP_TOKEN} 引用——claude code 对 HTTP transport 的 header 变量展开
+/// 有未修复的 bug(anthropics/claude-code#51581),用引用会导致 401。因此这里每次
+/// 启动重写字面 token(token 每次轮换)。opencode/codex 无此 bug,用 env 引用。
+///
+/// 在项目根的 .mcp.json 中写入/更新 thtk-studio 这一个 server entry,
+/// 不动用户已有的其他 server 和顶层键。文件不是合法 JSON 时报错而非覆盖。
+pub fn upsert_mcp_entry(project_root: &str, port: u16, token: &str) -> Result<(), String> {
+    upsert_json_config(project_root, ".mcp.json", "mcpServers", |servers_object| {
+        servers_object.insert(
+            "thtk-studio".to_string(),
+            json!({
+                "type": "http",
+                "url": mcp_url(port),
+                "headers": { "Authorization": format!("Bearer {token}") }
+            }),
+        );
+        Ok(())
+    })
 }
 
 /// 检查 dir 下是否存在 name / name.exe / name.cmd / name.bat 之一。
@@ -113,53 +141,32 @@ pub fn cli_available(name: &str) -> bool {
 /// token 用 {env:THTK_MCP_TOKEN} 引用(opencode 启动时自行展开;
 /// 我们的 PTY 会话注入了该变量),端口不变则文件不再每次启动变化。
 pub fn upsert_opencode_entry(project_root: &str, port: u16) -> Result<(), String> {
-    let path = Path::new(project_root).join("opencode.json");
-
-    let mut root: Value = if path.exists() {
-        let content = fs::read_to_string(&path)
-            .map_err(|e| format!("Failed to read opencode.json: {e}"))?;
-        serde_json::from_str(&content)
-            .map_err(|e| format!("opencode.json is not valid JSON, refusing to overwrite: {e}"))?
-    } else {
-        json!({})
-    };
-
-    let root_object = root
-        .as_object_mut()
-        .ok_or_else(|| "opencode.json top level is not an object, refusing to overwrite".to_string())?;
-
-    let mcp = root_object
-        .entry("mcp")
-        .or_insert_with(|| json!({}));
-    let mcp_object = mcp
-        .as_object_mut()
-        .ok_or_else(|| "opencode.json mcp is not an object".to_string())?;
-
-    let entry = mcp_object
-        .entry("thtk-studio")
-        .or_insert_with(|| json!({
-            "type": "remote",
-            "enabled": true,
-            "url": "",
-            "headers": {}
-        }));
-    let entry_obj = entry.as_object_mut().ok_or_else(|| {
-        "opencode.json mcp.thtk-studio is not an object, refusing to overwrite".to_string()
-    })?;
-    entry_obj.insert("url".to_string(), json!(format!("http://127.0.0.1:{port}/mcp")));
-    // Merge headers: preserve user-set headers, only update Authorization.
-    let headers = entry_obj
-        .entry("headers")
-        .or_insert_with(|| json!({}));
-    let headers_obj = headers.as_object_mut().ok_or_else(|| {
-        "opencode.json mcp.thtk-studio.headers is not an object".to_string()
-    })?;
-    headers_obj.insert("Authorization".to_string(), json!("Bearer {env:THTK_MCP_TOKEN}"));
-
-    let mut serialized = serde_json::to_string_pretty(&root)
-        .map_err(|e| format!("Failed to serialize opencode.json: {e}"))?;
-    serialized.push('\n'); // POSIX 尾换行,避免 git diff 噪音
-    fs::write(&path, serialized).map_err(|e| format!("Failed to write opencode.json: {e}"))
+    upsert_json_config(project_root, "opencode.json", "mcp", |mcp_object| {
+        let entry = mcp_object
+            .entry("thtk-studio")
+            .or_insert_with(|| json!({
+                "type": "remote",
+                "enabled": true,
+                "url": "",
+                "headers": {}
+            }));
+        let entry_obj = entry.as_object_mut().ok_or_else(|| {
+            "opencode.json mcp.thtk-studio is not an object, refusing to overwrite".to_string()
+        })?;
+        entry_obj.insert("url".to_string(), json!(mcp_url(port)));
+        // Merge headers: preserve user-set headers, only update Authorization.
+        let headers = entry_obj
+            .entry("headers")
+            .or_insert_with(|| json!({}));
+        let headers_obj = headers.as_object_mut().ok_or_else(|| {
+            "opencode.json mcp.thtk-studio.headers is not an object".to_string()
+        })?;
+        headers_obj.insert(
+            "Authorization".to_string(),
+            json!(format!("Bearer {{env:{}}}", MCP_TOKEN_ENV)),
+        );
+        Ok(())
+    })
 }
 
 /// 在项目级 .codex/config.toml 写入/更新 [mcp_servers.thtk-studio](保格式,
@@ -210,8 +217,8 @@ pub fn upsert_codex_entry(project_root: &str, port: u16) -> Result<bool, String>
     let entry_table = entry.as_table_mut().ok_or_else(|| {
         ".codex/config.toml mcp_servers.thtk-studio is not a table, refusing to overwrite".to_string()
     })?;
-    entry_table["url"] = toml_edit::value(format!("http://127.0.0.1:{port}/mcp"));
-    entry_table["bearer_token_env_var"] = toml_edit::value("THTK_MCP_TOKEN");
+    entry_table["url"] = toml_edit::value(mcp_url(port));
+    entry_table["bearer_token_env_var"] = toml_edit::value(MCP_TOKEN_ENV);
 
     fs::create_dir_all(&dir).map_err(|e| format!("Failed to create .codex dir: {e}"))?;
     fs::write(&path, doc.to_string())
@@ -220,8 +227,8 @@ pub fn upsert_codex_entry(project_root: &str, port: u16) -> Result<bool, String>
 }
 
 /// 推送到输出面板的注册结果卡片。无 Tauri 依赖,便于单测。
-#[derive(Debug, Clone, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
+/// 不实现 Serialize:main.rs 直接读字段手工组装 JSON(字段名映射在那里控制)。
+#[derive(Debug, Clone)]
 pub struct RegistrationCard {
     pub title: String,
     pub body: String,
@@ -687,5 +694,38 @@ mod tests {
             !cli_available_with("nosuchcli", Some(empty_path.as_os_str()), &[bin_dir]),
             "should NOT find 'nosuchcli'"
         );
+    }
+
+    #[test]
+    fn opencode_refuses_non_object_headers() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path().to_string_lossy().to_string();
+        let bad_content = r#"{"mcp":{"thtk-studio":{"headers":"bad"}}}"#;
+        fs::write(dir.path().join("opencode.json"), bad_content).expect("seed");
+
+        let result = upsert_opencode_entry(&root, 55555);
+
+        assert!(
+            result.is_err(),
+            "should return Err when thtk-studio.headers is not an object"
+        );
+        // File should be byte-identical (not written)
+        assert_eq!(
+            fs::read_to_string(dir.path().join("opencode.json")).unwrap(),
+            bad_content,
+            "file should be unchanged after error"
+        );
+    }
+
+    #[test]
+    fn extra_cli_dirs_returns_abs_dirs_without_home() {
+        // 这三个绝对目录是无条件追加的(与 HOME 无关),无需修改全局环境变量。
+        let dirs = extra_cli_dirs();
+        for abs in ["/usr/local/bin", "/opt/homebrew/bin", "/opt/local/bin"] {
+            assert!(
+                dirs.contains(&std::path::PathBuf::from(abs)),
+                "extra_cli_dirs should always contain {abs}, got: {dirs:?}"
+            );
+        }
     }
 }

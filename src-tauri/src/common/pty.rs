@@ -285,10 +285,13 @@ pub async fn pty_create(
         match mcp.as_ref() {
             Some(info) => vec![
                 (
-                    "THTK_MCP_URL".to_string(),
-                    format!("http://127.0.0.1:{}/mcp", info.port),
+                    crate::common::mcp_config::MCP_URL_ENV.to_string(),
+                    crate::common::mcp_config::mcp_url(info.port),
                 ),
-                ("THTK_MCP_TOKEN".to_string(), info.token.clone()),
+                (
+                    crate::common::mcp_config::MCP_TOKEN_ENV.to_string(),
+                    info.token.clone(),
+                ),
             ],
             None => Vec::new(),
         }
