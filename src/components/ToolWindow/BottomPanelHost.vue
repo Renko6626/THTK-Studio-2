@@ -25,12 +25,14 @@
     </div>
 
     <div class="flex-1 min-h-0">
-      <TerminalPanel v-if="workbenchPanelsStore.activeBottomPanel === 'terminal'" />
-      <OutputPanel v-else-if="workbenchPanelsStore.activeBottomPanel === 'output'" />
+      <div v-show="workbenchPanelsStore.activeBottomPanel === 'terminal'" class="h-full">
+        <TerminalPanel />
+      </div>
+      <OutputPanel v-if="workbenchPanelsStore.activeBottomPanel === 'output'" />
       <ProblemsPanel v-else-if="workbenchPanelsStore.activeBottomPanel === 'problems'" />
 
       <div
-        v-else
+        v-else-if="workbenchPanelsStore.activeBottomPanel !== 'terminal'"
         class="h-full flex items-center justify-center text-sm text-gray-500 bg-[#111111]"
       >
         {{ currentPanelLabel }} 面板尚未实现

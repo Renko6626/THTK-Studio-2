@@ -116,10 +116,7 @@ const menus = computed(() => [
     key: 'terminal',
     label: '终端',
     options: [
-      { label: '使用 PowerShell', key: 'terminal.usePwsh' },
-      { label: '使用 CMD', key: 'terminal.useCmd' },
-      { type: 'divider', key: 'terminal.divider.1' },
-      { label: '清空终端输出', key: 'terminal.clear' }
+      { label: '新建终端', key: 'terminal.new' }
     ]
   }
 ])
@@ -224,14 +221,9 @@ async function handleSelect(key) {
     case 'script.generateHeader':
       openTheclDialog('header')
       break
-    case 'terminal.usePwsh':
-      terminalStore.shell = 'pwsh'
-      break
-    case 'terminal.useCmd':
-      terminalStore.shell = 'cmd'
-      break
-    case 'terminal.clear':
-      terminalStore.clearOutput()
+    case 'terminal.new':
+      workbenchPanelsStore.showBottomPanel('terminal')
+      terminalStore.openSession()
       break
   }
 }

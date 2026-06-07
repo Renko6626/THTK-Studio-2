@@ -48,7 +48,7 @@
                 </span>
               </div>
               <div class="flex items-center gap-4">
-                <span>{{ terminalStore.shell.toUpperCase() }}</span>
+                <span v-if="terminalStore.sessionCount">{{ terminalStore.sessionCount }} 个终端</span>
                 <span class="uppercase">{{ activeEditorModeLabel }}</span>
                 <span>UTF-8</span>
               </div>
