@@ -12,6 +12,9 @@ pub struct AppState {
 
     // 文件系统变更监听器
     pub file_watcher: Mutex<FileWatcherState>,
+
+    // PTY 终端会话管理 (内含 Mutex)
+    pub pty_manager: crate::common::pty::PtyManager,
 }
 
 impl AppState {
@@ -20,6 +23,7 @@ impl AppState {
             config_manager: ConfigManager::new(),
             current_project_root: Mutex::new(None),
             file_watcher: Mutex::new(FileWatcherState::new()),
+            pty_manager: crate::common::pty::PtyManager::default(),
         }
     }
 }

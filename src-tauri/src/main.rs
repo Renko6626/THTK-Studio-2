@@ -162,6 +162,10 @@ fn main() {
             system_clipboard::get_file_clipboard,
             terminal::run_shell_command,
             terminal::resolve_directory,
+            common::pty::pty_create,
+            common::pty::pty_write,
+            common::pty::pty_resize,
+            common::pty::pty_kill,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

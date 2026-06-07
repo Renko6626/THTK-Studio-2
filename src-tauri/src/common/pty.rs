@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use std::io::{ErrorKind, Read, Write};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
+use crate::app_state::AppState;
+use tauri::{AppHandle, Emitter, State};
 
 pub struct PtySession {
     writer: Arc<Mutex<Box<dyn Write + Send>>>,
@@ -215,6 +217,73 @@ impl PtyManager {
         let _ = session.killer.kill();
         Ok(())
     }
+}
+
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PtyExitPayload {
+    pub code: Option<u32>,
+}
+
+#[tauri::command]
+pub fn pty_create(
+    app: AppHandle,
+    state: State<AppState>,
+    shell: Option<String>,
+    cwd: Option<String>,
+    cols: u16,
+    rows: u16,
+) -> Result<u32, String> {
+    // 默认工作目录 = 当前项目根
+    let cwd = cwd.filter(|c| !c.trim().is_empty()).or_else(|| {
+        state
+            .current_project_root
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
+    });
+
+    let out_app = app.clone();
+    let exit_app = app;
+    state.pty_manager.create(
+        shell,
+        cwd,
+        cols,
+        rows,
+        move |id, bytes| {
+            // 注:lossy 转换在 UTF-8 多字节序列跨 chunk 边界时可能产生替换字符,
+            // 实际终端输出以行为主,可接受;后续如有问题改为累积解码。
+            let _ = out_app.emit(
+                &format!("pty://output/{id}"),
+                String::from_utf8_lossy(&bytes).to_string(),
+            );
+        },
+        move |id, code| {
+            // 会话此刻已被 PtyManager 自清理;前端收到该事件后无需(也不应)
+            // 依赖 pty_kill 做清理,调用了也只会得到可忽略的 "not found"。
+            let _ = exit_app.emit(&format!("pty://exit/{id}"), PtyExitPayload { code });
+        },
+    )
+}
+
+#[tauri::command]
+pub fn pty_write(state: State<AppState>, session_id: u32, data: String) -> Result<(), String> {
+    state.pty_manager.write(session_id, &data)
+}
+
+#[tauri::command]
+pub fn pty_resize(
+    state: State<AppState>,
+    session_id: u32,
+    cols: u16,
+    rows: u16,
+) -> Result<(), String> {
+    state.pty_manager.resize(session_id, cols, rows)
+}
+
+#[tauri::command]
+pub fn pty_kill(state: State<AppState>, session_id: u32) -> Result<(), String> {
+    state.pty_manager.kill(session_id)
 }
 
 #[cfg(test)]
