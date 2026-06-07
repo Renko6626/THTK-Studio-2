@@ -64,6 +64,8 @@ Before implementing, identify whether the task is a frontend view/panel, editor 
 
 Running `claude` (claude code) inside the built-in terminal automatically discovers the thtk-studio MCP server: the project root `.mcp.json` is non-destructively maintained by the Rust backend on each project open (port and Bearer token updated; existing custom entries preserved). From inside claude, `/mcp` lists six tools covering workspace info, ECL compile/decompile/check, semantic lookup, and reporting.
 
+codex and opencode are also auto-registered: on project open the IDE detects whether the corresponding CLI is on `PATH` and, if so, manages the project-level `.codex/config.toml` (codex requires a one-time trust in the project directory) and `opencode.json`. PTY sessions are injected with `THTK_MCP_URL` and `THTK_MCP_TOKEN` so any tool can reference them as env vars or self-register via the SKILL.md guide. The MCP port defaults to a fixed 39127 (`mcp_port` config key; falls back to a random ephemeral port on conflict).
+
 The "生成 AI 辅助包" menu action writes `.claude/skills/ecl-modding/` (SKILL.md created once and not overwritten; `references/` regenerated from the current eclmap). This gives claude code domain vocabulary and workflow guidance for ECL modding without manual setup.
 
 ## Toolchain integration notes

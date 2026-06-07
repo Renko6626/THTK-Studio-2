@@ -45,6 +45,18 @@ ECL 控制东方 Project 原作的敌机行为与弹幕逻辑。二进制 `.ecl`
 | 全局寄存器含义 | references/{{REGISTERS_FILE}} |
 | 工具链是否可用 | MCP 工具 `get_workspace_info` |
 
+## 接入 thtk-studio MCP（若你的工具未配置）
+
+终端环境变量 `THTK_MCP_URL` / `THTK_MCP_TOKEN` 是 IDE 提供的 MCP 接入点
+（也可读项目根 `.mcp.json`）。若 `/mcp` 或工具列表里没有 thtk-studio：
+
+- **codex**：`codex mcp add thtk-studio --url "$THTK_MCP_URL" --bearer-token-env-var THTK_MCP_TOKEN`
+- **opencode**：把 thtk-studio 写入项目根 `opencode.json` 的 `mcp` 段
+  （`type: "remote"`，url 用 `$THTK_MCP_URL` 的值，
+  `headers.Authorization` 用字面量 `Bearer {env:THTK_MCP_TOKEN}`），
+  然后提醒用户重启 opencode
+- 任何改动都需要**新会话**才生效；完成后用 `report_to_user` 告知用户
+
 ## 注意事项
 
 - 本文件由 THTK-Studio 生成，references/ 会随 eclmap 重新生成而刷新；
