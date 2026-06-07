@@ -68,7 +68,14 @@ pub fn check_ecl(config: &AppConfig, source_path: &str) -> Result<Value, String>
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
         .ok_or_else(|| format!("Invalid source path: {source_path}"))?;
-    let temp_output = std::env::temp_dir().join(format!("thtk-check-{file_name}.ecl"));
+    // 每次调用唯一的临时路径:MCP server 进程内并发,多个 agent 同时 check
+    // 同名文件时不能共享路径(process::id 不够,需调用级计数器)。
+    static CHECK_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let seq = CHECK_SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let temp_output = std::env::temp_dir().join(format!(
+        "thtk-check-{}-{seq}-{file_name}.ecl",
+        std::process::id()
+    ));
 
     let request = base_request(
         compiler::TheclMode::Compile,
