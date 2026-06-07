@@ -24,11 +24,20 @@ pub struct EclMapInstructionSpec {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct EclMapGlobalVar {
+    pub id: i32,
+    pub name: String,
+    pub var_type: String, // "int" | "float" | "unknown"
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct EclMapSemanticData {
     pub source_path: String,
     pub version: String,
     pub instructions: Vec<EclMapInstructionSpec>,
     pub builtins: Vec<String>,
+    pub globals: Vec<EclMapGlobalVar>,
 }
 
 fn instruction_line_regex() -> &'static Regex {
@@ -39,6 +48,11 @@ fn instruction_line_regex() -> &'static Regex {
 fn signature_line_regex() -> &'static Regex {
     static REGEX: OnceLock<Regex> = OnceLock::new();
     REGEX.get_or_init(|| Regex::new(r"^(\d+)\s*(.*)$").expect("valid regex"))
+}
+
+fn gvar_line_regex() -> &'static Regex {
+    static REGEX: OnceLock<Regex> = OnceLock::new();
+    REGEX.get_or_init(|| Regex::new(r"^(-?\d+)\s+(\S+)").expect("valid regex"))
 }
 
 fn build_signature_params(signature: &str) -> Vec<EclMapInstructionParameter> {
@@ -104,12 +118,19 @@ fn infer_version_from_path(path: &str) -> String {
 pub fn parse_ecl_map_file(path: &str) -> Result<EclMapSemanticData, String> {
     let content =
         fs::read_to_string(path).map_err(|error| format!("Failed to read eclmap file: {error}"))?;
+    parse_ecl_map_content(path, &content)
+}
 
+pub fn parse_ecl_map_content(path: &str, content: &str) -> Result<EclMapSemanticData, String> {
     let mut in_instruction_names = false;
     let mut in_instruction_signatures = false;
+    let mut in_gvar_names = false;
+    let mut in_gvar_types = false;
     let mut current_section: Option<String> = None;
     let mut instructions = Vec::new();
     let mut signatures: BTreeMap<u32, String> = BTreeMap::new();
+    let mut globals: Vec<EclMapGlobalVar> = Vec::new();
+    let mut gvar_types: BTreeMap<i32, String> = BTreeMap::new();
 
     for raw_line in content.lines() {
         let line = raw_line.trim();
@@ -120,6 +141,8 @@ pub fn parse_ecl_map_file(path: &str) -> Result<EclMapSemanticData, String> {
         if line.starts_with("!ins_names") {
             in_instruction_names = true;
             in_instruction_signatures = false;
+            in_gvar_names = false;
+            in_gvar_types = false;
             current_section = None;
             continue;
         }
@@ -127,13 +150,40 @@ pub fn parse_ecl_map_file(path: &str) -> Result<EclMapSemanticData, String> {
         if line.starts_with("!ins_signatures") {
             in_instruction_names = false;
             in_instruction_signatures = true;
+            in_gvar_names = false;
+            in_gvar_types = false;
             current_section = None;
             continue;
         }
 
-        if line.starts_with("!") && !line.starts_with("!ins_names") && !line.starts_with("!ins_signatures") {
+        if line.starts_with("!gvar_names") {
             in_instruction_names = false;
             in_instruction_signatures = false;
+            in_gvar_names = true;
+            in_gvar_types = false;
+            current_section = None;
+            continue;
+        }
+
+        if line.starts_with("!gvar_types") {
+            in_instruction_names = false;
+            in_instruction_signatures = false;
+            in_gvar_names = false;
+            in_gvar_types = true;
+            current_section = None;
+            continue;
+        }
+
+        if line.starts_with('!')
+            && !line.starts_with("!ins_names")
+            && !line.starts_with("!ins_signatures")
+            && !line.starts_with("!gvar_names")
+            && !line.starts_with("!gvar_types")
+        {
+            in_instruction_names = false;
+            in_instruction_signatures = false;
+            in_gvar_names = false;
+            in_gvar_types = false;
             current_section = None;
             continue;
         }
@@ -184,6 +234,40 @@ pub fn parse_ecl_map_file(path: &str) -> Result<EclMapSemanticData, String> {
 
                 signatures.insert(opcode, signature);
             }
+            continue;
+        }
+
+        if in_gvar_names {
+            if let Some(captures) = gvar_line_regex().captures(line) {
+                let id = captures
+                    .get(1)
+                    .and_then(|value| value.as_str().parse::<i32>().ok())
+                    .unwrap_or_default();
+                let name = captures.get(2).map(|v| v.as_str()).unwrap_or_default();
+                globals.push(EclMapGlobalVar {
+                    id,
+                    name: name.to_string(),
+                    var_type: "unknown".to_string(),
+                });
+            }
+            continue;
+        }
+
+        if in_gvar_types {
+            if let Some(captures) = gvar_line_regex().captures(line) {
+                let id = captures
+                    .get(1)
+                    .and_then(|value| value.as_str().parse::<i32>().ok())
+                    .unwrap_or_default();
+                let type_mark = captures.get(2).map(|v| v.as_str()).unwrap_or_default();
+                let var_type = match type_mark {
+                    "$" => "int",
+                    "%" => "float",
+                    _ => "unknown",
+                };
+                gvar_types.insert(id, var_type.to_string());
+            }
+            continue;
         }
     }
 
@@ -196,10 +280,61 @@ pub fn parse_ecl_map_file(path: &str) -> Result<EclMapSemanticData, String> {
         }
     }
 
+    for global in &mut globals {
+        if let Some(var_type) = gvar_types.get(&global.id) {
+            global.var_type = var_type.clone();
+        }
+    }
+
     Ok(EclMapSemanticData {
         source_path: path.to_string(),
         version: infer_version_from_path(path),
         builtins: instructions.iter().map(|item| item.name.clone()).collect(),
         instructions,
+        globals,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const SAMPLE: &str = r#"!eclmap
+!ins_names
+10 jump
+11 callSub
+!ins_signatures
+10 ot
+11 m
+!gvar_names
+-9985 I0
+-9982 F0
+!gvar_types
+-9985 $
+-9982 %
+"#;
+
+    #[test]
+    fn parses_instructions_and_globals() {
+        let data = parse_ecl_map_content("maps/th17.eclm", SAMPLE).expect("parse");
+        assert_eq!(data.instructions.len(), 2);
+        assert_eq!(data.instructions[0].name, "jump");
+        assert_eq!(data.instructions[0].signature.as_deref(), Some("ot"));
+
+        assert_eq!(data.globals.len(), 2);
+        let i0 = &data.globals[0];
+        assert_eq!(i0.id, -9985);
+        assert_eq!(i0.name, "I0");
+        assert_eq!(i0.var_type, "int");
+        let f0 = &data.globals[1];
+        assert_eq!(f0.id, -9982);
+        assert_eq!(f0.var_type, "float");
+    }
+
+    #[test]
+    fn gvar_without_type_is_unknown() {
+        let sample = "!gvar_names\n-1 X\n";
+        let data = parse_ecl_map_content("maps/th17.eclm", sample).expect("parse");
+        assert_eq!(data.globals[0].var_type, "unknown");
+    }
 }
