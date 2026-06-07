@@ -10,6 +10,7 @@ const SKILL_TEMPLATE: &str = include_str!("../../../assets/ecl-skill-template.md
 pub struct AiPackResult {
     pub skill_path: String,
     pub skill_written: bool,
+    pub skill_existed: bool,
     pub reference_files: Vec<String>,
     pub version: String,
 }
@@ -63,8 +64,12 @@ fn render_registers_markdown(data: &EclMapSemanticData) -> String {
 }
 
 /// 在项目根生成 .claude/skills/ecl-modding/：
-/// SKILL.md 仅在缺失时写入（保护用户修改）；references/ 总是刷新。
-pub fn generate(project_root: &str, data: &EclMapSemanticData) -> Result<AiPackResult, String> {
+/// SKILL.md 缺失时写入；存在时仅在 force=true 时覆盖（否则保护用户修改）；references/ 总是刷新。
+pub fn generate(
+    project_root: &str,
+    data: &EclMapSemanticData,
+    force: bool,
+) -> Result<AiPackResult, String> {
     let skill_dir = Path::new(project_root).join(".claude/skills/ecl-modding");
     let references_dir = skill_dir.join("references");
     fs::create_dir_all(&references_dir)
@@ -86,7 +91,8 @@ pub fn generate(project_root: &str, data: &EclMapSemanticData) -> Result<AiPackR
     reference_files.push(registers_path.to_string_lossy().to_string());
 
     let skill_path = skill_dir.join("SKILL.md");
-    let skill_written = if skill_path.exists() {
+    let skill_existed = skill_path.exists();
+    let skill_written = if skill_existed && !force {
         false
     } else {
         let content = SKILL_TEMPLATE
@@ -100,6 +106,7 @@ pub fn generate(project_root: &str, data: &EclMapSemanticData) -> Result<AiPackR
     Ok(AiPackResult {
         skill_path: skill_path.to_string_lossy().to_string(),
         skill_written,
+        skill_existed,
         reference_files,
         version: data.version.clone(),
     })
@@ -121,9 +128,10 @@ mod tests {
         let dir = tempfile::tempdir().expect("tempdir");
         let root = dir.path().to_string_lossy().to_string();
 
-        let result = generate(&root, &sample_semantics()).expect("generate");
+        let result = generate(&root, &sample_semantics(), false).expect("generate");
 
         assert!(result.skill_written);
+        assert!(!result.skill_existed);
         let skill = fs::read_to_string(dir.path().join(".claude/skills/ecl-modding/SKILL.md"))
             .expect("skill exists");
         assert!(skill.contains("th17"), "version substituted");
@@ -149,7 +157,7 @@ mod tests {
     fn rerun_preserves_user_skill_but_refreshes_references() {
         let dir = tempfile::tempdir().expect("tempdir");
         let root = dir.path().to_string_lossy().to_string();
-        generate(&root, &sample_semantics()).expect("first run");
+        generate(&root, &sample_semantics(), false).expect("first run");
 
         let skill_path = dir.path().join(".claude/skills/ecl-modding/SKILL.md");
         fs::write(&skill_path, "USER EDITED").expect("user edit");
@@ -158,13 +166,32 @@ mod tests {
             .join(".claude/skills/ecl-modding/references/th17-instructions.md");
         fs::write(&ref_path, "STALE").expect("stale ref");
 
-        let result = generate(&root, &sample_semantics()).expect("second run");
+        let result = generate(&root, &sample_semantics(), false).expect("second run");
 
         assert!(!result.skill_written, "must not overwrite user skill");
+        assert!(result.skill_existed, "skill was already on disk");
         assert_eq!(fs::read_to_string(&skill_path).unwrap(), "USER EDITED");
         assert!(
             fs::read_to_string(&ref_path).unwrap().contains("wait"),
             "references must be regenerated"
         );
+    }
+
+    #[test]
+    fn force_overwrites_existing_skill() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path().to_string_lossy().to_string();
+        generate(&root, &sample_semantics(), false).expect("first run");
+
+        let skill_path = dir.path().join(".claude/skills/ecl-modding/SKILL.md");
+        fs::write(&skill_path, "USER").expect("user edit");
+
+        let result = generate(&root, &sample_semantics(), true).expect("forced run");
+
+        assert!(result.skill_written, "force must overwrite");
+        assert!(result.skill_existed, "skill was already on disk");
+        let content = fs::read_to_string(&skill_path).unwrap();
+        assert_ne!(content, "USER", "user content replaced by template");
+        assert!(content.contains("th17"), "template marker present");
     }
 }

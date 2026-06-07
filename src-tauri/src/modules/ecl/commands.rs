@@ -130,6 +130,7 @@ pub async fn get_ecl_map_semantics(path: String) -> Result<map_parser::EclMapSem
 #[tauri::command]
 pub async fn generate_ai_assist_pack(
     state: State<'_, AppState>,
+    force: bool,
 ) -> Result<super::ai_pack::AiPackResult, String> {
     let config = state.config_manager.get_config();
     let root = state
@@ -141,5 +142,5 @@ pub async fn generate_ai_assist_pack(
 
     let map_path = crate::modules::mcp::tools::resolve_map_path(&config, Some(&root))?;
     let semantics = map_parser::parse_ecl_map_file(&map_path)?;
-    super::ai_pack::generate(&root, &semantics)
+    super::ai_pack::generate(&root, &semantics, force)
 }

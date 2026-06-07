@@ -24,7 +24,7 @@
 <script setup>
 import { computed } from 'vue'
 import { open } from '@tauri-apps/plugin-dialog'
-import { NDropdown, useMessage } from 'naive-ui'
+import { NDropdown, useMessage, useDialog } from 'naive-ui'
 import { useEditorStore } from '../../stores/editor'
 import { useProjectStore } from '../../stores/project'
 import { useTerminalStore } from '../../stores/terminal'
@@ -45,6 +45,7 @@ const toolchainSettingsStore = useToolchainSettingsStore()
 const reportsStore = useWorkbenchReportsStore()
 const { handleCreate } = useFileOperations()
 const message = useMessage()
+const dialog = useDialog()
 
 const hasWorkspace = computed(() => Boolean(projectStore.rootPath))
 const hasActiveTab = computed(() => Boolean(editorStore.activeTab))
@@ -141,6 +142,69 @@ function openTheclDialog(mode) {
   })
 }
 
+function publishAiPackResult({ success, path, message: text }) {
+  reportsStore.publishToolResult({
+    ownerKey: 'ecl:ai-pack',
+    source: 'toolchain',
+    operation: 'ai-pack',
+    scriptKind: 'ecl',
+    title: '生成 AI 辅助包',
+    path,
+    success,
+    message: text,
+    diagnostics: []
+  })
+  workbenchPanelsStore.showBottomPanel('output')
+}
+
+async function runGenerateAiPack() {
+  try {
+    const result = await generateAiAssistPack(false)
+    const refLines = result.referenceFiles.map((file) => `已刷新 ${file}`)
+
+    if (result.skillExisted && !result.skillWritten) {
+      // references 已刷新，但保留了用户的 SKILL.md —— 先如实汇报，再询问是否覆盖。
+      publishAiPackResult({
+        success: true,
+        path: result.skillPath,
+        message: ['SKILL.md 已存在，保留用户版本', ...refLines].join('\n')
+      })
+      dialog.warning({
+        title: 'SKILL.md 已存在',
+        content:
+          '该项目已有 SKILL.md。references 已刷新。是否用最新模板覆盖 SKILL.md?这会丢失你对 SKILL.md 的自定义修改。',
+        positiveText: '覆盖',
+        negativeText: '保留',
+        onPositiveClick: async () => {
+          try {
+            const forced = await generateAiAssistPack(true)
+            publishAiPackResult({
+              success: true,
+              path: forced.skillPath,
+              message: [
+                'SKILL.md 已用最新模板覆盖',
+                ...forced.referenceFiles.map((file) => `已刷新 ${file}`)
+              ].join('\n')
+            })
+          } catch (error) {
+            publishAiPackResult({ success: false, path: null, message: String(error) })
+          }
+        }
+      })
+      return
+    }
+
+    // 全新生成（skillWritten）或无需写入的常规成功
+    publishAiPackResult({
+      success: true,
+      path: result.skillPath,
+      message: [result.skillWritten ? 'SKILL.md 已生成' : 'SKILL.md 已存在，保留用户版本', ...refLines].join('\n')
+    })
+  } catch (error) {
+    publishAiPackResult({ success: false, path: null, message: String(error) })
+  }
+}
+
 async function handleSelect(key) {
   switch (key) {
     case 'file.openFolder':
@@ -225,41 +289,9 @@ async function handleSelect(key) {
     case 'script.generateHeader':
       openTheclDialog('header')
       break
-    case 'script.generateAiPack': {
-      generateAiAssistPack()
-        .then((result) => {
-          reportsStore.publishToolResult({
-            ownerKey: 'ecl:ai-pack',
-            source: 'toolchain',
-            operation: 'ai-pack',
-            scriptKind: 'ecl',
-            title: '生成 AI 辅助包',
-            path: result.skillPath,
-            success: true,
-            message: [
-              result.skillWritten ? 'SKILL.md 已生成' : 'SKILL.md 已存在，保留用户版本',
-              ...result.referenceFiles.map((file) => `已刷新 ${file}`)
-            ].join('\n'),
-            diagnostics: []
-          })
-          workbenchPanelsStore.showBottomPanel('output')
-        })
-        .catch((error) => {
-          reportsStore.publishToolResult({
-            ownerKey: 'ecl:ai-pack',
-            source: 'toolchain',
-            operation: 'ai-pack',
-            scriptKind: 'ecl',
-            title: '生成 AI 辅助包',
-            path: null,
-            success: false,
-            message: String(error),
-            diagnostics: []
-          })
-          workbenchPanelsStore.showBottomPanel('output')
-        })
+    case 'script.generateAiPack':
+      runGenerateAiPack()
       break
-    }
     case 'terminal.new':
       workbenchPanelsStore.showBottomPanel('terminal')
       terminalStore.openSession()
