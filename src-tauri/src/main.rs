@@ -93,6 +93,13 @@ fn set_project_root(state: State<AppState>, path: String, app_handle: tauri::App
         if let Err(error) = common::mcp_config::upsert_mcp_entry(&path, info.port, &info.token) {
             eprintln!("[mcp] failed to update .mcp.json: {error}");
         }
+        if common::mcp_config::cli_available("opencode") {
+            if let Err(error) =
+                common::mcp_config::upsert_opencode_entry(&path, info.port)
+            {
+                eprintln!("[mcp] failed to update opencode.json: {error}");
+            }
+        }
     }
 }
 
