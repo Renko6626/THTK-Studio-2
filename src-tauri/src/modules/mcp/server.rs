@@ -110,7 +110,12 @@ impl ThtkMcp {
     async fn get_workspace_info(&self) -> Result<CallToolResult, McpError> {
         let config = self.config();
         let root = self.project_root();
-        json_result(tools::workspace_info(&config, root.as_deref()))
+        let value = tokio::task::spawn_blocking(move || {
+            tools::workspace_info(&config, root.as_deref())
+        })
+        .await
+        .map_err(|e| McpError::internal_error(format!("task join: {e}"), None))?;
+        json_result(value)
     }
 
     #[tool(
@@ -121,7 +126,13 @@ impl ThtkMcp {
         Parameters(params): Parameters<SourcePathParams>,
     ) -> Result<CallToolResult, McpError> {
         let config = self.config();
-        json_result(tools::check_ecl(&config, &params.source_path).map_err(tool_error)?)
+        let value = tokio::task::spawn_blocking(move || {
+            tools::check_ecl(&config, &params.source_path)
+        })
+        .await
+        .map_err(|e| McpError::internal_error(format!("task join: {e}"), None))?
+        .map_err(tool_error)?;
+        json_result(value)
     }
 
     #[tool(description = "编译 ECL 源文件（.decl → .ecl），产物落盘，返回诊断与产物路径。")]
@@ -130,10 +141,13 @@ impl ThtkMcp {
         Parameters(params): Parameters<CompileParams>,
     ) -> Result<CallToolResult, McpError> {
         let config = self.config();
-        json_result(
+        let value = tokio::task::spawn_blocking(move || {
             tools::compile_ecl(&config, &params.source_path, params.output_path)
-                .map_err(tool_error)?,
-        )
+        })
+        .await
+        .map_err(|e| McpError::internal_error(format!("task join: {e}"), None))?
+        .map_err(tool_error)?;
+        json_result(value)
     }
 
     #[tool(description = "反编译 ECL 二进制（.ecl → .decl 文本），返回诊断与产物路径。")]
@@ -142,10 +156,13 @@ impl ThtkMcp {
         Parameters(params): Parameters<DecompileParams>,
     ) -> Result<CallToolResult, McpError> {
         let config = self.config();
-        json_result(
+        let value = tokio::task::spawn_blocking(move || {
             tools::decompile_ecl(&config, &params.binary_path, params.output_path)
-                .map_err(tool_error)?,
-        )
+        })
+        .await
+        .map_err(|e| McpError::internal_error(format!("task join: {e}"), None))?
+        .map_err(tool_error)?;
+        json_result(value)
     }
 
     #[tool(
@@ -156,8 +173,13 @@ impl ThtkMcp {
         Parameters(params): Parameters<LookupParams>,
     ) -> Result<CallToolResult, McpError> {
         let config = self.config();
-        let map_path = tools::resolve_map_path(&config).map_err(tool_error)?;
-        json_result(tools::lookup_semantics(&map_path, &params.query).map_err(tool_error)?)
+        let value = tokio::task::spawn_blocking(move || {
+            let map_path = tools::resolve_map_path(&config).map_err(tool_error)?;
+            tools::lookup_semantics(&map_path, &params.query).map_err(tool_error)
+        })
+        .await
+        .map_err(|e| McpError::internal_error(format!("task join: {e}"), None))??;
+        json_result(value)
     }
 
     #[tool(
