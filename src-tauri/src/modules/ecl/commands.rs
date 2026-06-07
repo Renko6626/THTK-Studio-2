@@ -13,7 +13,7 @@ fn ensure_thecl_configured(config: &crate::config::AppConfig) -> Result<(), Stri
     Ok(())
 }
 
-fn resolve_default_maps(
+pub(crate) fn resolve_default_maps(
     config: &crate::config::AppConfig,
     thtk_dir: &str,
     game_ver: &str,
