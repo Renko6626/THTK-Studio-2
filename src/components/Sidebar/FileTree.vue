@@ -8,7 +8,8 @@
           Explorer
         </div>
       </div>
-      <div class="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+      <!-- 常驻可见(原 opacity-0 group-hover 模式导致按钮不可发现) -->
+      <div class="opacity-60 hover:opacity-100 transition-opacity flex gap-2">
         <n-icon class="cursor-pointer hover:text-white" title="打开文件夹" @click="openFolder">
           <Folder24Regular />
         </n-icon>

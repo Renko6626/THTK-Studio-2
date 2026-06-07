@@ -51,10 +51,13 @@ export function useFileWatcher({ editorStore, projectStore, showReloadNotice }) 
       }
     }
 
-    // 有文件被增删时刷新文件树
-    if (changes.some(c => c.kind === 'remove' || c.kind === 'create')) {
-      projectStore.refresh()
-    }
+    // 任何外部变更都刷新文件树:debouncer 只能产出 modify/remove
+    // (新建文件首次出现时 exists → 被报为 "modify",永远等不到 "create"),
+    // 因此不能按 kind 过滤,否则终端/agent 新建的文件在树里不可见。
+    // 事件已在 Rust 侧做 500ms 防抖,浅层重扫开销可接受。
+    projectStore.refresh().catch(() => {
+      // 根目录可能瞬时不可读(构建中等),下一次事件会再刷
+    })
 
     if (reloadedCount > 0) {
       showReloadNotice(`已重新加载 ${reloadedCount} 个外部变更的文件`)

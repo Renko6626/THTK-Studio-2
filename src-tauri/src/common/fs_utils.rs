@@ -58,8 +58,9 @@ fn list_dir_shallow(dir_path: &Path) -> Result<Vec<FileNode>> {
         let name = entry.file_name().to_string_lossy().to_string();
         let is_dir = path.is_dir();
 
-        // 过滤以 . 开头的隐藏文件/文件夹
-        if name.starts_with('.') {
+        // 只隐藏 .git;其余隐藏文件(.claude/.mcp.json/.thtk-project.json 等)
+        // 是工作流的一部分,需要在树里可见可编辑
+        if is_always_hidden(&name) {
             continue;
         }
 
@@ -101,16 +102,17 @@ fn list_dir_shallow(dir_path: &Path) -> Result<Vec<FileNode>> {
     Ok(nodes)
 }
 
-/// 检查目录是否为空（忽略隐藏文件）
+/// 树中永久隐藏的条目(与 list_dir_shallow / dir_is_empty 共用同一策略)
+fn is_always_hidden(name: &str) -> bool {
+    name == ".git"
+}
+
+/// 检查目录是否为空（忽略永久隐藏的条目）
 fn dir_is_empty(dir_path: &Path) -> bool {
     match fs::read_dir(dir_path) {
         Ok(mut entries) => !entries.any(|e| {
             e.ok()
-                .map(|e| {
-                    !e.file_name()
-                        .to_string_lossy()
-                        .starts_with('.')
-                })
+                .map(|e| !is_always_hidden(&e.file_name().to_string_lossy()))
                 .unwrap_or(false)
         }),
         Err(_) => true,
@@ -135,5 +137,40 @@ fn determine_category(extension: Option<&str>) -> FileCategory {
         Some("dat") => FileCategory::Archive,
         Some("png") | Some("jpg") | Some("jpeg") | Some("bmp") => FileCategory::Image,
         _ => FileCategory::Unknown,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn dotfiles_visible_but_git_hidden() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        fs::create_dir(dir.path().join(".claude")).expect("mkdir .claude");
+        fs::create_dir(dir.path().join(".git")).expect("mkdir .git");
+        fs::write(dir.path().join(".mcp.json"), "{}").expect("write .mcp.json");
+        fs::write(dir.path().join("st01.decl"), "").expect("write decl");
+
+        let nodes = get_file_tree(dir.path()).expect("scan");
+        let names: Vec<&str> = nodes.iter().map(|n| n.name.as_str()).collect();
+
+        assert!(names.contains(&".claude"), "got: {names:?}");
+        assert!(names.contains(&".mcp.json"), "got: {names:?}");
+        assert!(names.contains(&"st01.decl"), "got: {names:?}");
+        assert!(!names.contains(&".git"), ".git must stay hidden, got: {names:?}");
+    }
+
+    #[test]
+    fn dir_containing_only_dotdir_is_expandable() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let parent = dir.path().join("proj");
+        fs::create_dir_all(parent.join(".claude")).expect("mkdir");
+
+        let nodes = get_file_tree(dir.path()).expect("scan");
+        let proj = nodes.iter().find(|n| n.name == "proj").expect("proj node");
+
+        assert!(!proj.is_leaf, ".claude 子目录可见,父目录应可展开");
     }
 }
