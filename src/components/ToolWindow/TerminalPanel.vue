@@ -8,9 +8,12 @@
           :key="session.id"
           type="button"
           class="h-6 px-2 text-[11px] rounded-sm border flex items-center gap-1 shrink-0"
-          :class="session.id === terminalStore.activeSessionId
-            ? 'text-gray-100 border-[#3b82f6] bg-transparent'
-            : 'text-gray-400 border-transparent hover:text-gray-200 hover:border-[#3b82f6]/55'"
+          :class="[
+            session.id === terminalStore.activeSessionId
+              ? 'text-gray-100 border-[#3b82f6] bg-transparent'
+              : 'text-gray-400 border-transparent hover:text-gray-200 hover:border-[#3b82f6]/55',
+            session.exited ? 'opacity-50' : ''
+          ]"
           @click="terminalStore.setActive(session.id)"
         >
           {{ session.title }}
