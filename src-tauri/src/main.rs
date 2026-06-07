@@ -20,8 +20,8 @@ use tauri::State;
 
 mod modules; // 确保 src-tauri/src/modules/mod.rs 存在且包含 pub mod ecl;
 use modules::ecl::commands::{
-    compile_ecl_file, decompile_ecl_file, get_ecl_map_semantics, get_thecl_status,
-    run_thecl_operation,
+    compile_ecl_file, decompile_ecl_file, generate_ai_assist_pack, get_ecl_map_semantics,
+    get_thecl_status, run_thecl_operation,
 };
 
 use common::fs_ops;
@@ -176,6 +176,7 @@ fn main() {
             get_thecl_status,
             get_ecl_map_semantics,
             run_thecl_operation,
+            generate_ai_assist_pack,
             fs_ops::create_directory,
             fs_ops::create_file,
             fs_ops::rename_entry,

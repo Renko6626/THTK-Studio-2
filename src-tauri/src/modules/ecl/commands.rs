@@ -126,3 +126,20 @@ pub async fn get_thecl_status(
 pub async fn get_ecl_map_semantics(path: String) -> Result<map_parser::EclMapSemanticData, String> {
     map_parser::parse_ecl_map_file(&path)
 }
+
+#[tauri::command]
+pub async fn generate_ai_assist_pack(
+    state: State<'_, AppState>,
+) -> Result<super::ai_pack::AiPackResult, String> {
+    let config = state.config_manager.get_config();
+    let root = state
+        .current_project_root
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone()
+        .ok_or("No project root set")?;
+
+    let map_path = crate::modules::mcp::tools::resolve_map_path(&config)?;
+    let semantics = map_parser::parse_ecl_map_file(&map_path)?;
+    super::ai_pack::generate(&root, &semantics)
+}

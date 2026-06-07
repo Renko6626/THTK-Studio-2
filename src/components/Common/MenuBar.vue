@@ -31,8 +31,10 @@ import { useTerminalStore } from '../../stores/terminal'
 import { useWorkbenchPanelsStore } from '../../stores/workbenchPanels'
 import { useBuildDialogStore } from '../../stores/buildDialog'
 import { useToolchainSettingsStore } from '../../stores/toolchainSettings'
+import { useWorkbenchReportsStore } from '../../stores/workbenchReports'
 import { dispatchEditorAction } from '../../composables/useEditorActionBridge'
 import { useFileOperations } from '../../composables/useFileOperations'
+import { generateAiAssistPack } from '../../api'
 
 const editorStore = useEditorStore()
 const projectStore = useProjectStore()
@@ -40,6 +42,7 @@ const terminalStore = useTerminalStore()
 const workbenchPanelsStore = useWorkbenchPanelsStore()
 const buildDialogStore = useBuildDialogStore()
 const toolchainSettingsStore = useToolchainSettingsStore()
+const reportsStore = useWorkbenchReportsStore()
 const { handleCreate } = useFileOperations()
 const message = useMessage()
 
@@ -109,7 +112,8 @@ const menus = computed(() => [
     options: [
       { label: '编译当前 ECL 源文件', key: 'script.compileEcl', disabled: !canCompileActiveSource.value },
       { label: '反编译当前 ECL 二进制', key: 'script.decompileEcl', disabled: !canDecompileActiveBinary.value },
-      { label: '为当前 ECL 生成头文件', key: 'script.generateHeader', disabled: !canGenerateActiveHeader.value }
+      { label: '为当前 ECL 生成头文件', key: 'script.generateHeader', disabled: !canGenerateActiveHeader.value },
+      { label: '生成 AI 辅助包', key: 'script.generateAiPack', disabled: !hasWorkspace.value }
     ]
   },
   {
@@ -221,6 +225,41 @@ async function handleSelect(key) {
     case 'script.generateHeader':
       openTheclDialog('header')
       break
+    case 'script.generateAiPack': {
+      generateAiAssistPack()
+        .then((result) => {
+          reportsStore.publishToolResult({
+            ownerKey: 'ecl:ai-pack',
+            source: 'toolchain',
+            operation: 'ai-pack',
+            scriptKind: 'ecl',
+            title: '生成 AI 辅助包',
+            path: result.skillPath,
+            success: true,
+            message: [
+              result.skillWritten ? 'SKILL.md 已生成' : 'SKILL.md 已存在，保留用户版本',
+              ...result.referenceFiles.map((file) => `已刷新 ${file}`)
+            ].join('\n'),
+            diagnostics: []
+          })
+          workbenchPanelsStore.showBottomPanel('output')
+        })
+        .catch((error) => {
+          reportsStore.publishToolResult({
+            ownerKey: 'ecl:ai-pack',
+            source: 'toolchain',
+            operation: 'ai-pack',
+            scriptKind: 'ecl',
+            title: '生成 AI 辅助包',
+            path: null,
+            success: false,
+            message: String(error),
+            diagnostics: []
+          })
+          workbenchPanelsStore.showBottomPanel('output')
+        })
+      break
+    }
     case 'terminal.new':
       workbenchPanelsStore.showBottomPanel('terminal')
       terminalStore.openSession()
