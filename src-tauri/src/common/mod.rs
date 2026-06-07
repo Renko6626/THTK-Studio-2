@@ -9,3 +9,4 @@ pub mod system_clipboard;
 pub mod terminal;
 pub mod toolchain;
 pub mod pty;
+pub mod mcp_config;
