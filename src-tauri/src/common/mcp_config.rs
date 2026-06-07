@@ -42,27 +42,71 @@ pub fn upsert_mcp_entry(project_root: &str, port: u16, token: &str) -> Result<()
     fs::write(&path, serialized).map_err(|e| format!("Failed to write .mcp.json: {e}"))
 }
 
-/// 在给定的 PATH 字符串中查找可执行文件(name、name.exe、name.cmd)。
-/// 测试用参数化版本;运行时用 cli_available 读真实 PATH。
-pub fn cli_available_in(path_var: &std::ffi::OsStr, name: &str) -> bool {
-    for dir in std::env::split_paths(path_var) {
-        for candidate in [
-            name.to_string(),
-            format!("{name}.exe"),
-            format!("{name}.cmd"),
-        ] {
-            if dir.join(&candidate).is_file() {
-                return true;
-            }
+/// 检查 dir 下是否存在 name / name.exe / name.cmd / name.bat 之一。
+fn file_in_dir_is_candidate(dir: &std::path::Path, name: &str) -> bool {
+    for candidate in [
+        name.to_string(),
+        format!("{name}.exe"),
+        format!("{name}.cmd"),
+        format!("{name}.bat"),
+    ] {
+        if dir.join(&candidate).is_file() {
+            return true;
         }
     }
     false
 }
 
+/// 进程 PATH 之外再补一批常见的用户级安装目录——桌面图标启动的应用
+/// 往往拿不到登录 shell 的完整 PATH(nvm / npm-global / homebrew / cargo)。
+fn extra_cli_dirs() -> Vec<std::path::PathBuf> {
+    let mut dirs = Vec::new();
+    if let Some(home) = std::env::var_os("HOME").map(std::path::PathBuf::from) {
+        for rel in [
+            ".local/bin",
+            ".cargo/bin",
+            ".npm-global/bin",
+            ".bun/bin",
+            ".deno/bin",
+        ] {
+            dirs.push(home.join(rel));
+        }
+        // nvm: ~/.nvm/versions/node/*/bin —— 取所有版本
+        let nvm = home.join(".nvm/versions/node");
+        if let Ok(entries) = std::fs::read_dir(&nvm) {
+            for entry in entries.flatten() {
+                dirs.push(entry.path().join("bin"));
+            }
+        }
+    }
+    for abs in ["/usr/local/bin", "/opt/homebrew/bin", "/opt/local/bin"] {
+        dirs.push(std::path::PathBuf::from(abs));
+    }
+    dirs
+}
+
+/// 在给定的 PATH 字符串中查找可执行文件(name、name.exe、name.cmd、name.bat)。
+/// 测试用参数化版本;运行时用 cli_available 读真实 PATH + 扩展目录。
+pub fn cli_available_in(path_var: &std::ffi::OsStr, name: &str) -> bool {
+    std::env::split_paths(path_var).any(|dir| file_in_dir_is_candidate(&dir, name))
+}
+
+/// 在 PATH + extra_dirs 中查找可执行文件。供测试注入显式目录列表,
+/// 避免修改全局 HOME 环境变量带来的并发测试问题。
+pub fn cli_available_with(
+    name: &str,
+    path_var: Option<&std::ffi::OsStr>,
+    extra_dirs: &[std::path::PathBuf],
+) -> bool {
+    let in_path = path_var
+        .map(|p| cli_available_in(p, name))
+        .unwrap_or(false);
+    in_path || extra_dirs.iter().any(|dir| file_in_dir_is_candidate(dir, name))
+}
+
 pub fn cli_available(name: &str) -> bool {
-    std::env::var_os("PATH")
-        .map(|path| cli_available_in(&path, name))
-        .unwrap_or(false)
+    let extra = extra_cli_dirs();
+    cli_available_with(name, std::env::var_os("PATH").as_deref(), &extra)
 }
 
 /// 在项目根 opencode.json 写入/更新 mcp.thtk-studio entry(非破坏)。
@@ -602,6 +646,46 @@ mod tests {
                 .iter()
                 .any(|c| c.level == "error" && c.title.contains(".mcp.json")),
             "should report a .mcp.json error card, got: {cards:?}"
+        );
+    }
+
+    // ---- cli_available_in .bat suffix test ----
+
+    #[test]
+    fn cli_available_in_matches_bat_suffix() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        fs::write(dir.path().join("foo.bat"), "").expect("create foo.bat");
+
+        let path_os = std::env::join_paths([dir.path()]).expect("join_paths");
+        assert!(
+            cli_available_in(&path_os, "foo"),
+            "should find 'foo' via 'foo.bat' in temp dir"
+        );
+        assert!(
+            !cli_available_in(&path_os, "bar"),
+            "should NOT find 'bar' in temp dir"
+        );
+    }
+
+    // ---- cli_available_with extra_dirs test ----
+
+    #[test]
+    fn extra_dirs_detected_via_cli_available_with() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let bin_dir = dir.path().join(".local").join("bin");
+        fs::create_dir_all(&bin_dir).expect("create .local/bin");
+        fs::write(bin_dir.join("myclitool"), "").expect("create myclitool");
+
+        // empty PATH → only extra_dirs provides the hit
+        let empty_path = std::ffi::OsString::new();
+        assert!(
+            cli_available_with("myclitool", Some(empty_path.as_os_str()), &[bin_dir.clone()]),
+            "should find 'myclitool' via extra_dirs"
+        );
+        // absent name → false
+        assert!(
+            !cli_available_with("nosuchcli", Some(empty_path.as_os_str()), &[bin_dir]),
+            "should NOT find 'nosuchcli'"
         );
     }
 }
