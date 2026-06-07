@@ -124,32 +124,39 @@ pub fn upsert_codex_entry(project_root: &str, port: u16) -> Result<bool, String>
         .parse()
         .map_err(|e| format!(".codex/config.toml is not valid TOML, refusing to overwrite: {e}"))?;
 
-    // Ensure mcp_servers exists as an implicit table (no stray [mcp_servers] header)
-    if doc.as_table().get("mcp_servers").is_none() {
-        let mut t = toml_edit::Table::new();
-        t.set_implicit(true);
-        doc.as_table_mut()["mcp_servers"] = toml_edit::Item::Table(t);
-    } else if let Some(t) = doc.as_table_mut()
-        .get_mut("mcp_servers")
-        .and_then(|i| i.as_table_mut())
-    {
-        t.set_implicit(true);
-    }
+    // Obtain a mutable reference to the mcp_servers table, creating it as an implicit
+    // table if absent, or returning Err if it exists but is not a table.
+    let servers = match doc.as_table_mut().entry("mcp_servers") {
+        toml_edit::Entry::Occupied(occ) => {
+            let item = occ.into_mut();
+            match item.as_table_mut() {
+                Some(t) => t,
+                None => return Err(
+                    ".codex/config.toml mcp_servers is not a table, refusing to overwrite".to_string()
+                ),
+            }
+        }
+        toml_edit::Entry::Vacant(vac) => {
+            let mut t = toml_edit::Table::new();
+            t.set_implicit(true);
+            vac.insert(toml_edit::Item::Table(t)).as_table_mut().expect("just inserted table")
+        }
+    };
+    servers.set_implicit(true);
 
-    // Determine whether thtk-studio entry already exists
-    let created = doc
-        .as_table()
-        .get("mcp_servers")
-        .and_then(|s| s.as_table())
-        .and_then(|s| s.get("thtk-studio"))
-        .is_none();
+    // Determine whether the thtk-studio entry already exists BEFORE or_insert_with.
+    let created = servers.get("thtk-studio").is_none();
 
-    // Build the entry table
-    let mut entry = toml_edit::Table::new();
-    entry["url"] = toml_edit::value(format!("http://127.0.0.1:{port}/mcp"));
-    entry["bearer_token_env_var"] = toml_edit::value("THTK_MCP_TOKEN");
-
-    doc["mcp_servers"]["thtk-studio"] = toml_edit::Item::Table(entry);
+    // Get or create the thtk-studio sub-table, updating only our two managed keys,
+    // preserving any user-added keys (e.g. startup_timeout_sec, tool_timeout_sec).
+    let entry = servers
+        .entry("thtk-studio")
+        .or_insert_with(|| toml_edit::Item::Table(toml_edit::Table::new()));
+    let entry_table = entry.as_table_mut().ok_or_else(|| {
+        ".codex/config.toml mcp_servers.thtk-studio is not a table, refusing to overwrite".to_string()
+    })?;
+    entry_table["url"] = toml_edit::value(format!("http://127.0.0.1:{port}/mcp"));
+    entry_table["bearer_token_env_var"] = toml_edit::value("THTK_MCP_TOKEN");
 
     fs::create_dir_all(&dir).map_err(|e| format!("Failed to create .codex dir: {e}"))?;
     fs::write(&path, doc.to_string())
@@ -385,5 +392,57 @@ mod tests {
         // File should be byte-identical
         let content_after = fs::read_to_string(codex_dir.join("config.toml")).expect("read");
         assert_eq!(content_after, bad_content, "file should be unchanged after error");
+    }
+
+    #[test]
+    fn codex_refuses_non_table_mcp_servers() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path().to_string_lossy().to_string();
+        let seed = "mcp_servers = 1\n";
+        let codex_dir = dir.path().join(".codex");
+        fs::create_dir_all(&codex_dir).expect("create .codex dir");
+        fs::write(codex_dir.join("config.toml"), seed).expect("seed");
+
+        let result = upsert_codex_entry(&root, 39127);
+        assert!(result.is_err(), "should return Err when mcp_servers is not a table");
+
+        // File should be byte-identical (not written)
+        let content_after = fs::read_to_string(codex_dir.join("config.toml")).expect("read");
+        assert_eq!(content_after, seed, "file should be unchanged after error");
+    }
+
+    #[test]
+    fn codex_preserves_user_keys_in_entry() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path().to_string_lossy().to_string();
+        let seed = "[mcp_servers.thtk-studio]\nurl = \"http://old/mcp\"\nstartup_timeout_sec = 60\n";
+        let codex_dir = dir.path().join(".codex");
+        fs::create_dir_all(&codex_dir).expect("create .codex dir");
+        fs::write(codex_dir.join("config.toml"), seed).expect("seed");
+
+        let result = upsert_codex_entry(&root, 55555);
+        assert!(result.is_ok(), "upsert failed: {:?}", result.err());
+        assert_eq!(result.unwrap(), false, "entry existed so should return false");
+
+        let content = fs::read_to_string(codex_dir.join("config.toml")).expect("read");
+        let doc: toml_edit::DocumentMut = content.parse().expect("valid toml");
+
+        // url is updated to contain the new port
+        let url = doc["mcp_servers"]["thtk-studio"]["url"]
+            .as_str()
+            .expect("url is string");
+        assert!(url.contains("55555"), "url should contain new port 55555, got: {url}");
+
+        // bearer_token_env_var is written
+        let btev = doc["mcp_servers"]["thtk-studio"]["bearer_token_env_var"]
+            .as_str()
+            .expect("bearer_token_env_var is string");
+        assert_eq!(btev, "THTK_MCP_TOKEN");
+
+        // user key startup_timeout_sec is preserved
+        let timeout = doc["mcp_servers"]["thtk-studio"]["startup_timeout_sec"]
+            .as_integer()
+            .expect("startup_timeout_sec is integer");
+        assert_eq!(timeout, 60, "startup_timeout_sec should be preserved");
     }
 }
