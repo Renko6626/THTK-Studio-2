@@ -36,8 +36,9 @@ pub fn upsert_mcp_entry(project_root: &str, port: u16, token: &str) -> Result<()
         }),
     );
 
-    let serialized = serde_json::to_string_pretty(&root)
+    let mut serialized = serde_json::to_string_pretty(&root)
         .map_err(|e| format!("Failed to serialize .mcp.json: {e}"))?;
+    serialized.push('\n'); // POSIX 尾换行,避免 git diff 噪音
     fs::write(&path, serialized).map_err(|e| format!("Failed to write .mcp.json: {e}"))
 }
 
