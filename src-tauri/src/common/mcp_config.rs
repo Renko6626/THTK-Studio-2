@@ -91,15 +91,26 @@ pub fn upsert_opencode_entry(project_root: &str, port: u16) -> Result<(), String
         .as_object_mut()
         .ok_or_else(|| "opencode.json mcp is not an object".to_string())?;
 
-    mcp_object.insert(
-        "thtk-studio".to_string(),
-        json!({
+    let entry = mcp_object
+        .entry("thtk-studio")
+        .or_insert_with(|| json!({
             "type": "remote",
             "enabled": true,
-            "url": format!("http://127.0.0.1:{port}/mcp"),
-            "headers": { "Authorization": "Bearer {env:THTK_MCP_TOKEN}" }
-        }),
-    );
+            "url": "",
+            "headers": {}
+        }));
+    let entry_obj = entry.as_object_mut().ok_or_else(|| {
+        "opencode.json mcp.thtk-studio is not an object, refusing to overwrite".to_string()
+    })?;
+    entry_obj.insert("url".to_string(), json!(format!("http://127.0.0.1:{port}/mcp")));
+    // Merge headers: preserve user-set headers, only update Authorization.
+    let headers = entry_obj
+        .entry("headers")
+        .or_insert_with(|| json!({}));
+    let headers_obj = headers.as_object_mut().ok_or_else(|| {
+        "opencode.json mcp.thtk-studio.headers is not an object".to_string()
+    })?;
+    headers_obj.insert("Authorization".to_string(), json!("Bearer {env:THTK_MCP_TOKEN}"));
 
     let mut serialized = serde_json::to_string_pretty(&root)
         .map_err(|e| format!("Failed to serialize opencode.json: {e}"))?;
@@ -409,6 +420,61 @@ mod tests {
         // File should be byte-identical (not written)
         let content_after = fs::read_to_string(codex_dir.join("config.toml")).expect("read");
         assert_eq!(content_after, seed, "file should be unchanged after error");
+    }
+
+    #[test]
+    fn opencode_preserves_user_enabled_false() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path().to_string_lossy().to_string();
+        fs::write(
+            dir.path().join("opencode.json"),
+            r#"{"mcp":{"thtk-studio":{"type":"remote","enabled":false,"url":"http://old/mcp","headers":{"Authorization":"Bearer x","X-Custom":"keep"}}}}"#,
+        )
+        .expect("seed");
+
+        upsert_opencode_entry(&root, 55555).expect("upsert");
+
+        let value: Value =
+            serde_json::from_str(&fs::read_to_string(dir.path().join("opencode.json")).unwrap())
+                .unwrap();
+        // enabled must remain false (not reverted to true)
+        assert_eq!(value["mcp"]["thtk-studio"]["enabled"], false, "enabled should be preserved as false");
+        // url updated to new port
+        assert_eq!(
+            value["mcp"]["thtk-studio"]["url"],
+            "http://127.0.0.1:55555/mcp",
+            "url should be updated"
+        );
+        // Authorization updated
+        assert_eq!(
+            value["mcp"]["thtk-studio"]["headers"]["Authorization"],
+            "Bearer {env:THTK_MCP_TOKEN}",
+            "Authorization should be updated"
+        );
+        // user-set custom header preserved
+        assert_eq!(
+            value["mcp"]["thtk-studio"]["headers"]["X-Custom"],
+            "keep",
+            "X-Custom header should be preserved"
+        );
+    }
+
+    #[test]
+    fn opencode_refuses_non_object_entry() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path().to_string_lossy().to_string();
+        let bad_content = r#"{"mcp":{"thtk-studio":5}}"#;
+        fs::write(dir.path().join("opencode.json"), bad_content).expect("seed");
+
+        let result = upsert_opencode_entry(&root, 55555);
+
+        assert!(result.is_err(), "should return Err when thtk-studio entry is not an object");
+        // File should be byte-identical (not written)
+        assert_eq!(
+            fs::read_to_string(dir.path().join("opencode.json")).unwrap(),
+            bad_content,
+            "file should be unchanged after error"
+        );
     }
 
     #[test]
