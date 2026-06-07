@@ -83,6 +83,7 @@ import { useWorkbenchPanelsStore } from './stores/workbenchPanels'
 import { useBeforeUnloadGuard } from './composables/useBeforeUnloadGuard'
 import { useEclSemanticVocabulary } from './composables/useEclSemanticVocabulary'
 import { useFileWatcher } from './composables/useFileWatcher'
+import { useMcpBridge } from './composables/useMcpBridge'
 import { useWorkbenchSession } from './composables/useWorkbenchSession'
 import { useWorkbenchShortcuts } from './composables/useWorkbenchShortcuts'
 import { resolveEditorView } from './services/workbench/editorViews'
@@ -147,6 +148,8 @@ useFileWatcher({
   projectStore,
   showReloadNotice
 })
+
+useMcpBridge()
 
 useBeforeUnloadGuard({
   hasDirtyTabs,
