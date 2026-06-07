@@ -108,11 +108,11 @@ fn infer_version_from_path(path: &str) -> String {
         .unwrap_or(lower.as_str())
         .to_string();
 
-    file_name
-        .strip_suffix(".eclm")
-        .unwrap_or(file_name.as_str())
-        .trim_start_matches("th")
-        .to_string()
+    let stem = file_name
+        .strip_suffix(".eclmap")
+        .or_else(|| file_name.strip_suffix(".eclm"))
+        .unwrap_or(file_name.as_str());
+    stem.trim_start_matches("th").to_string()
 }
 
 pub fn parse_ecl_map_file(path: &str) -> Result<EclMapSemanticData, String> {
@@ -336,5 +336,11 @@ mod tests {
         let sample = "!gvar_names\n-1 X\n";
         let data = parse_ecl_map_content("maps/th17.eclm", sample).expect("parse");
         assert_eq!(data.globals[0].var_type, "unknown");
+    }
+
+    #[test]
+    fn infer_version_from_eclmap_extension() {
+        let data = parse_ecl_map_content("maps/th17.eclmap", "!ins_names\n").expect("parse");
+        assert_eq!(data.version, "17");
     }
 }

@@ -14,6 +14,10 @@ pub struct AiPackResult {
     pub version: String,
 }
 
+fn escape_table_cell(text: &str) -> String {
+    text.replace('|', "\\|")
+}
+
 fn render_instructions_markdown(data: &EclMapSemanticData) -> String {
     let mut out = String::new();
     out.push_str(&format!(
@@ -32,9 +36,9 @@ fn render_instructions_markdown(data: &EclMapSemanticData) -> String {
             "| {} | {} | {} | {} | {} |\n",
             ins.opcode,
             ins.name,
-            ins.signature.as_deref().unwrap_or(""),
-            params,
-            ins.section.as_deref().unwrap_or("")
+            escape_table_cell(ins.signature.as_deref().unwrap_or("")),
+            escape_table_cell(&params),
+            escape_table_cell(ins.section.as_deref().unwrap_or(""))
         ));
     }
     out
@@ -50,7 +54,9 @@ fn render_registers_markdown(data: &EclMapSemanticData) -> String {
     for global in &data.globals {
         out.push_str(&format!(
             "| {} | {} | {} |\n",
-            global.id, global.name, global.var_type
+            global.id,
+            escape_table_cell(&global.name),
+            global.var_type
         ));
     }
     out
