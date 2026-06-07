@@ -128,19 +128,48 @@ impl PtyManager {
                 },
             );
 
-        // Reader thread: read loop only; never touches child.wait() or on_exit.
+        // Reader → mpsc → forwarder → on_output pipeline.
+        // Reader thread: raw read loop only; sends chunks into `chunk_tx`.
         // EINTR (ErrorKind::Interrupted) → continue; EOF (Ok(0)) or other
-        // error → break. Dropping this thread after the waiter removes the
-        // session (and thus drops `master`) is safe on both Unix and Windows.
+        // error → break. When the reader exits, chunk_tx drops, which causes
+        // the forwarder thread to drain and exit naturally.
+        // Dropping this thread after the waiter removes the session (and thus
+        // drops `master`) is safe on both Unix and Windows.
+        let (chunk_tx, chunk_rx) = std::sync::mpsc::channel::<Vec<u8>>();
         std::thread::spawn(move || {
             let mut buf = [0u8; 8192];
             loop {
                 match reader.read(&mut buf) {
                     Ok(0) => break,
-                    Ok(n) => on_output(id, buf[..n].to_vec()),
+                    Ok(n) => {
+                        if chunk_tx.send(buf[..n].to_vec()).is_err() {
+                            break;
+                        }
+                    }
                     Err(e) if e.kind() == ErrorKind::Interrupted => continue,
                     Err(_) => break,
                 }
+            }
+        });
+
+        // Forwarder thread: coalesce read chunks for ~16ms (cap 256KB) per event,
+        // so fast producers (`cat bigfile`) don't flood the webview with evals.
+        std::thread::spawn(move || {
+            use std::time::{Duration, Instant};
+            while let Ok(first) = chunk_rx.recv() {
+                let mut batch = first;
+                let deadline = Instant::now() + Duration::from_millis(16);
+                while batch.len() < 256 * 1024 {
+                    let now = Instant::now();
+                    if now >= deadline {
+                        break;
+                    }
+                    match chunk_rx.recv_timeout(deadline - now) {
+                        Ok(more) => batch.extend_from_slice(&more),
+                        Err(_) => break,
+                    }
+                }
+                on_output(id, batch);
             }
         });
 
@@ -226,9 +255,9 @@ pub struct PtyExitPayload {
 }
 
 #[tauri::command]
-pub fn pty_create(
+pub async fn pty_create(
     app: AppHandle,
-    state: State<AppState>,
+    state: State<'_, AppState>,
     shell: Option<String>,
     cwd: Option<String>,
     cols: u16,
@@ -242,6 +271,10 @@ pub fn pty_create(
             .unwrap_or_else(|e| e.into_inner())
             .clone()
     });
+
+    // Clamp to avoid a 0×0 PTY when the frontend measures before layout.
+    let cols = cols.max(1);
+    let rows = rows.max(1);
 
     let out_app = app.clone();
     let exit_app = app;
@@ -267,7 +300,7 @@ pub fn pty_create(
 }
 
 #[tauri::command]
-pub fn pty_write(state: State<AppState>, session_id: u32, data: String) -> Result<(), String> {
+pub async fn pty_write(state: State<'_, AppState>, session_id: u32, data: String) -> Result<(), String> {
     state.pty_manager.write(session_id, &data)
 }
 
