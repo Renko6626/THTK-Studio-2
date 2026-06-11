@@ -20,6 +20,10 @@
   - ECL 语法高亮、静态 marker 检查、`eclm` 动态语义层与分阶段实施方案
 - [ecl-signature-inference.md](./ecl-signature-inference.md)
   - 基于 `eclm` 和真实 .decl 样本，对 `!ins_signatures` 缩写含义的当前推断
+- [sht-format-research.md](./sht-format-research.md)
+  - SHT（自机 shoot type）二进制配置格式调研：结构、版本差异、可借鉴的 Priw8 `sht-webedit`
+- [sht-webedit-and-shmupcc-analysis.md](./sht-webedit-and-shmupcc-analysis.md)
+  - Priw8 `sht-webedit` / `shmupcc-sht` 源码级分析：声明式版本 schema、ZUN 解析器怪癖、高版本字段演化、Rust 移植建议
 
 ## ECL 教程整理
 

@@ -22,3 +22,16 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Ghidra projects / disasm artifacts (binary, large, rebuildable — never commit)
+*.gpr
+*.rep
+*_ghidra/
+ghidra_projects/
+# game binaries / assets (copyright — never commit)
+*.exe
+*.dat
+
+# python cache
+__pycache__/
+*.pyc
