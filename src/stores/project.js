@@ -7,7 +7,9 @@ export const useProjectStore = defineStore('project', {
     rootPath: null,        // 当前打开的项目根目录
     files: [],             // 文件树数据（浅层，子目录按需加载）
     isLoading: false,
-    projectConfig: null    // .thtk-project.json 的内容，null 表示不存在
+    projectConfig: null,   // .thtk-project.json 的内容，null 表示不存在
+    _refreshPromise: null,
+    _refreshPending: false
   }),
 
   getters: {
@@ -96,6 +98,23 @@ export const useProjectStore = defineStore('project', {
 
     async refresh() {
       if (!this.rootPath) return
+      if (this._refreshPromise) {
+        // 已经在刷,标记"完成后再刷一次"以反映期间的变更
+        this._refreshPending = true
+        return this._refreshPromise
+      }
+      this._refreshPromise = this._doRefresh().finally(() => {
+        this._refreshPromise = null
+        if (this._refreshPending) {
+          this._refreshPending = false
+          // 不 await,让当前调用尽快返回;后续操作会看到二次 refresh 的效果
+          this.refresh()
+        }
+      })
+      return this._refreshPromise
+    },
+
+    async _doRefresh() {
       // 记住当前已加载的目录路径，刷新后重新加载它们
       const loadedDirs = new Set()
       this._collectLoadedDirs(this.files, loadedDirs)
@@ -115,9 +134,12 @@ export const useProjectStore = defineStore('project', {
     /** 收集所有已加载了 children 的目录路径 */
     _collectLoadedDirs(nodes, result) {
       for (const node of nodes) {
-        if (node.is_dir && node.children?.length) {
+        if (node.is_dir && node.children !== undefined) {
           result.add(node.path)
-          this._collectLoadedDirs(node.children, result)
+          // 仅当有子时才递归;空数组不需要进
+          if (node.children.length) {
+            this._collectLoadedDirs(node.children, result)
+          }
         }
       }
     },
