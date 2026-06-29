@@ -103,7 +103,17 @@ thecl 编译 → 错误诊断 → Monaco 波浪线 → 问题面板 → 点击�
 - 静态诊断（未定义跳转 / 重复定义等）
 - 工具链诊断（thecl 编译错误 → Monaco markers）
 
-### 2.8 Agent 通道
+### 2.8 thmsg 基本工作流（2026-06-07）
+
+已实现：
+
+- 菜单"脚本 → 解包当前 .msg"：活动标签为 .msg 时可用；触发后调用 `thmsg -d`，SJIS→UTF-8 解码，再经 `modules/msg/translator` 将 `ins_N` 翻译为可读指令名（使用 `assets/msg-th17.json` 中的 33 条指令），写入 .dmsg，输出面板弹出"解包 .msg 完成"卡片，自动打开 .dmsg
+- 菜单"脚本 → 打包当前 .dmsg"：活动标签为 .dmsg 时可用；将可读指令名反向翻译回 `ins_N`，UTF-8→SJIS 编码后写临时文件，调用 `thmsg -c` 生成 .msg，输出面板弹出"打包 .msg 完成"卡片；失败时显示 thmsg stderr，.msg 不被覆盖
+- `.dmsg` 文件在 Monaco 普通文本视图中编辑（无补全/高亮）；`.msg` 进 binary-script 视图
+- 已知限制：binary-script 视图中"打开 ECL build dialog"按钮对 .msg 无意义（BinaryScriptView.vue 写死，后续 UX 任务）
+- 不提供 Monaco 语言服务、MCP 工具、AI 辅助包扩展或 BuildDialog——这些是后续 spec
+
+### 2.9 Agent 通道
 
 已实现进程内 MCP server，支持在终端内运行 claude code 并让 agent 直接操作工作区：
 
@@ -241,3 +251,7 @@ THTK-Studio 的第一阶段 MVP 工程闭环已经完成，并在此基础上完
 11. 装 codex：`.codex/config.toml` 生成 + trust 提示卡；trust 后 codex 见六工具
 12. 未装对应 CLI 的机器：不产生 `opencode.json`/`.codex`
 13. 重启 IDE（端口不变）：opencode/codex 配置无 diff；`.mcp.json` 仅 token 变
+14. 菜单"脚本 → 解包当前 .msg"：选中 .msg 标签后该项可用；触发后输出面板出现"解包 .msg 完成"卡片，自动打开生成的 .dmsg（内容为可读指令名如 `textboxShow()`，非原始 `ins_N`）
+15. 编辑 .dmsg（如改 textboxShow 的注释、或不改），"脚本 → 打包当前 .dmsg"：输出面板"打包 .msg 完成"，生成的 .msg 字节合理（可再解包验证往返正确）
+16. 故意写错 .dmsg（如 `textboxShow` 改成不存在的 `fakeShow`），打包失败卡片显示 thmsg stderr；原 .msg 不被覆盖损坏
+17. 项目未配置 thtk_dir / thmsg 路径：菜单触发后立刻弹失败卡片"thmsg path is not configured"

@@ -8,7 +8,7 @@
 | 工具/格式 | 后端解析+诊断 | Monaco 语法/补全 | 工作区视图 | 构建对话框 | MCP 工具 |
 |---|---|---|---|---|---|
 | **thecl / .decl** | ✅ `modules/ecl/` 完整 | ✅ `services/languages/ecl/` 全套 | ✅ 文本 + `binary-script` | ✅ | ✅ check/compile/decompile/lookup |
-| **thmsg / .msg** | ❌ | ❌ | ❌(只有兜底文本视图) | ❌ stub | ❌ |
+| **thmsg / .msg** | ✅ 基本解包/打包 + dmsg 翻译层(`modules/msg/`) | ❌ 无 Monaco 语言服务 | ✅ 基本可用 — `.msg` 进 binary-script 视图(ECL 专用文案，已知限制)，`.dmsg` 进普通文本视图 | ❌ 菜单触发,无 BuildDialog | ❌ 无 MCP 工具 |
 | **thanm / .anm** | ❌ | ❌ | ❌ | ❌ stub | ❌ |
 | **thstd / .std** | ❌ | ❌ | ❌ | ❌ stub | ❌ |
 | **thdat / .dat** | ❌(打包工具,非"脚本") | — | — | ❌ stub | ❌ |
@@ -104,6 +104,15 @@ Rust(`modules/msg/`):
 注册:registry.js 的 `thmsg` descriptor 填实;editorViews.js 加 `.dmsg` → text 映射;MCP 加 `check_msg`/`compile_msg`/`decompile_msg`/`lookup_msg_semantics`(套 ECL 现有的可测自由函数模式)。
 
 资产:**直接复制 `thmsg_ref.json` 到 `src-tauri/assets/`**(已是公共数据格式,不引入许可冲突)。
+
+**已完成(2026-06-07)**：
+
+- `src-tauri/assets/msg-th17.json`：33 条指令的 JSON 语义数据（从旧仓库 `thmsg_ref.json` 转换，规范化 schema）
+- `src-tauri/src/modules/msg/`：`map_parser`（反序列化 + th17 内嵌回退）、`translator`（行级 `ins_N` ↔ 指令名双向翻译；时间标签/注释/未知 opcode 透传）、`compiler`（thmsg -d/-c 调用 + SJIS↔UTF-8 桥接）、`commands`（两个 Tauri 命令：`decompile_msg_file` / `compile_msg_file`）
+- 前端菜单"脚本 → 解包当前 .msg / 打包当前 .dmsg"：从活动标签取路径，成功/失败均发输出面板卡片，解包后自动打开生成的 .dmsg
+- Windows 验收清单：见 `editor-shell-status.md` §9 条目 14–17
+
+**已知限制**：`.msg` 文件的 binary-script 视图目前使用 ECL 专用文案（`BinaryScriptView.vue` 写死了"打开 ECL build dialog"按钮），对 .msg 无意义。thmsg 工作流仍可正常使用（从顶部菜单触发），但视图内的操作按钮属于后续 UX 任务：让 binary-script 视图变成工具感知，或为 .msg 单独注册一种视图类型。
 
 ### 阶段 B:thstd(3D 背景脚本,与 msg 同形)
 

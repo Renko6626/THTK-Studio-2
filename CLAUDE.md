@@ -24,7 +24,7 @@ Rust unit tests exist and run with:
 ```bash
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
-15 unit tests cover: pty (3), map_parser (3), mcp_config (3), mcp tools (3), ai_pack (2), auth (1). On Linux the GTK/WebKit dev headers must be visible to compile the Tauri crate — install them via apt, or without sudo use the conda `tauri-dev` environment (exports `PKG_CONFIG_PATH` / `LD_LIBRARY_PATH`); both paths are documented in README "Linux 服务器开发".
+59 unit tests cover: pty (4), fs_utils (2), mcp_config (19), ecl/map_parser (3), ecl/ai_pack (3), mcp/server (3), mcp/tools (5), msg/map_parser (3), msg/translator (9), msg/compiler (7), auth (1). On Linux the GTK/WebKit dev headers must be visible to compile the Tauri crate — install them via apt, or without sudo use the conda `tauri-dev` environment (exports `PKG_CONFIG_PATH` / `LD_LIBRARY_PATH`); both paths are documented in README "Linux 服务器开发".
 
 `src-tauri/target/` is a Rust debug build cache and grows to several GB (the `windows` crate + incremental cache dominate); it and `node_modules/`, `dist/` are gitignored and regenerated locally.
 
@@ -45,6 +45,7 @@ Before implementing, identify whether the task is a frontend view/panel, editor 
 - `config.rs` — app config read/write (still uses `Result<_, String>` + some unwrap; MVP-era).
 - `common/` — shared capabilities: `fs_utils` (lazy shallow file-tree scan + `get_dir_children` on-demand), `fs_ops` (file CRUD), `file_watcher` (notify + debounce → Tauri event emit), `cmd_runner` (external process exec with Shift-JIS decode + hidden console on Windows), `toolchain` (tool path resolution + version detection), `terminal` (one-shot shell exec — **superseded by PTY terminal, pending cleanup**), `system_clipboard`, `project_config`, `pty` (PTY session management: portable-pty, cross-platform shell detection, ConPTY-safe waiter-thread exit detection, 16ms output batching), `mcp_config` (non-destructive `.mcp.json` merge — preserves existing entries, updates thtk-studio port/token on each launch).
 - `modules/ecl/` — the one fully-wired toolchain: `commands` (Tauri commands), `compiler` (builds `thecl` args, runs it), `error_parser` (thecl stderr → `Diagnostic` with normalized absolute paths), `map_parser` (eclmap parsing + global register parsing via `!gvar_names`/`!gvar_types`). New toolchains (thmsg/thstd/thanm) should follow this module shape and reuse the structured-result pattern.
+- `modules/msg/` — second toolchain (basic workflow only): `compiler` (thmsg -d/-c with SJIS↔UTF-8 bridge), `translator` (line-level `ins_N` ↔ name using the JSON semantic data; preserves time labels and unknown opcodes), `map_parser` (loads embedded `assets/msg-th{ver}.json`, currently only th17 with fallback), `commands`. No Monaco language service, no MCP tools, no AI assist pack — see the spec's "不做花活" section.
 - `modules/mcp/` — in-process MCP server (rmcp 1.7, Streamable HTTP, random port on 127.0.0.1, Bearer token rotated each launch). Six tools: `get_workspace_info`, `check_ecl`, `compile_ecl`, `decompile_ecl`, `lookup_ecl_semantics`, `report_to_user`. Blocking work runs via `spawn_blocking`.
 
 **Encoding matters**: `save_file`'s `is_source` flag decides UTF-8 (`.decl`/`.dmsg` source) vs Shift-JIS (raw game text). Don't lose this distinction.
