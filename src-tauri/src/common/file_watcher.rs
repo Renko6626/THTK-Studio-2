@@ -10,7 +10,12 @@ use tauri::{AppHandle, Emitter};
 #[serde(rename_all = "camelCase")]
 pub struct FileChangeEvent {
     pub path: String,
-    pub kind: String, // "modify" | "remove" | "create"
+    /// `"modify"` — path still exists at processing time (covers create + modify, files and dirs).
+    /// `"remove"` — path no longer exists at processing time.
+    /// The frontend treats both equivalently: it triggers a full tree refresh.
+    /// Directories are included; `DebouncedEventKind::Any` collapses create/modify/rename into
+    /// a single event after the debounce window, so both files and directories are handled here.
+    pub kind: String,
 }
 
 pub struct FileWatcherState {
@@ -55,8 +60,9 @@ pub fn start_watching(
             for event in events {
                 let path_str = event.path.to_string_lossy().to_string();
 
-                // 跳过目录事件和重复路径
-                if event.path.is_dir() || !seen.insert(path_str.clone()) {
+                // Deduplicate paths; directories are no longer filtered out (C4 fix: mkdir
+                // was silently dropped before, so the frontend never refreshed on new dirs).
+                if !seen.insert(path_str.clone()) {
                     continue;
                 }
 
