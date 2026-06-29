@@ -50,9 +50,8 @@
       </div>
     </div>
 
-    <n-spin :show="projectStore.isLoading">
+    <n-spin v-if="projectStore.rootPath" :show="projectStore.isLoading">
       <n-tree
-        :key="treeRenderKey"
         block-line
         selectable
         multiple
@@ -303,15 +302,10 @@ async function handleLazyLoad(node) {
 // ---- 临时节点注入（新建文件时） ----
 
 const tempKey = ref('')
-const treeRenderKey = ref(0)
 
 watch(() => inputState.type, (t) => {
   if (t === 'create') tempKey.value = `__TEMP_CREATING__::${Date.now()}`
   else tempKey.value = ''
-})
-
-watch(() => inputState.type, (t) => {
-  if (t === null) treeRenderKey.value++
 })
 
 watch(() => inputState.type, async (newType) => {
