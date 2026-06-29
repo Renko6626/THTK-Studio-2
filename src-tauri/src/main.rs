@@ -206,6 +206,7 @@ fn main() {
             fs_ops::rename_entry,
             fs_ops::copy_entry,
             fs_ops::delete_entry,
+            fs_ops::stat_entry,
             system_clipboard::set_file_clipboard,
             system_clipboard::get_file_clipboard,
             terminal::run_shell_command,
