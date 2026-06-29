@@ -67,3 +67,19 @@ export function decompileStdFile({ inputPath, outputPath = null, withComments = 
 export function compileStdFile({ inputPath, outputPath = null }) {
   return invoke('compile_std_file', { inputPath, outputPath })
 }
+
+/**
+ * 解包 .dat 容器到目标目录
+ * @param {{ archivePath: string, targetDir: string }} params
+ */
+export function extractDatFile({ archivePath, targetDir }) {
+  return invoke('extract_dat_file', { archivePath, targetDir })
+}
+
+/**
+ * 把目录打包为 .dat 容器
+ * @param {{ sourceDir: string, archivePath: string }} params
+ */
+export function packDatFile({ sourceDir, archivePath }) {
+  return invoke('pack_dat_file', { sourceDir, archivePath })
+}

@@ -23,7 +23,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { open } from '@tauri-apps/plugin-dialog'
+import { open, save } from '@tauri-apps/plugin-dialog'
 import { NDropdown, useMessage, useDialog } from 'naive-ui'
 import { useEditorStore } from '../../stores/editor'
 import { useProjectStore } from '../../stores/project'
@@ -34,7 +34,7 @@ import { useToolchainSettingsStore } from '../../stores/toolchainSettings'
 import { useWorkbenchReportsStore } from '../../stores/workbenchReports'
 import { dispatchEditorAction } from '../../composables/useEditorActionBridge'
 import { useFileOperations } from '../../composables/useFileOperations'
-import { generateAiAssistPack, decompileMsgFile, compileMsgFile, decompileStdFile, compileStdFile } from '../../api'
+import { generateAiAssistPack, decompileMsgFile, compileMsgFile, decompileStdFile, compileStdFile, extractDatFile, packDatFile } from '../../api'
 
 const editorStore = useEditorStore()
 const projectStore = useProjectStore()
@@ -135,7 +135,10 @@ const menus = computed(() => [
       { label: '解包当前 .msg', key: 'script.decompileMsg', disabled: !isActiveTabMsg.value },
       { label: '打包当前 .dmsg', key: 'script.compileMsg', disabled: !isActiveTabDmsg.value },
       { label: '解包当前 .std', key: 'script.decompileStd', disabled: !isActiveTabStd.value },
-      { label: '打包当前 .dstd', key: 'script.compileStd', disabled: !isActiveTabDstd.value }
+      { label: '打包当前 .dstd', key: 'script.compileStd', disabled: !isActiveTabDstd.value },
+      { type: 'divider', key: 'dat-divider' },
+      { label: '解包 .dat (容器)', key: 'script.extractDat' },
+      { label: '打包目录为 .dat', key: 'script.packDat' }
     ]
   },
   {
@@ -386,6 +389,105 @@ async function runCompileStd() {
   }
 }
 
+function deriveDefaultExtractDir(archivePath) {
+  // /p/th17.dat → /p/th17
+  const lastSep = Math.max(archivePath.lastIndexOf('/'), archivePath.lastIndexOf('\\'))
+  const dir = archivePath.slice(0, lastSep + 1)
+  const name = archivePath.slice(lastSep + 1)
+  const stem = name.replace(/\.dat$/i, '')
+  return dir + stem
+}
+
+function publishDatResult({ operation, success, archivePath, targetDir, fileCount, message: text }) {
+  const ownerKey = `dat:${operation}:${archivePath}`
+  const opLabel = operation === 'extract' ? '解包' : '打包'
+  const fileNote = typeof fileCount === 'number' ? `(${fileCount} 个文件)` : ''
+  reportsStore.publishToolResult({
+    ownerKey,
+    source: 'toolchain',
+    operation,
+    scriptKind: 'dat',
+    title: `${opLabel} .dat ${success ? '完成' : '失败'} ${fileNote}`.trim(),
+    path: archivePath || targetDir || null,
+    success,
+    message: text || '',
+    diagnostics: []
+  })
+  workbenchPanelsStore.showBottomPanel('output')
+}
+
+async function runExtractDat() {
+  // 1) 选 .dat 归档:若当前 tab 已是 .dat 直接复用,否则弹文件选择器
+  let archivePath = null
+  const activeTab = editorStore.activeTab
+  if (activeTab && activeTab.path && activeTab.path.toLowerCase().endsWith('.dat')) {
+    archivePath = activeTab.path
+  } else {
+    archivePath = await open({
+      multiple: false,
+      directory: false,
+      filters: [{ name: 'Touhou Archive', extensions: ['dat'] }]
+    })
+    if (!archivePath) return
+  }
+  // 2) 选目标目录,默认 <archive_parent>/<stem>/
+  const defaultDir = deriveDefaultExtractDir(archivePath)
+  const targetDir = await open({ directory: true, defaultPath: defaultDir })
+  if (!targetDir) return
+  // 3) 调用后端,推卡片,刷新文件树
+  try {
+    const result = await extractDatFile({ archivePath, targetDir })
+    publishDatResult({
+      operation: 'extract',
+      success: Boolean(result?.success),
+      archivePath,
+      targetDir,
+      fileCount: typeof result?.fileCount === 'number' ? result.fileCount : null,
+      message: result?.message || ''
+    })
+    try { await projectStore.refresh() } catch {}
+  } catch (error) {
+    publishDatResult({
+      operation: 'extract',
+      success: false,
+      archivePath,
+      targetDir,
+      fileCount: null,
+      message: String(error)
+    })
+  }
+}
+
+async function runPackDat() {
+  const sourceDir = await open({ directory: true })
+  if (!sourceDir) return
+  const archivePath = await save({
+    filters: [{ name: 'Touhou Archive', extensions: ['dat'] }]
+  })
+  if (!archivePath) return
+  try {
+    const result = await packDatFile({ sourceDir, archivePath })
+    publishDatResult({
+      operation: 'pack',
+      success: Boolean(result?.success),
+      archivePath,
+      targetDir: sourceDir,
+      fileCount: typeof result?.fileCount === 'number' ? result.fileCount : null,
+      message: result?.message || ''
+    })
+    try { await projectStore.refresh() } catch {}
+  } catch (error) {
+    publishDatResult({
+      operation: 'pack',
+      success: false,
+      archivePath,
+      targetDir: sourceDir,
+      fileCount: null,
+      message: String(error)
+    })
+  }
+}
+
 async function handleSelect(key) {
   switch (key) {
     case 'file.openFolder':
@@ -484,6 +586,12 @@ async function handleSelect(key) {
       break
     case 'script.compileStd':
       runCompileStd()
+      break
+    case 'script.extractDat':
+      runExtractDat()
+      break
+    case 'script.packDat':
+      runPackDat()
       break
     case 'terminal.new':
       workbenchPanelsStore.showBottomPanel('terminal')
