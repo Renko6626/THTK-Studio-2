@@ -49,6 +49,10 @@ thecl 编译 → 错误诊断 → Monaco 波浪线 → 问题面板 → 点击�
 
 2.X 文件树错误边界与可见性(2026-06-07,Batch 2):watcher 启动失败弹卡片提示、跨 OS 路径分隔符归一、DnD/paste/delete 失败可见且 per-entry 聚合报告、多选时菜单项禁用而非弹 toast、bulk 操作 loading 转圈、non-UTF8 文件名⚠️标记并拒绝 IDE 操作、空状态 UI 干净二选一。
 
+### 2.X 文件树对抗审阅修复(2026-06-07,B2.5)
+
+2.X 文件树对抗审阅修复(2026-06-07,B2.5):read_file/save_file 加路径守卫(关掉任意文件读漏洞)、Tauri CSP 严格化(无 script-src unsafe-inline/eval,XSS 不再等于 RCE)、后端镜像 validateFileName 关 NTFS ADS / Windows 保留名、copy_dir_all 加 Windows junction reparse 检查。详见 docs/superpowers/specs/2026-06-07-adversarial-audit-fixes.md。
+
 ### 2.2 编辑器主体
 
 已实现：
