@@ -1,4 +1,5 @@
-import { copyEntry, renameEntry, deleteEntry, getFileClipboard, setFileClipboard } from '../api'
+import { copyEntry, renameEntry, deleteEntry, getFileClipboard, setFileClipboard, statEntry } from '../api'
+import { useWorkbenchReportsStore } from '../stores/workbenchReports'
 
 /**
  * 文件树的剪切/复制/粘贴/删除操作
@@ -148,57 +149,114 @@ export function useFileTreeActions({
   }
 
   async function pasteIntoTarget(targetNode) {
-    let entries = explorerClipboardStore.entries
+    const reportsStore = useWorkbenchReportsStore()
+    const isCut = explorerClipboardStore.isCut
+    const failed = []
+    let entries = []
+    let usingInternal = false
 
-    if (!entries.length) {
+    if (explorerClipboardStore.entries.length) {
+      // 内部剪贴板：is_dir 已在 setCopy/setCut 时正确写入
+      usingInternal = true
+      entries = explorerClipboardStore.entries.map(e => ({ ...e }))
+    } else {
+      // 系统剪贴板：路径来自 OS 文件管理器，is_dir 未知 → 必须 stat 探测
+      let systemPaths = []
       try {
         const systemClipboard = await getFileClipboard()
-        entries = (systemClipboard?.paths || []).map(path => ({
-          path,
-          name: path.split(/[\\/]/).pop(),
-          is_dir: false
-        }))
+        systemPaths = systemClipboard?.paths || []
       } catch {
-        entries = []
+        systemPaths = []
+      }
+
+      for (const path of systemPaths) {
+        const name = path.split(/[\\/]/).pop()
+        try {
+          const stat = await statEntry(path)
+          if (!stat?.exists) {
+            failed.push({ name, error: '源路径不存在' })
+            continue
+          }
+          entries.push({ path, name, is_dir: !!stat.isDir })
+        } catch (err) {
+          failed.push({ name, error: String(err) })
+        }
       }
     }
-    if (!entries.length) return
+
+    if (!entries.length && !failed.length) return
 
     const destinationDir = resolveDestinationDir(targetNode)
     const existingNames = getExistingNamesForDir(destinationDir)
-    let movedAny = false
+    const succeeded = []
 
-    try {
-      for (const entry of entries) {
-        if (explorerClipboardStore.isCut && destinationDir === getParentPath(entry.path)) continue
+    for (const entry of entries) {
+      try {
+        // 剪切到原目录：直接跳过（不算成功也不算失败）
+        if (isCut && destinationDir === getParentPath(entry.path)) continue
 
-        const canPlace = explorerClipboardStore.isCut
+        const canPlace = isCut
           ? canMoveEntryIntoDir(entry, destinationDir)
           : canCopyEntryIntoDir(entry, destinationDir)
 
-        if (!canPlace) continue
+        if (!canPlace) {
+          failed.push({ name: entry.name, error: '目标位置无法放置（自身/子目录/同位置）' })
+          continue
+        }
 
         const destinationName = makeUniqueDestinationName(entry.name, destinationDir, existingNames)
         existingNames.add(destinationName.toLowerCase())
         const destinationPath = joinPath(destinationDir, destinationName)
 
-        if (explorerClipboardStore.isCut) {
+        if (isCut) {
           await renameEntry(entry.path, destinationPath)
           editorStore.handlePathRename(entry.path, destinationPath)
-          movedAny = true
         } else {
           await copyEntry(entry.path, destinationPath)
         }
+        succeeded.push({ name: entry.name, destinationPath })
+      } catch (err) {
+        failed.push({ name: entry.name, error: String(err) })
       }
-
-      if (explorerClipboardStore.isCut && movedAny) explorerClipboardStore.clear()
-
-      selectedKeys.value = []
-      explorerViewStore.clearSelection()
-      await projectStore.refresh()
-    } catch (error) {
-      message.error(String(error))
     }
+
+    // 全部成功且为剪切才清空内部剪贴板；任一失败则保留供用户重试
+    if (usingInternal && isCut && failed.length === 0 && succeeded.length > 0) {
+      explorerClipboardStore.clear()
+    }
+
+    selectedKeys.value = []
+    explorerViewStore.clearSelection()
+
+    // 即便全部失败也要 refresh：后端可能已部分修改
+    await projectStore.refresh().catch(() => {})
+
+    const total = succeeded.length + failed.length
+    if (total === 0) return
+
+    const summary = failed.length > 0
+      ? `已粘贴 ${succeeded.length} 个，失败 ${failed.length} 个`
+      : `已粘贴 ${succeeded.length} 个`
+    const allSucceeded = failed.length === 0 && succeeded.length > 0
+    const allFailed = succeeded.length === 0 && failed.length > 0
+
+    reportsStore.publishToolResult({
+      ownerKey: `paste:${targetNode.path}`,
+      source: 'file-tree',
+      operation: 'paste',
+      scriptKind: 'fs',
+      title: allSucceeded ? '粘贴完成' : (allFailed ? '粘贴失败' : '粘贴部分完成'),
+      path: targetNode.path,
+      success: allSucceeded,
+      message: failed.length > 0
+        ? `${summary}\n首个错误：${failed[0].error}`
+        : summary,
+      diagnostics: []
+    })
+
+    if (allSucceeded) message.success(summary)
+    else if (allFailed) message.error(`粘贴失败：${failed[0].error}`)
+    else message.warning(summary)
   }
 
   return {

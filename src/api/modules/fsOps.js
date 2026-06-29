@@ -61,8 +61,17 @@ export function getFileClipboard() {
 
 /**
  * 删除文件/文件夹
- * @param {string} path 
+ * @param {string} path
  */
 export function deleteEntry(path) {
   return invoke('delete_entry', { path })
+}
+
+/**
+ * 探测路径状态（用于粘贴前判断系统剪贴板里的源是否存在 / 是否目录）
+ * @param {string} path
+ * @returns {Promise<{ exists: boolean, isDir: boolean, size: number }>}
+ */
+export function statEntry(path) {
+  return invoke('stat_entry', { path })
 }
