@@ -81,3 +81,17 @@
 ## 验证
 
 每个 task 后 cargo test + npm run build,task 5 可能要加 1-2 个 lossy 检测测试。期望:Rust 测试 87 → 88-89(+1-2),前端构建 ✅。
+
+## 实际落地(2026-06-07)
+
+Rust 测试 88 passed,前端构建 ✅。
+
+| Task | Commit | 内容 |
+|---|---|---|
+| 1 | df0ba0e | watcher 启动失败 Result + emit 警告卡(H13) |
+| 2 | bc85a09 | pathNormalize 工具 + 边界比较升级(H15) |
+| 3 | 181904c | DnD refresh 失败提示 + OS 外部拖入拒绝(H14+M17) |
+| 4 | 16b665b | delete per-entry + 菜单禁用 + isLoading(M16+M18+M19) |
+| 5 | 2049dff | fs_utils lossy 检测 + 前端拒操作 + ⚠️ 标记(M20) |
+| 6 | f36f942 | 去 treeRenderKey + 空状态门控(M22+M23) |
+| 7 | (此提交) | 验证 + 文档 |

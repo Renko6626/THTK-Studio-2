@@ -131,7 +131,8 @@ if (node.is_dir && node.children?.length) { result.add(node.path); ... }
 
 修法:`submitInput` 前正则校验 `^[^\s/\\:*?"<>|]+$`,失败给具体提示"文件名不能包含 / \ : * ? \" < > |"。
 
-### H13 · `src-tauri/src/common/file_watcher.rs:88` — inotify watch 失败静默
+### H13 ✅ `src-tauri/src/common/file_watcher.rs:88` — inotify watch 失败静默
+**已修复(commit df0ba0e)**:start_watching 返回 Result,失败时经 Tauri 事件 emit 警告卡片提示用户手动刷新。
 
 `watch().watch(&root, Recursive)` 错误时 `eprintln` 后 `return`,state 留空 → watcher 完全停掉,前端不知道。
 
@@ -139,13 +140,15 @@ if (node.is_dir && node.children?.length) { result.add(node.path); ... }
 
 修法:start_watching 返回 Result,失败时通过 Tauri 事件 emit 警告卡片("文件监听不可用,需手动刷新")。
 
-### H14 · `src/composables/useFileTreeDnD.js:65` — DnD rename 后 refresh 失败不回滚
+### H14 ✅ `src/composables/useFileTreeDnD.js:65` — DnD rename 后 refresh 失败不回滚
+**已修复(commit 181904c)**:handleTreeDrop/handleRootDrop 的 refresh 加 try/catch,失败时弹 warning 提示用户手动刷新。
 
 rename 成功 → selectedKeys 乐观更新到新路径 → refresh 失败 → 树仍显示旧路径但 selection 指向不存在的新路径,UI 静默不一致。
 
 修法:用 `try/finally`,refresh 失败也强制再 refresh 一次或显示"树状态可能过期,点刷新"。
 
-### H15 · `src/composables/useFileWatcher.js:25` — 路径分隔符不一致致 watcher↔tab 匹配失败
+### H15 ✅ `src/composables/useFileWatcher.js:25` — 路径分隔符不一致致 watcher↔tab 匹配失败
+**已修复(commit bc85a09)**:新增 src/utils/pathNormalize.js,所有路径比较点双向 normalize 到 forward slash。
 
 watcher 给的是 OS-native (`\\` Windows);tab.path 可能 `/`(从 dialog 来)或 `\\`(JS 拼的)。严格 `===` 匹配失败。
 
@@ -159,14 +162,14 @@ watcher 给的是 OS-native (`\\` Windows);tab.path 可能 `/`(从 dialog 来)�
 
 | # | 位置 | 问题 |
 |---|---|---|
-| M16 | `useFileTreeActions.js:134` | deleteEntries 部分失败不刷新树 → phantom 节点 |
-| M17 | `useFileTreeDnD.js:23` | OS 外部拖进文件树静默忽略,根 drop 区还高亮误导 |
-| M18 | `useContextMenu.js:80` | 多选时菜单仍显示"重命名",点了弹 toast 才知不支持 |
-| M19 | `useFileTreeActions.js:150` | 粘贴大目录无 loading,UI 静默冻结几秒 |
-| M20 | `fs_utils.rs:58` | non-UTF8 文件名 lossy 转换后 IDE 无法 rename/delete(Linux 解包 SJIS 命名的 .dat 触发) |
+| M16 ✅ | `useFileTreeActions.js:134` | deleteEntries per-entry 错误聚合 + 总是 refresh — **已修复(commit 16b665b)** |
+| M17 ✅ | `useFileTreeDnD.js:23` | OS 外部拖入检测 + 拒绝并提示 — **已修复(commit 181904c)** |
+| M18 ✅ | `useContextMenu.js:80` | 多选时"重命名"菜单项 disabled:true — **已修复(commit 16b665b)** |
+| M19 ✅ | `useFileTreeActions.js:150` | paste/delete 加 isLoading 转圈 — **已修复(commit 16b665b)** |
+| M20 ✅ | `fs_utils.rs:58` | non-UTF8 文件名 lossy 检测 + ⚠️ 标记 + 前端拒操作 — **已修复(commit 2049dff)** |
 | M21 ✅ | `fs_ops.rs:14` | TOCTOU 双击新建会覆盖(改用 `OpenOptions::create_new`) — **已修复(commit 8843ccf)**:create_file 改用 create_new(true) 原子创建。 |
-| M22 | `FileTree.vue:256` | treeRenderKey 强制重挂载 n-tree 丢滚动/焦点/拖拽中状态 |
-| M23 | `FileTree.vue:94` | 空状态 UI 与空 n-tree 同时渲染浪费空间 |
+| M22 ✅ | `FileTree.vue:256` | 去除 treeRenderKey 强制重挂载 — **已修复(commit f36f942)** |
+| M23 ✅ | `FileTree.vue:94` | 空状态 UI 与 n-tree 二选一门控 — **已修复(commit f36f942)** |
 
 ---
 
@@ -198,6 +201,11 @@ watcher 给的是 OS-native (`\\` Windows);tab.path 可能 `/`(从 dialog 来)�
 集中在 `fs_ops.rs` + `file_watcher.rs` + `project.js` + `FileTree.vue` 四个文件,会互相 conflict,所以**一批做完**。
 
 ### Batch 2(应修)— 错误处理与边界
+
+**Batch 2 状态(2026-06-07):已完成**
+- 10 findings 修复(3 High + 7 Medium)
+- Rust 测试 87 → 88
+- 关键改动:watcher 失败可见、路径归一、per-entry 错误聚合、lossy 文件名标记、空状态 UI 精简、强制重挂载移除
 
 包含:🟠 H13/H14/H15 + 🟡 全部 8 条
 
