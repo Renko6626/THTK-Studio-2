@@ -12,10 +12,11 @@ function getBaseName(path) {
   return path.split(/[\\/]/).pop()
 }
 
-function isBinaryEclFile(fileNode) {
-  const category = String(fileNode?.category || '').toLowerCase()
+const BINARY_SCRIPT_EXTENSIONS = new Set(['ecl', 'msg', 'std', 'dat', 'anm'])
+
+function isBinaryScript(fileNode) {
   const extension = String(fileNode?.extension || '').toLowerCase()
-  return category === 'binaryscript' && extension === 'ecl'
+  return BINARY_SCRIPT_EXTENSIONS.has(extension)
 }
 
 function createTextTab(path, content, language, overrides = {}) {
@@ -80,7 +81,7 @@ export const useEditorStore = defineStore('editor', {
       }
 
       // 2. 二进制脚本不进入文本编辑器，改为专用工作区视图
-      if (isBinaryEclFile(fileNode)) {
+      if (isBinaryScript(fileNode)) {
         this.tabs.push(createBinaryScriptTab(fileNode))
         this.activePath = fileNode.path
         return

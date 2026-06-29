@@ -3,9 +3,9 @@
     <div class="w-full max-w-[760px] rounded-lg border border-white/8 bg-[#181818] shadow-[0_18px_60px_rgba(0,0,0,0.28)]">
       <div class="border-b border-white/8 px-6 py-5">
         <div class="text-[11px] uppercase tracking-[0.14em] text-gray-500">Binary Script</div>
-        <div class="mt-2 text-2xl font-semibold text-white">{{ activeTab?.name || 'ECL 文件' }}</div>
+        <div class="mt-2 text-2xl font-semibold text-white">{{ activeTab?.name || '二进制文件' }}</div>
         <div class="mt-2 text-sm text-gray-400">
-          当前打开的是二进制 `.ecl` 文件，不能直接用文本编辑器可靠修改。
+          {{ descriptor.description }}
         </div>
       </div>
 
@@ -24,7 +24,7 @@
               </div>
               <div class="flex items-center justify-between gap-4">
                 <dt class="text-gray-400">类型</dt>
-                <dd class="text-gray-100">Touhou ECL Binary</dd>
+                <dd class="text-gray-100">{{ descriptor.typeLabel }}</dd>
               </div>
             </dl>
           </div>
@@ -32,7 +32,7 @@
           <div class="rounded border border-white/8 bg-[#202020] p-4">
             <div class="text-[11px] uppercase tracking-[0.12em] text-gray-500">建议操作</div>
             <div class="mt-3 text-sm text-gray-300 leading-6">
-              先将该文件反编译为 `.decl` 源文件，再进入文本编辑器修改。这样更符合当前 IDE 的脚本工作流，也能把结果接入输出和问题面板。
+              {{ descriptor.suggestion }}
             </div>
           </div>
         </div>
@@ -41,16 +41,21 @@
           <div>
             <div class="text-[11px] uppercase tracking-[0.12em] text-gray-500">操作</div>
             <div class="mt-3 text-sm text-gray-300 leading-6">
-              通过反编译按钮打开构建配置弹窗，确认版本和参数后生成可编辑的 `.decl` 文件。
+              {{ descriptor.actionNote }}
             </div>
           </div>
 
           <div class="mt-6 space-y-3">
-            <n-button type="primary" block @click="openDecompileDialog">
-              解包 / 反编译为 .decl
+            <n-button
+              type="primary"
+              block
+              :disabled="descriptor.disabled"
+              @click="handleAction"
+            >
+              {{ descriptor.actionLabel }}
             </n-button>
             <div class="text-xs text-gray-500">
-              生成的文件会自动出现在资源管理器里，并可直接打开。
+              操作结果会出现在输出面板。
             </div>
           </div>
         </div>
@@ -62,11 +67,19 @@
 <script setup>
 import { computed } from 'vue'
 import { NButton } from 'naive-ui'
+import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { useEditorStore } from '../../stores/editor'
 import { useBuildDialogStore } from '../../stores/buildDialog'
+import { useProjectStore } from '../../stores/project'
+import { useWorkbenchReportsStore } from '../../stores/workbenchReports'
+import { useWorkbenchPanelsStore } from '../../stores/workbenchPanels'
+import { decompileMsgFile, decompileStdFile, extractDatFile } from '../../api'
 
 const editorStore = useEditorStore()
 const buildDialogStore = useBuildDialogStore()
+const projectStore = useProjectStore()
+const reportsStore = useWorkbenchReportsStore()
+const panelsStore = useWorkbenchPanelsStore()
 
 const activeTab = computed(() => editorStore.activeTab)
 
@@ -78,14 +91,154 @@ const formattedSize = computed(() => {
   return `${(size / (1024 * 1024)).toFixed(2)} MB`
 })
 
-function openDecompileDialog() {
-  if (!activeTab.value?.path) return
-  buildDialogStore.openDialog({
-    tool: 'thecl',
-    mode: 'decompile',
-    inputPath: activeTab.value.path,
-    version: '',
-    useShiftJis: true
+function publishView({ operation, scriptKind, success, outputPath, sourcePath, message, fileCount }) {
+  const opLabels = {
+    decompile: { ok: `解包 .${scriptKind} 完成`, fail: `解包 .${scriptKind} 失败` },
+    extract:   { ok: '解包 .dat 完成', fail: '解包 .dat 失败' }
+  }
+  const labels = opLabels[operation] || { ok: `${operation} 完成`, fail: `${operation} 失败` }
+  const fileNote = typeof fileCount === 'number' ? ` (${fileCount} 个文件)` : ''
+  const title = (success ? labels.ok : labels.fail) + fileNote
+  reportsStore.publishToolResult({
+    ownerKey: `${scriptKind}:${operation}:${sourcePath}`,
+    source: 'toolchain',
+    operation,
+    scriptKind,
+    title,
+    path: outputPath || sourcePath || null,
+    success,
+    message: message || '',
+    diagnostics: []
   })
+  panelsStore.showBottomPanel('output')
+}
+
+function deriveDefaultExtractDir(archivePath) {
+  // /p/th17.dat → /p/th17
+  const lastSep = Math.max(archivePath.lastIndexOf('/'), archivePath.lastIndexOf('\\'))
+  const dir = archivePath.slice(0, lastSep + 1)
+  const name = archivePath.slice(lastSep + 1)
+  const stem = name.replace(/\.dat$/i, '')
+  return dir + stem
+}
+
+const TOOL_DESCRIPTORS = {
+  ecl: {
+    typeLabel: 'Touhou ECL Binary',
+    description: '当前打开的是二进制 .ecl 文件，无法用文本编辑器直接修改。',
+    suggestion: '先将该文件反编译为 .decl 源文件，再进入文本编辑器修改。这样能把结果接入输出和问题面板。',
+    actionLabel: '反编译为 .decl',
+    actionNote: '通过反编译按钮打开构建配置弹窗，确认版本和参数后生成可编辑的 .decl 文件。',
+    disabled: false,
+    action: async (tab) => {
+      buildDialogStore.openDialog({
+        tool: 'thecl',
+        mode: 'decompile',
+        inputPath: tab.path,
+        version: '',
+        useShiftJis: true
+      })
+    }
+  },
+  msg: {
+    typeLabel: 'Touhou MSG Binary',
+    description: '当前打开的是二进制 .msg 文件，对话脚本数据。',
+    suggestion: '使用 thmsg 解包为可读的 .dmsg 源文件后编辑。指令 ins_N 会自动翻译成名字（如 textboxShow），打包时会反向翻译。',
+    actionLabel: '解包为 .dmsg',
+    actionNote: '调用 thmsg -d 解包，产物会自动出现在资源管理器并打开。',
+    disabled: false,
+    action: async (tab) => {
+      try {
+        const result = await decompileMsgFile({ inputPath: tab.path })
+        publishView({
+          operation: 'decompile',
+          scriptKind: 'msg',
+          success: Boolean(result?.success),
+          outputPath: result?.outputPath || null,
+          sourcePath: tab.path,
+          message: result?.message || ''
+        })
+        if (result?.success && result.outputPath) {
+          try { await editorStore.openFile({ path: result.outputPath }) } catch {}
+        }
+      } catch (error) {
+        publishView({ operation: 'decompile', scriptKind: 'msg', success: false, outputPath: null, sourcePath: tab.path, message: String(error) })
+      }
+    }
+  },
+  std: {
+    typeLabel: 'Touhou STD Binary',
+    description: '当前打开的是二进制 .std 文件，3D 背景脚本数据。',
+    suggestion: '使用 thstd 解包为可读的 .dstd 源文件后编辑。jmp 指令的参数顺序会自动适配生态约定（time, offset）。',
+    actionLabel: '解包为 .dstd',
+    actionNote: '调用 thstd -d 解包，产物会自动出现在资源管理器并打开。',
+    disabled: false,
+    action: async (tab) => {
+      try {
+        const result = await decompileStdFile({ inputPath: tab.path })
+        publishView({
+          operation: 'decompile',
+          scriptKind: 'std',
+          success: Boolean(result?.success),
+          outputPath: result?.outputPath || null,
+          sourcePath: tab.path,
+          message: result?.message || ''
+        })
+        if (result?.success && result.outputPath) {
+          try { await editorStore.openFile({ path: result.outputPath }) } catch {}
+        }
+      } catch (error) {
+        publishView({ operation: 'decompile', scriptKind: 'std', success: false, outputPath: null, sourcePath: tab.path, message: String(error) })
+      }
+    }
+  },
+  dat: {
+    typeLabel: 'Touhou DAT Archive',
+    description: '当前打开的是 .dat 容器文件，里面可能包含数百个游戏资源（脚本、动画、贴图等）。',
+    suggestion: '使用 thdat 解包到一个目录，再用对应工具单独编辑各文件。重新打包用菜单"打包目录为 .dat"。',
+    actionLabel: '解包到目录…',
+    actionNote: '会弹出原生目录选择框，默认目标是与 .dat 同名的兄弟目录。',
+    disabled: false,
+    action: async (tab) => {
+      const defaultDir = deriveDefaultExtractDir(tab.path)
+      const targetDir = await openDialog({ directory: true, defaultPath: defaultDir })
+      if (!targetDir) return
+      try {
+        const result = await extractDatFile({ archivePath: tab.path, targetDir })
+        publishView({
+          operation: 'extract',
+          scriptKind: 'dat',
+          success: Boolean(result?.success),
+          outputPath: targetDir,
+          sourcePath: tab.path,
+          message: result?.message || '',
+          fileCount: typeof result?.fileCount === 'number' ? result.fileCount : undefined
+        })
+        try { await projectStore.refresh() } catch {}
+      } catch (error) {
+        publishView({ operation: 'extract', scriptKind: 'dat', success: false, outputPath: null, sourcePath: tab.path, message: String(error) })
+      }
+    }
+  },
+  anm: {
+    typeLabel: 'Touhou ANM Binary',
+    description: '当前打开的是二进制 .anm 文件，精灵动画与图像资源。',
+    suggestion: 'thanm 工具链支持尚未实现（精灵预览另立 Spec）。可暂用 thtk 命令行工具解包。',
+    actionLabel: '尚未支持',
+    actionNote: 'ANM 文本编辑层与精灵预览将在后续版本中加入。',
+    disabled: true,
+    action: null
+  }
+}
+
+const descriptor = computed(() => {
+  const ext = activeTab.value?.extension?.toLowerCase()
+  return TOOL_DESCRIPTORS[ext] || TOOL_DESCRIPTORS.ecl
+})
+
+function handleAction() {
+  const tab = activeTab.value
+  if (!tab || !descriptor.value.action || descriptor.value.disabled) return
+  descriptor.value.action(tab)
 }
 </script>
