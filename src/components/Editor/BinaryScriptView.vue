@@ -54,6 +54,15 @@
             >
               {{ descriptor.actionLabel }}
             </n-button>
+            <n-button
+              v-if="descriptor.advancedAction"
+              text
+              size="small"
+              class="text-blue-300 hover:text-blue-200"
+              @click="handleAdvanced"
+            >
+              {{ descriptor.advancedLabel || '高级选项…' }}
+            </n-button>
             <div class="text-xs text-gray-500">
               操作结果会出现在输出面板。
             </div>
@@ -67,19 +76,16 @@
 <script setup>
 import { computed } from 'vue'
 import { NButton } from 'naive-ui'
-import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { useEditorStore } from '../../stores/editor'
-import { useBuildDialogStore } from '../../stores/buildDialog'
-import { useProjectStore } from '../../stores/project'
-import { useWorkbenchReportsStore } from '../../stores/workbenchReports'
-import { useWorkbenchPanelsStore } from '../../stores/workbenchPanels'
-import { decompileMsgFile, decompileStdFile, extractDatFile } from '../../api'
+import { useMessage } from 'naive-ui'
+import { useToolchainActions } from '../../composables/useToolchainActions'
 
 const editorStore = useEditorStore()
-const buildDialogStore = useBuildDialogStore()
-const projectStore = useProjectStore()
-const reportsStore = useWorkbenchReportsStore()
-const panelsStore = useWorkbenchPanelsStore()
+const message = useMessage()
+const {
+  runDecompileEclQuick, runDecompileEclAdvanced,
+  runDecompileMsg, runDecompileStd, runExtractDat,
+} = useToolchainActions({ message })
 
 const activeTab = computed(() => editorStore.activeTab)
 
@@ -91,139 +97,49 @@ const formattedSize = computed(() => {
   return `${(size / (1024 * 1024)).toFixed(2)} MB`
 })
 
-function publishView({ operation, scriptKind, success, outputPath, sourcePath, message, fileCount }) {
-  const opLabels = {
-    decompile: { ok: `解包 .${scriptKind} 完成`, fail: `解包 .${scriptKind} 失败` },
-    extract:   { ok: '解包 .dat 完成', fail: '解包 .dat 失败' }
-  }
-  const labels = opLabels[operation] || { ok: `${operation} 完成`, fail: `${operation} 失败` }
-  const fileNote = typeof fileCount === 'number' ? ` (${fileCount} 个文件)` : ''
-  const title = (success ? labels.ok : labels.fail) + fileNote
-  reportsStore.publishToolResult({
-    ownerKey: `${scriptKind}:${operation}:${sourcePath}`,
-    source: 'toolchain',
-    operation,
-    scriptKind,
-    title,
-    path: outputPath || sourcePath || null,
-    success,
-    message: message || '',
-    diagnostics: []
-  })
-  panelsStore.showBottomPanel('output')
-}
-
-function deriveDefaultExtractDir(archivePath) {
-  // /p/th17.dat → /p/th17
-  const lastSep = Math.max(archivePath.lastIndexOf('/'), archivePath.lastIndexOf('\\'))
-  const dir = archivePath.slice(0, lastSep + 1)
-  const name = archivePath.slice(lastSep + 1)
-  const stem = name.replace(/\.dat$/i, '')
-  return dir + stem
-}
-
 const TOOL_DESCRIPTORS = {
   ecl: {
-    typeLabel: 'Touhou ECL Binary',
-    description: '当前打开的是二进制 .ecl 文件，无法用文本编辑器直接修改。',
-    suggestion: '先将该文件反编译为 .decl 源文件，再进入文本编辑器修改。这样能把结果接入输出和问题面板。',
+    typeLabel: 'Touhou ECL 二进制',
+    description: 'ECL 控制原作敌机行为与弹幕逻辑。',
+    suggestion: '反编译为 .decl 文本源码,在编辑器中修改后再编译回 .ecl。',
     actionLabel: '反编译为 .decl',
-    actionNote: '通过反编译按钮打开构建配置弹窗，确认版本和参数后生成可编辑的 .decl 文件。',
+    actionNote: '使用项目默认 thecl 版本与 eclmap 快速反编译。如需选择版本/参数可点击下方"高级选项"。',
     disabled: false,
-    action: async (tab) => {
-      buildDialogStore.openDialog({
-        tool: 'thecl',
-        mode: 'decompile',
-        inputPath: tab.path,
-        version: '',
-        useShiftJis: true
-      })
-    }
+    action: async (tab) => { await runDecompileEclQuick(tab.path) },
+    advancedAction: (tab) => { runDecompileEclAdvanced(tab.path) },
+    advancedLabel: '高级选项…'
   },
   msg: {
-    typeLabel: 'Touhou MSG Binary',
-    description: '当前打开的是二进制 .msg 文件，对话脚本数据。',
-    suggestion: '使用 thmsg 解包为可读的 .dmsg 源文件后编辑。指令 ins_N 会自动翻译成名字（如 textboxShow），打包时会反向翻译。',
-    actionLabel: '解包为 .dmsg',
-    actionNote: '调用 thmsg -d 解包，产物会自动出现在资源管理器并打开。',
+    typeLabel: 'Touhou MSG 二进制',
+    description: 'MSG 控制原作对话流程与立绘切换。',
+    suggestion: '反编译为 .dmsg 文本源码后修改;指令 ins_N 自动翻译为名字。',
+    actionLabel: '反编译为 .dmsg',
+    actionNote: '调用 thmsg 反编译,产物 .dmsg 会自动在编辑器打开。',
     disabled: false,
-    action: async (tab) => {
-      try {
-        const result = await decompileMsgFile({ inputPath: tab.path })
-        publishView({
-          operation: 'decompile',
-          scriptKind: 'msg',
-          success: Boolean(result?.success),
-          outputPath: result?.outputPath || null,
-          sourcePath: tab.path,
-          message: result?.message || ''
-        })
-        if (result?.success && result.outputPath) {
-          try { await editorStore.openFile({ path: result.outputPath }) } catch {}
-        }
-      } catch (error) {
-        publishView({ operation: 'decompile', scriptKind: 'msg', success: false, outputPath: null, sourcePath: tab.path, message: String(error) })
-      }
-    }
+    action: async (tab) => { await runDecompileMsg(tab.path) }
   },
   std: {
-    typeLabel: 'Touhou STD Binary',
-    description: '当前打开的是二进制 .std 文件，3D 背景脚本数据。',
-    suggestion: '使用 thstd 解包为可读的 .dstd 源文件后编辑。jmp 指令的参数顺序会自动适配生态约定（time, offset）。',
-    actionLabel: '解包为 .dstd',
-    actionNote: '调用 thstd -d 解包，产物会自动出现在资源管理器并打开。',
+    typeLabel: 'Touhou STD 二进制',
+    description: 'STD 控制原作 3D 背景的摄像机与几何数据。',
+    suggestion: '反编译为 .dstd 文本源码后修改;jmp 参数顺序自动适配生态约定。',
+    actionLabel: '反编译为 .dstd',
+    actionNote: '调用 thstd 反编译,产物 .dstd 会自动在编辑器打开。',
     disabled: false,
-    action: async (tab) => {
-      try {
-        const result = await decompileStdFile({ inputPath: tab.path })
-        publishView({
-          operation: 'decompile',
-          scriptKind: 'std',
-          success: Boolean(result?.success),
-          outputPath: result?.outputPath || null,
-          sourcePath: tab.path,
-          message: result?.message || ''
-        })
-        if (result?.success && result.outputPath) {
-          try { await editorStore.openFile({ path: result.outputPath }) } catch {}
-        }
-      } catch (error) {
-        publishView({ operation: 'decompile', scriptKind: 'std', success: false, outputPath: null, sourcePath: tab.path, message: String(error) })
-      }
-    }
+    action: async (tab) => { await runDecompileStd(tab.path) }
   },
   dat: {
-    typeLabel: 'Touhou DAT Archive',
-    description: '当前打开的是 .dat 容器文件，里面可能包含数百个游戏资源（脚本、动画、贴图等）。',
-    suggestion: '使用 thdat 解包到一个目录，再用对应工具单独编辑各文件。重新打包用菜单"打包目录为 .dat"。',
+    typeLabel: 'Touhou DAT 容器',
+    description: 'DAT 是原作的资源容器,内含数百个 ECL/MSG/STD/ANM 等资源。',
+    suggestion: '解包到一个目录,再用对应工具编辑各文件;打包用菜单"打包目录为 .dat"。',
     actionLabel: '解包到目录…',
-    actionNote: '会弹出原生目录选择框，默认目标是与 .dat 同名的兄弟目录。',
+    actionNote: '弹出目录选择对话框,默认目标是与 .dat 同名的兄弟目录。',
     disabled: false,
-    action: async (tab) => {
-      const defaultDir = deriveDefaultExtractDir(tab.path)
-      const targetDir = await openDialog({ directory: true, defaultPath: defaultDir })
-      if (!targetDir) return
-      try {
-        const result = await extractDatFile({ archivePath: tab.path, targetDir })
-        publishView({
-          operation: 'extract',
-          scriptKind: 'dat',
-          success: Boolean(result?.success),
-          outputPath: targetDir,
-          sourcePath: tab.path,
-          message: result?.message || '',
-          fileCount: typeof result?.fileCount === 'number' ? result.fileCount : undefined
-        })
-        try { await projectStore.refresh() } catch {}
-      } catch (error) {
-        publishView({ operation: 'extract', scriptKind: 'dat', success: false, outputPath: null, sourcePath: tab.path, message: String(error) })
-      }
-    }
+    action: async (tab) => { await runExtractDat(tab.path) }
   },
   anm: {
-    typeLabel: 'Touhou ANM Binary',
-    description: '当前打开的是二进制 .anm 文件，精灵动画与图像资源。',
-    suggestion: 'thanm 工具链支持尚未实现（精灵预览另立 Spec）。可暂用 thtk 命令行工具解包。',
+    typeLabel: 'Touhou ANM 二进制',
+    description: 'ANM 包含精灵动画与图像资源。',
+    suggestion: 'thanm 工具链支持尚未实现,可暂用 thtk 命令行解包。',
     actionLabel: '尚未支持',
     actionNote: 'ANM 文本编辑层与精灵预览将在后续版本中加入。',
     disabled: true,
@@ -240,5 +156,11 @@ function handleAction() {
   const tab = activeTab.value
   if (!tab || !descriptor.value.action || descriptor.value.disabled) return
   descriptor.value.action(tab)
+}
+
+function handleAdvanced() {
+  const tab = activeTab.value
+  if (!tab || !descriptor.value.advancedAction || descriptor.value.disabled) return
+  descriptor.value.advancedAction(tab)
 }
 </script>
