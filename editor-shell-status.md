@@ -53,6 +53,10 @@ thecl 编译 → 错误诊断 → Monaco 波浪线 → 问题面板 → 点击�
 
 2.X 文件树对抗审阅修复(2026-06-07,B2.5):read_file/save_file 加路径守卫(关掉任意文件读漏洞)、Tauri CSP 严格化(无 script-src unsafe-inline/eval,XSS 不再等于 RCE)、后端镜像 validateFileName 关 NTFS ADS / Windows 保留名、copy_dir_all 加 Windows junction reparse 检查。详见 docs/superpowers/specs/2026-06-07-adversarial-audit-fixes.md。
 
+### 2.X 工具链前端 UX 统一(2026-06-07)
+
+§2.X 工具链前端 UX 统一(2026-06-07):4 个工具(thecl/thmsg/thstd/thdat)的菜单标签 / 卡片标题 / BinaryScriptView 文案全部按统一模板;动词区分编译/反编译(脚本类)vs 解包/打包(容器);分组用 divider 隔开;ECL 加快速反编译路径(无对话框),保留"高级选项…"入口走 BuildConfigDialog;新增 `useToolchainResult` + `useToolchainActions` composable 作为单一来源,MenuBar 和 BinaryScriptView 共用。详见 docs/superpowers/specs/2026-06-07-toolchain-ux-unification-design.md。
+
 ### 2.2 编辑器主体
 
 已实现：

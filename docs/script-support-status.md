@@ -8,9 +8,9 @@
 | 工具/格式 | 后端解析+诊断 | Monaco 语法/补全 | 工作区视图 | 构建对话框 | MCP 工具 |
 |---|---|---|---|---|---|
 | **thecl / .decl** | ✅ `modules/ecl/` 完整 | ✅ `services/languages/ecl/` 全套 | ✅ 文本 + `binary-script` | ✅ | ✅ check/compile/decompile/lookup |
-| **thmsg / .msg** | ✅ 基本解包/打包 + dmsg 翻译层(`modules/msg/`) | ❌ 无 Monaco 语言服务 | ✅ 基本可用 — `.msg` 进 binary-script 视图(ECL 专用文案，已知限制)，`.dmsg` 进普通文本视图 | ❌ 菜单触发,无 BuildDialog | ❌ 无 MCP 工具 |
+| **thmsg / .msg** | ✅ 基本反编译/编译 + dmsg 翻译层(`modules/msg/`) | ❌ 无 Monaco 语言服务 | ✅ 基本可用 — `.msg` 进 binary-script 视图，`.dmsg` 进普通文本视图 | ❌ 菜单触发,无 BuildDialog | ❌ 无 MCP 工具 |
 | **thanm / .anm** | ❌ | ❌ | ❌ | ❌ stub | ❌ |
-| **thstd / .std** | ✅ 基本解包/打包 + dstd 翻译层(`modules/thstd/`,含 jmp opcode 1 参数交换) | ❌ 无 Monaco 语言服务 | ✅ 基本可用 — `.std` 进 binary-script 视图(ECL 专用文案，已知限制)，`.dstd` 进普通文本视图 | ❌ 菜单触发,无 BuildDialog | ❌ 无 MCP 工具 |
+| **thstd / .std** | ✅ 基本反编译/编译 + dstd 翻译层(`modules/thstd/`,含 jmp opcode 1 参数交换) | ❌ 无 Monaco 语言服务 | ✅ 基本可用 — `.std` 进 binary-script 视图，`.dstd` 进普通文本视图 | ❌ 菜单触发,无 BuildDialog | ❌ 无 MCP 工具 |
 | **thdat / .dat** | ✅ 基本解包/打包(`modules/thdat/`,无语义层) | — | ✅ 通过菜单 + native pickers | ❌ 无 BuildDialog | ❌ 无 MCP 工具 |
 
 `services/toolchains/registry.js` 里 thmsg/thanm/thstd/thdat 都有 descriptor,`supportsBuildDialog: false`——空架子搭好了,等填。

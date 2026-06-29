@@ -127,3 +127,19 @@ BuildConfigDialog 保留,仅在用户明确"高级选项"时打开。
 4. 菜单"反编译当前 .ecl(高级选项…)"仍弹 BuildDialog
 5. 卡片标题:"反编译 .ecl 完成" / "反编译 .msg 完成" / "反编译 .std 完成" / "解包 .dat 完成"——格式一致
 6. 失败时,卡片标题 "...失败",输出面板自动弹出
+
+## 实际落地(2026-06-07)
+
+| Task | Commit | 内容 |
+|---|---|---|
+| 1 | d9e342b | 统一 publish + actions composable(纯新增) |
+| 2 | 6ba8405 | BinaryScriptView 切换 + 文案模板统一 + ECL 高级链接 |
+| 3 | 494855f | MenuBar 菜单分组 + 标签统一 + ECL quick path(MenuBar 净减 264 行) |
+| 4 | (此提交) | 验证 + 文档 |
+
+总改动:
+- 新增 2 个 composable(`useToolchainResult` / `useToolchainActions`)
+- 替换 4 个 publish helper → 1 个
+- MenuBar 工具链相关代码 ~316 行 → 52 行
+- 菜单 8 项 → 12 项(ECL 加 quick / advanced 各 2 + 头文件;dividers 分组)
+- BinaryScriptView 文案全部按统一模板
