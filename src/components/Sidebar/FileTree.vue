@@ -98,7 +98,7 @@
 </template>
 
 <script setup>
-import { computed, ref, h, nextTick, watch, onMounted, onBeforeUnmount } from 'vue'
+import { computed, ref, h, nextTick, watch, onBeforeUnmount } from 'vue'
 import { NTree, NSpin, NButton, NIcon, NDropdown, NInput, useDialog, useMessage } from 'naive-ui'
 import { open } from '@tauri-apps/plugin-dialog'
 import { useProjectStore } from '../../stores/project'
@@ -111,7 +111,7 @@ import {
   Folder24Regular
 } from '@vicons/fluent'
 import { useContextMenu } from '../../composables/useContextMenu'
-import { useFileOperations } from '../../composables/useFileOperations'
+import { useFileOperations, remapExpandedKeys } from '../../composables/useFileOperations'
 import { useFileTreeActions } from '../../composables/useFileTreeActions'
 import { useFileTreeDnD } from '../../composables/useFileTreeDnD'
 import { renderFileIcon } from '../../utils/renderFileIcon'
@@ -147,6 +147,10 @@ const EXPANDED_STORAGE_KEY = 'thtk-studio:explorer-expanded'
 const expandedKeys = ref([])
 let expandSaveTimer = null
 
+// 记录最近一次完成恢复时对应的 rootPath，避免重复对同一项目恢复
+const lastRestoredFor = ref(null)
+let restoringPromise = null
+
 function persistExpandedKeys() {
   if (expandSaveTimer) window.clearTimeout(expandSaveTimer)
   expandSaveTimer = window.setTimeout(() => {
@@ -160,27 +164,51 @@ function persistExpandedKeys() {
 }
 
 async function restoreExpandedKeys() {
-  try {
-    const raw = window.localStorage.getItem(EXPANDED_STORAGE_KEY)
-    if (!raw) return
-    const saved = JSON.parse(raw)
-    if (saved?.rootPath !== projectStore.rootPath || !Array.isArray(saved.keys) || !saved.keys.length) return
+  // 仅在该 rootPath 尚未恢复、且文件树已加载时执行
+  const currentRoot = projectStore.rootPath
+  if (!currentRoot) return
+  if (lastRestoredFor.value === currentRoot) return
+  if (!projectStore.files || !projectStore.files.length) return
+  if (restoringPromise) return restoringPromise
 
-    // 按路径深度排序（父目录先于子目录），逐层预加载
-    const sortedKeys = [...saved.keys].sort((a, b) => a.length - b.length)
-    const validKeys = []
-
-    for (const dirPath of sortedKeys) {
-      try {
-        await projectStore.loadChildren(dirPath)
-        validKeys.push(dirPath)
-      } catch {
-        // 目录可能已不存在，跳过
+  restoringPromise = (async () => {
+    try {
+      const raw = window.localStorage.getItem(EXPANDED_STORAGE_KEY)
+      if (!raw) {
+        lastRestoredFor.value = currentRoot
+        return
       }
-    }
+      const saved = JSON.parse(raw)
+      if (saved?.rootPath !== currentRoot || !Array.isArray(saved.keys) || !saved.keys.length) {
+        lastRestoredFor.value = currentRoot
+        return
+      }
 
-    expandedKeys.value = validKeys
-  } catch { /* ignore */ }
+      // 按路径深度排序（父目录先于子目录），逐层预加载
+      const sortedKeys = [...saved.keys].sort((a, b) => a.length - b.length)
+      const validKeys = []
+
+      for (const dirPath of sortedKeys) {
+        // rootPath 中途切换则放弃本次恢复
+        if (projectStore.rootPath !== currentRoot) return
+        try {
+          await projectStore.loadChildren(dirPath)
+          validKeys.push(dirPath)
+        } catch {
+          // 目录可能已不存在，跳过
+        }
+      }
+
+      if (projectStore.rootPath === currentRoot) {
+        expandedKeys.value = validKeys
+        lastRestoredFor.value = currentRoot
+      }
+    } catch { /* ignore */ } finally {
+      restoringPromise = null
+    }
+  })()
+
+  return restoringPromise
 }
 
 function handleExpand(keys) {
@@ -193,26 +221,47 @@ function handleSelectKeys(keys) {
   explorerViewStore.setSelectedPaths(keys)
 }
 
-onMounted(() => { restoreExpandedKeys() })
-watch(() => projectStore.rootPath, () => { restoreExpandedKeys() })
-
-// 文件树刷新后，过滤掉已不存在的展开路径
-watch(() => projectStore.files, () => {
-  if (!expandedKeys.value.length || !projectStore.files.length) return
-  const allPaths = new Set()
-  function collectPaths(nodes) {
-    for (const node of nodes) {
-      allPaths.add(node.path)
-      if (node.children) collectPaths(node.children)
-    }
-  }
-  collectPaths(projectStore.files)
-  const filtered = expandedKeys.value.filter(key => allPaths.has(key))
-  if (filtered.length !== expandedKeys.value.length) {
-    expandedKeys.value = filtered
-    persistExpandedKeys()
+// rootPath 改变时把恢复标记清掉，让新项目能再次触发恢复
+watch(() => projectStore.rootPath, (newRoot) => {
+  if (newRoot !== lastRestoredFor.value) {
+    lastRestoredFor.value = null
   }
 })
+
+// 文件树就绪后，触发持久化展开状态的恢复（避免 watch(rootPath) 与 loadProject
+// 内 getFileTree 之间的竞态——rootPath 先被赋值，files 才到位）。
+// 同时过滤掉已不存在的展开路径。
+watch(
+  () => projectStore.files,
+  () => {
+    // 首次/换项目时恢复（内部带 lastRestoredFor 守卫，不会重复恢复）
+    if (
+      projectStore.rootPath &&
+      projectStore.files.length > 0 &&
+      lastRestoredFor.value !== projectStore.rootPath
+    ) {
+      void restoreExpandedKeys()
+      // restore 自己会把现存路径写入 expandedKeys，后面的过滤逻辑不必再跑
+      return
+    }
+
+    if (!expandedKeys.value.length || !projectStore.files.length) return
+    const allPaths = new Set()
+    function collectPaths(nodes) {
+      for (const node of nodes) {
+        allPaths.add(node.path)
+        if (node.children) collectPaths(node.children)
+      }
+    }
+    collectPaths(projectStore.files)
+    const filtered = expandedKeys.value.filter(key => allPaths.has(key))
+    if (filtered.length !== expandedKeys.value.length) {
+      expandedKeys.value = filtered
+      persistExpandedKeys()
+    }
+  },
+  { flush: 'post' }
+)
 
 // ---- DnD ----
 
@@ -342,6 +391,30 @@ watch(
   { immediate: true }
 )
 
+// 重命名成功后，把本地的选中/展开状态从旧路径迁移到新路径，
+// 避免 n-tree 因键已变而把节点视为未选中 / 无法保留子树展开。
+const submitExtras = {
+  onRenamed: (oldPath, newPath) => {
+    if (!oldPath || !newPath || oldPath === newPath) return
+
+    selectedKeys.value = [newPath]
+    explorerViewStore.setSelectedPaths([newPath])
+
+    const remapped = remapExpandedKeys(expandedKeys.value, oldPath, newPath)
+    // 仅在确实变了时再赋值，避免触发不必要的持久化
+    let changed = remapped.length !== expandedKeys.value.length
+    if (!changed) {
+      for (let i = 0; i < remapped.length; i++) {
+        if (remapped[i] !== expandedKeys.value[i]) { changed = true; break }
+      }
+    }
+    if (changed) {
+      expandedKeys.value = remapped
+      persistExpandedKeys()
+    }
+  }
+}
+
 const renderLabel = ({ option }) => {
   const isCreating = option.isTemp
   const isRenaming = inputState.type === 'rename' && option.path === inputState.targetPath
@@ -354,12 +427,12 @@ const renderLabel = ({ option }) => {
       placeholder: '名称...',
       'onUpdate:value': (v) => { currentInputValue.value = v },
       onClick: (e) => e.stopPropagation(),
-      onBlur: () => { submitInput(currentInputValue.value) },
+      onBlur: () => { submitInput(currentInputValue.value, submitExtras) },
       onKeydown: (e) => {
         if (e.key === 'Enter') {
           e.preventDefault()
           e.stopPropagation()
-          submitInput(currentInputValue.value)
+          submitInput(currentInputValue.value, submitExtras)
         }
         if (e.key === 'Escape') {
           e.preventDefault()

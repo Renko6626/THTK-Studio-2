@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { remapExpandedKeys } from './useFileOperations'
 
 /**
  * 文件树拖放逻辑
@@ -66,10 +67,14 @@ export function useFileTreeDnD({
       editorStore.handlePathRename(dragNode.path, destinationPath)
       selectedKeys.value = [destinationPath]
       explorerViewStore.setSelectedPaths([destinationPath])
-      if (!expandedKeys.value.includes(destinationDir)) {
-        expandedKeys.value = [...expandedKeys.value, destinationDir]
-        persistExpandedKeys()
+      // 同步迁移展开状态：dragNode 自身或其子目录可能在 expandedKeys 中
+      const remapped = remapExpandedKeys(expandedKeys.value, dragNode.path, destinationPath)
+      let nextExpanded = remapped
+      if (!nextExpanded.includes(destinationDir)) {
+        nextExpanded = [...nextExpanded, destinationDir]
       }
+      expandedKeys.value = nextExpanded
+      persistExpandedKeys()
       await projectStore.refresh()
       message.success(`已移动到 ${destinationName}`)
     } catch (error) {
@@ -123,6 +128,9 @@ export function useFileTreeDnD({
       editorStore.handlePathRename(dragNode.path, destinationPath)
       selectedKeys.value = [destinationPath]
       explorerViewStore.setSelectedPaths([destinationPath])
+      // 同步迁移展开状态（dragNode 及其子目录可能在 expandedKeys 中）
+      expandedKeys.value = remapExpandedKeys(expandedKeys.value, dragNode.path, destinationPath)
+      persistExpandedKeys()
       await projectStore.refresh()
       message.success(`已移动到 ${destinationName}`)
     } catch (error) {
