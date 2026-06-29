@@ -15,14 +15,13 @@ fn opcode_by_name<'a>(data: &'a StdSemanticData) -> HashMap<&'a str, u32> {
         .collect()
 }
 
-/// 交换 args 字符串里的前两个逗号分隔实参。0/1 参时不变。
-/// 用于 thstd opcode 1 (jmp):thstd 二进制约定 ins_1(offset, time),
-/// 与 ref/ECL 生态的 jmp(time, offset) 约定相反,翻译两侧都需要交换。
+/// 交换 args 字符串里的前两个逗号分隔实参,输出统一为 `arg1, arg2` 风格。
+/// 0/1 参时不变。3+ 参时保留第三个及之后的原格式不动。
 fn swap_first_two_args(args: &str) -> String {
     let parts: Vec<&str> = args.splitn(3, ',').collect();
     match parts.as_slice() {
-        [a, b] => format!("{},{}", b.trim_start(), a),
-        [a, b, rest] => format!("{},{},{}", b.trim_start(), a, rest),
+        [a, b] => format!("{}, {}", b.trim(), a.trim()),
+        [a, b, rest] => format!("{}, {},{}", b.trim(), a.trim(), rest),
         _ => args.to_string(),
     }
 }
@@ -208,26 +207,24 @@ mod tests {
     #[test]
     fn jmp_decompile_swaps_args() {
         // raw thstd: ins_1(offset, time) ; readable: jmp(time, offset)
-        // 实际输出 `jmp(60,100)`(swap 把 b 前导空格 trim 掉,分隔符是裸 `,`)。
         let raw = "0:ins_1(100, 60)\n";
         let out = dstd_to_readable(raw, &data(), true);
-        assert!(out.starts_with("0:jmp(60,100)"), "got: {out}");
+        assert!(out.starts_with("0:jmp(60, 100)"), "got: {out}");
         // comment retained when with_comments=true
         assert!(out.contains("// 跳转"), "got: {out}");
     }
 
     #[test]
     fn jmp_compile_swaps_back() {
-        let readable = "0:jmp(60,100)\n";
+        let readable = "0:jmp(60, 100)\n";
         let back = readable_to_dstd(readable, &data());
-        assert_eq!(back, "0:ins_1(100,60)\n");
+        assert_eq!(back, "0:ins_1(100, 60)\n");
     }
 
     #[test]
     fn jmp_roundtrip_recovers_original() {
-        // 无空格参数能精确往返;`100, 60` 这种含空格输入往返后会丢失空格,
-        // 这是 swap 函数 spec 的固定行为(b.trim_start + 裸逗号),不在 jmp 路径上保证空格保真。
-        let raw = "0:ins_1(100,60)\n";
+        // 含空格参数能精确往返,因为 swap 统一输出 ", " 风格。
+        let raw = "0:ins_1(100, 60)\n";
         let readable = dstd_to_readable(raw, &data(), false);
         let back = readable_to_dstd(&readable, &data());
         assert_eq!(back, raw);
@@ -237,5 +234,13 @@ mod tests {
     fn swap_first_two_args_zero_or_one_arg_no_crash() {
         assert_eq!(swap_first_two_args(""), "");
         assert_eq!(swap_first_two_args("42"), "42");
+    }
+
+    #[test]
+    fn jmp_normalizes_space_after_comma() {
+        // 即使源 dstd 没有空格,翻译后也输出统一的 ", " 风格
+        let raw = "0:ins_1(100,60)\n";
+        let out = dstd_to_readable(raw, &data(), false);
+        assert_eq!(out, "0:jmp(60, 100)\n");
     }
 }
