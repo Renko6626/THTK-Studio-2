@@ -1,0 +1,310 @@
+{
+  "tool": "thmsg",
+  "version": "17",
+  "instructions": [
+    {
+      "opcode": 0,
+      "name": "end",
+      "params": [],
+      "description": "完全终止脚本引擎的运行。"
+    },
+    {
+      "opcode": 1,
+      "name": "playerShow",
+      "params": [
+        {
+          "name": "who",
+          "type": "int"
+        }
+      ],
+      "description": "显示玩家的角色立绘。"
+    },
+    {
+      "opcode": 2,
+      "name": "bossShow",
+      "params": [
+        {
+          "name": "who",
+          "type": "int"
+        }
+      ],
+      "description": "让敌人的角色立绘出现。"
+    },
+    {
+      "opcode": 3,
+      "name": "textboxShow",
+      "params": [],
+      "description": "显示对话框。"
+    },
+    {
+      "opcode": 4,
+      "name": "playerHide",
+      "params": [],
+      "description": "隐藏玩家的角色立绘。"
+    },
+    {
+      "opcode": 5,
+      "name": "bossHide",
+      "params": [
+        {
+          "name": "who",
+          "type": "int"
+        }
+      ],
+      "description": "隐藏一个敌人的角色立绘。"
+    },
+    {
+      "opcode": 6,
+      "name": "textboxHide",
+      "params": [],
+      "description": "隐藏对话框（以及上面的所有文本）。"
+    },
+    {
+      "opcode": 7,
+      "name": "speakerPlayer",
+      "params": [],
+      "description": "表明当前说话的是玩家。"
+    },
+    {
+      "opcode": 8,
+      "name": "speakerBoss",
+      "params": [
+        {
+          "name": "who",
+          "type": "int"
+        }
+      ],
+      "description": "表明当前说话的是敌人。"
+    },
+    {
+      "opcode": 9,
+      "name": "speakerNone",
+      "params": [],
+      "description": "表明当前没有人说话（旁白）。"
+    },
+    {
+      "opcode": 10,
+      "name": "skippable",
+      "params": [
+        {
+          "name": "skippable",
+          "type": "int"
+        }
+      ],
+      "description": "设置一个布尔标志位。当此标志为1时，文本可以被快速跳过。"
+    },
+    {
+      "opcode": 11,
+      "name": "textPause",
+      "params": [
+        {
+          "name": "max_frames",
+          "type": "int"
+        }
+      ],
+      "description": "等待玩家按下射击键，最多等待指定的帧数。"
+    },
+    {
+      "opcode": 12,
+      "name": "eclResume",
+      "params": [],
+      "description": "恢复所有正在等待MSG脚本的ECL脚本的运行。常用于通知Boss何时入场。"
+    },
+    {
+      "opcode": 13,
+      "name": "playerFace",
+      "params": [
+        {
+          "name": "face_index",
+          "type": "int"
+        }
+      ],
+      "description": "设置玩家的面部表情。参数会作为索引添加到玩家基础表情的ANM脚本索引上。"
+    },
+    {
+      "opcode": 14,
+      "name": "bossFace",
+      "params": [
+        {
+          "name": "who",
+          "type": "int"
+        },
+        {
+          "name": "face_index",
+          "type": "int"
+        }
+      ],
+      "description": "设置一个敌人的面部表情。参数会作为索引添加到敌人基础表情的ANM脚本索引上。"
+    },
+    {
+      "opcode": 15,
+      "name": "textLine1",
+      "params": [
+        {
+          "name": "text",
+          "type": "string"
+        }
+      ],
+      "description": "设置对话的第一行文本。（已弃用）"
+    },
+    {
+      "opcode": 16,
+      "name": "textLine2",
+      "params": [
+        {
+          "name": "text",
+          "type": "string"
+        }
+      ],
+      "description": "设置对话的第二行文本。（已弃用）"
+    },
+    {
+      "opcode": 17,
+      "name": "textAdd",
+      "params": [
+        {
+          "name": "text",
+          "type": "string"
+        }
+      ],
+      "description": "设置下一行要显示的对话文本。"
+    },
+    {
+      "opcode": 18,
+      "name": "textClear",
+      "params": [],
+      "description": "清除对话框中的所有文本。"
+    },
+    {
+      "opcode": 19,
+      "name": "musicBoss",
+      "params": [],
+      "description": "触发Boss战音乐，并显示BGM标题。"
+    },
+    {
+      "opcode": 20,
+      "name": "intro",
+      "params": [
+        {
+          "name": "who",
+          "type": "int"
+        }
+      ],
+      "description": "显示敌人的名字和称号。"
+    },
+    {
+      "opcode": 21,
+      "name": "stageEnd",
+      "params": [],
+      "description": "奖励关卡分数并开始下一关（或结束关卡练习）。"
+    },
+    {
+      "opcode": 22,
+      "name": "musicEnd",
+      "params": [],
+      "description": "在关卡结束时淡出音乐。"
+    },
+    {
+      "opcode": 23,
+      "name": "playerShake",
+      "params": [],
+      "description": "让玩家的立绘像荷取一样短暂地摇晃。"
+    },
+    {
+      "opcode": 24,
+      "name": "bossShake",
+      "params": [],
+      "description": "让所有敌人的立绘像荷取一样短暂地摇晃。"
+    },
+    {
+      "opcode": 25,
+      "name": "textOffsetY",
+      "params": [
+        {
+          "name": "dy",
+          "type": "int"
+        }
+      ],
+      "description": "为所有文本的位置添加一个垂直方向的偏移量。"
+    },
+    {
+      "opcode": 27,
+      "name": "musicFade",
+      "params": [
+        {
+          "name": "duration",
+          "type": "float"
+        }
+      ],
+      "description": "在指定的时间段内淡出音乐。"
+    },
+    {
+      "opcode": 28,
+      "name": "bubblePos",
+      "params": [
+        {
+          "name": "x",
+          "type": "float"
+        },
+        {
+          "name": "y",
+          "type": "float"
+        }
+      ],
+      "description": "设置对话气泡的位置。"
+    },
+    {
+      "opcode": 29,
+      "name": "bubbleType",
+      "params": [
+        {
+          "name": "value",
+          "type": "int"
+        }
+      ],
+      "description": "设置对话气泡的类型。"
+    },
+    {
+      "opcode": 30,
+      "name": "routeSelect",
+      "params": [],
+      "description": "用于 GFW（刚欲异闻）第一关，让玩家选择第二关的路线。"
+    },
+    {
+      "opcode": 33,
+      "name": "portraitDarken",
+      "params": [
+        {
+          "name": "side",
+          "type": "int"
+        },
+        {
+          "name": "who",
+          "type": "int"
+        }
+      ],
+      "description": "在不改变当前说话者的情况下，将单个立绘变暗。"
+    },
+    {
+      "opcode": 34,
+      "name": "portraitHighlight",
+      "params": [
+        {
+          "name": "side",
+          "type": "int"
+        },
+        {
+          "name": "who",
+          "type": "int"
+        }
+      ],
+      "description": "在不改变当前说话者的情况下，高亮单个立绘，使其看起来像在说话。"
+    },
+    {
+      "opcode": 35,
+      "name": "lightsOut",
+      "params": [],
+      "description": "用黑色覆盖关卡背景和敌人。用于 HSiFS (天空璋) 琪露诺第四关的结尾。"
+    }
+  ]
+}
