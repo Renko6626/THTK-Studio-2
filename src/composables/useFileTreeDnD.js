@@ -75,7 +75,11 @@ export function useFileTreeDnD({
       }
       expandedKeys.value = nextExpanded
       persistExpandedKeys()
-      await projectStore.refresh()
+      try {
+        await projectStore.refresh()
+      } catch {
+        message.warning('文件树刷新失败，请手动点击刷新按钮同步')
+      }
       message.success(`已移动到 ${destinationName}`)
     } catch (error) {
       message.error(String(error))
@@ -87,7 +91,8 @@ export function useFileTreeDnD({
 
   // 根目录拖放区域
 
-  function handleRootDragEnter() {
+  function handleRootDragEnter(event) {
+    if (event?.dataTransfer?.files?.length > 0 && !draggingNode.value) return
     rootDropActive.value = canMoveEntryIntoDir(draggingNode.value, projectStore.rootPath)
   }
 
@@ -104,7 +109,12 @@ export function useFileTreeDnD({
     rootDropActive.value = false
   }
 
-  async function handleRootDrop() {
+  async function handleRootDrop(event) {
+    if (event?.dataTransfer?.files?.length > 0 && !draggingNode.value) {
+      rootDropActive.value = false
+      message.info('暂不支持从系统拖入文件，请用顶部"打开文件夹"按钮')
+      return
+    }
     if (!draggingNode.value || !projectStore.rootPath) {
       rootDropActive.value = false
       return
@@ -131,7 +141,11 @@ export function useFileTreeDnD({
       // 同步迁移展开状态（dragNode 及其子目录可能在 expandedKeys 中）
       expandedKeys.value = remapExpandedKeys(expandedKeys.value, dragNode.path, destinationPath)
       persistExpandedKeys()
-      await projectStore.refresh()
+      try {
+        await projectStore.refresh()
+      } catch {
+        message.warning('文件树刷新失败，请手动点击刷新按钮同步')
+      }
       message.success(`已移动到 ${destinationName}`)
     } catch (error) {
       message.error(String(error))
