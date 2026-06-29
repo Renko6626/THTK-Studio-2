@@ -444,7 +444,7 @@ const renderLabel = ({ option }) => {
     })
   }
 
-  return option.name
+  return (option.lossy ? '⚠️ ' : '') + option.name
 }
 
 // ---- 节点交互 ----

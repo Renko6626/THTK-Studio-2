@@ -67,12 +67,20 @@ export function useFileOperations() {
   }
 
   function handleRename(node) {
+    if (node.lossy) {
+      message.error('该文件名含非 UTF-8 字符，IDE 暂不支持对其操作。请用系统文件管理器处理。')
+      return
+    }
     inputState.type = 'rename'
     inputState.targetPath = node.path
     inputState.defaultValue = node.name
   }
 
   function handleDelete(node, dialog) {
+    if (node.lossy) {
+      message.error('该文件名含非 UTF-8 字符，IDE 暂不支持对其操作。请用系统文件管理器处理。')
+      return
+    }
     dialog.warning({
       title: '确认删除',
       content: `确定要永久删除 "${node.name}" 吗？`,

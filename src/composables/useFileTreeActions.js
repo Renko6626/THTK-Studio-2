@@ -111,6 +111,11 @@ export function useFileTreeActions({
 
   async function copyEntries(entries) {
     if (!entries.length) return
+    const lossyEntry = entries.find(e => e.lossy)
+    if (lossyEntry) {
+      message.error('该文件名含非 UTF-8 字符，IDE 暂不支持对其操作。请用系统文件管理器处理。')
+      return
+    }
     explorerClipboardStore.setCopy(entries)
     try { await setFileClipboard(entries.map(e => e.path)) } catch { /* best-effort */ }
     message.success(entries.length > 1 ? `已复制 ${entries.length} 个项目` : '已复制')
@@ -118,6 +123,11 @@ export function useFileTreeActions({
 
   async function cutEntries(entries) {
     if (!entries.length) return
+    const lossyEntry = entries.find(e => e.lossy)
+    if (lossyEntry) {
+      message.error('该文件名含非 UTF-8 字符，IDE 暂不支持对其操作。请用系统文件管理器处理。')
+      return
+    }
     explorerClipboardStore.setCut(entries)
     try { await setFileClipboard(entries.map(e => e.path)) } catch { /* best-effort */ }
     message.success(entries.length > 1 ? `已剪切 ${entries.length} 个项目` : '已剪切')
@@ -125,6 +135,11 @@ export function useFileTreeActions({
 
   async function deleteEntries(entries) {
     if (!entries.length) return
+    const lossyEntry = entries.find(e => e.lossy)
+    if (lossyEntry) {
+      message.error('该文件名含非 UTF-8 字符，IDE 暂不支持对其操作。请用系统文件管理器处理。')
+      return
+    }
 
     const label = entries.length === 1 ? entries[0].name : `${entries.length} 个项目`
     dialog.warning({

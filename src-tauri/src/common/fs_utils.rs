@@ -18,6 +18,8 @@ pub struct FileNode {
     pub children: Option<Vec<FileNode>>, // 子节点 (仅文件夹有)
     #[serde(rename = "isLeaf")]
     pub is_leaf: bool,                   // NTree 需要 isLeaf 判断是否可展开
+    #[serde(default)]
+    pub lossy: bool,                     // 文件名包含非 UTF-8 字节，IDE 操作可能失败
 }
 
 /// 文件分类枚举，帮助前端快速判断如何处理该文件
@@ -64,6 +66,10 @@ fn list_dir_shallow(dir_path: &Path) -> Result<Vec<FileNode>> {
             continue;
         }
 
+        let path_str = path.to_string_lossy().to_string();
+        // 检测非 UTF-8 字节：to_string_lossy 会将无效字节替换为 U+FFFD
+        let lossy = name.contains('\u{FFFD}') || path_str.contains('\u{FFFD}');
+
         let extension = path
             .extension()
             .map(|os_str| os_str.to_string_lossy().to_string().to_lowercase());
@@ -88,13 +94,14 @@ fn list_dir_shallow(dir_path: &Path) -> Result<Vec<FileNode>> {
 
         nodes.push(FileNode {
             name,
-            path: path.to_string_lossy().to_string(),
+            path: path_str,
             is_dir,
             size,
             extension,
             category,
             children: None, // 浅层模式：不预加载子节点
             is_leaf,
+            lossy,
         });
     }
 
@@ -137,6 +144,37 @@ fn determine_category(extension: Option<&str>) -> FileCategory {
         Some("dat") => FileCategory::Archive,
         Some("png") | Some("jpg") | Some("jpeg") | Some("bmp") => FileCategory::Image,
         _ => FileCategory::Unknown,
+    }
+}
+
+#[cfg(test)]
+#[cfg(unix)]
+mod lossy_tests {
+    use super::*;
+    use std::ffi::OsString;
+    use std::os::unix::ffi::OsStringExt;
+
+    #[test]
+    fn flags_lossy_filenames() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        // Linux: non-UTF8 bytes are legal in filenames. Create a file with raw bytes.
+        let invalid_name = OsString::from_vec(vec![0xff, 0xfe, b'a', b'.', b'b']);
+        let bad_path = dir.path().join(&invalid_name);
+        std::fs::write(&bad_path, b"x").expect("write");
+
+        // ALSO create a clean file as control
+        std::fs::write(dir.path().join("good.txt"), b"x").expect("write");
+
+        let nodes = get_file_tree(dir.path()).expect("scan");
+        assert!(!nodes.is_empty(), "should list both files");
+
+        let lossy_node = nodes.iter().find(|n| n.lossy);
+        assert!(lossy_node.is_some(), "should flag non-UTF8 filename as lossy: {:?}",
+            nodes.iter().map(|n| (&n.name, n.lossy)).collect::<Vec<_>>());
+
+        let good = nodes.iter().find(|n| n.name == "good.txt");
+        assert!(good.is_some());
+        assert!(!good.unwrap().lossy, "clean filename should not be flagged");
     }
 }
 
