@@ -27,6 +27,26 @@ export function decompileEcl(binaryPath, mapPaths = []) {
 }
 
 /**
+ * 编译 ECL 文件 (.decl -> .ecl) —— 与 thmsg/thstd 同款 object-arg 形式,
+ * 走 effective_thecl_version / effective map_paths 的快速路径。
+ * 后端命令 `compile_ecl_file` 返回 { success, message, outputPath }。
+ * @param {{ sourcePath: string, mapPaths?: Array<string> }} params
+ */
+export function compileEclFile({ sourcePath, mapPaths = [] }) {
+  return invoke('compile_ecl_file', { sourcePath, mapPaths })
+}
+
+/**
+ * 反编译 ECL 文件 (.ecl -> .decl) —— 与 thmsg/thstd 同款 object-arg 形式。
+ * 注意:Rust 端参数名为 binary_path,Tauri 会做 camelCase 转换,
+ * 这里对前端统一暴露成 sourcePath 以保持 4 个工具调用方式一致。
+ * @param {{ sourcePath: string, mapPaths?: Array<string> }} params
+ */
+export function decompileEclFile({ sourcePath, mapPaths = [] }) {
+  return invoke('decompile_ecl_file', { binaryPath: sourcePath, mapPaths })
+}
+
+/**
  * 运行原始 thtk 命令 (调试用)
  * @param {string} toolPath
  * @param {Array<string>} args
