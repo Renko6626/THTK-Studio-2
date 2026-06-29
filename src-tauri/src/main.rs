@@ -23,6 +23,7 @@ use modules::ecl::commands::{
     compile_ecl_file, decompile_ecl_file, generate_ai_assist_pack, get_ecl_map_semantics,
     get_thecl_status, run_thecl_operation,
 };
+use modules::msg::commands::{compile_msg_file, decompile_msg_file};
 
 use common::fs_ops;
 // ----------------------------------------------------------------
@@ -191,6 +192,8 @@ fn main() {
             get_thecl_status,
             get_ecl_map_semantics,
             run_thecl_operation,
+            decompile_msg_file,
+            compile_msg_file,
             generate_ai_assist_pack,
             fs_ops::create_directory,
             fs_ops::create_file,
