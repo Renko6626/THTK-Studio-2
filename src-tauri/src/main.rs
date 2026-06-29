@@ -60,16 +60,25 @@ fn get_toolchain_statuses(state: State<AppState>) -> Vec<toolchain::ToolchainSta
 
 // 读取文件内容
 // 前端根据文件后缀决定怎么渲染，后端负责把字节流变成字符串
+// 守卫:path 必须在 project_root 之内,防止 webview 越界读盘。
 #[tauri::command]
-fn read_file(path: String) -> Result<String, String> {
+fn read_file(state: State<AppState>, path: String) -> Result<String, String> {
+    fs_ops::guard_path(&state, &path)?;
     utils::read_text_file(&path).map_err(|e| e.to_string())
 }
 
 // 保存文件
 // is_source: true 表示这是 .decl/.dmsg (保存为 UTF-8)
 // is_source: false 表示这是原始 txt (保存为 Shift-JIS)
+// 守卫:path 必须在 project_root 之内。
 #[tauri::command]
-fn save_file(path: String, content: String, is_source: bool) -> Result<(), String> {
+fn save_file(
+    state: State<AppState>,
+    path: String,
+    content: String,
+    is_source: bool,
+) -> Result<(), String> {
+    fs_ops::guard_path(&state, &path)?;
     if is_source {
         utils::write_file_utf8(&path, &content).map_err(|e| e.to_string())
     } else {

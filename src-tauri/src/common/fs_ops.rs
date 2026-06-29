@@ -47,7 +47,7 @@ fn assert_within_project(path: &str, project_root: &str) -> Result<(), String> {
 }
 
 /// 给每个 fs 命令一个统一前缀守卫。读 AppState 的当前项目根,无根则拒绝。
-fn guard_path(state: &AppState, path: &str) -> Result<String, String> {
+pub(crate) fn guard_path(state: &AppState, path: &str) -> Result<String, String> {
     let root_guard = state
         .current_project_root
         .lock()
@@ -59,15 +59,58 @@ fn guard_path(state: &AppState, path: &str) -> Result<String, String> {
     Ok(root.to_string())
 }
 
+/// 校验**单段**文件名(不是路径!)合法性。
+/// 与前端 `useFileOperations.js#validateFileName` 同义,作为后端兜底,
+/// 防止前端被绕过(MCP 工具 / 第三方调用 / webview XSS)。
+///
+/// 拒绝:空/全空白/`.`/`..`、前后空白、路径分隔符、Windows 禁用字符
+/// (`\/:*?"<>|`)、控制字符(含 NUL)、Windows 保留设备名
+/// (CON/PRN/AUX/NUL/COM1-9/LPT1-9,大小写无关,带或不带后缀)。
+pub(crate) fn validate_basename(name: &str) -> Result<(), String> {
+    if name.trim().is_empty() || name == "." || name == ".." {
+        return Err("file name cannot be empty, '.', or '..'".to_string());
+    }
+    if name != name.trim() {
+        return Err("file name cannot have leading/trailing whitespace".to_string());
+    }
+    for ch in name.chars() {
+        if ch.is_control() || "\\/:*?\"<>|".contains(ch) {
+            return Err(format!("file name contains forbidden character: {ch:?}"));
+        }
+    }
+    // Windows reserved names (case-insensitive, with or without extension)
+    let stem = name.split('.').next().unwrap_or("").to_uppercase();
+    const RESERVED: &[&str] = &[
+        "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7",
+        "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+    ];
+    if RESERVED.contains(&stem.as_str()) {
+        return Err(format!("file name uses Windows reserved name: {stem}"));
+    }
+    Ok(())
+}
+
+/// 从完整路径取末段 basename 用于校验。
+fn basename_of(path: &str) -> Result<&str, String> {
+    Path::new(path)
+        .file_name()
+        .and_then(|s| s.to_str())
+        .ok_or_else(|| format!("path has no file name component: {path}"))
+}
+
 #[tauri::command]
 pub fn create_directory(state: State<AppState>, path: String) -> Result<(), String> {
     guard_path(&state, &path)?;
+    let name = basename_of(&path)?;
+    validate_basename(name)?;
     fs::create_dir_all(&path).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 pub fn create_file(state: State<AppState>, path: String) -> Result<(), String> {
     guard_path(&state, &path)?;
+    let name = basename_of(&path)?;
+    validate_basename(name)?;
     // 用 O_EXCL (create_new) 原子地创建,避免 TOCTOU 双击新建覆盖。
     std::fs::OpenOptions::new()
         .write(true)
@@ -85,6 +128,8 @@ pub fn rename_entry(
 ) -> Result<(), String> {
     guard_path(&state, &old_path)?;
     guard_path(&state, &new_path)?;
+    let new_name = basename_of(&new_path)?;
+    validate_basename(new_name)?;
     // POSIX rename 会静默覆盖目标,显式拒绝。
     if Path::new(&new_path).exists() {
         return Err(format!("Destination already exists: {new_path}"));
@@ -152,6 +197,11 @@ pub struct EntryStat {
     pub size: u64,
 }
 
+/// # Security note
+/// 此命令**故意**不调用 guard_path,因为系统剪贴板可能复制 root 外的文件来粘贴进 root。
+/// 副作用:webview XSS 可以用它探测主机任意路径的存在性 + 文件大小。仅信息泄露,
+/// 不能读内容。当前威胁模型下可接受;若 webview 引入不可信内容(markdown 预览
+/// 加载远程图片等)需重新评估。
 #[tauri::command]
 pub fn stat_entry(state: State<AppState>, path: String) -> Result<EntryStat, String> {
     // 此命令可以接受 root 外的路径(系统剪贴板可能复制 root 外的文件来粘贴进 root)
@@ -177,6 +227,23 @@ pub fn stat_entry(state: State<AppState>, path: String) -> Result<EntryStat, Str
     })
 }
 
+/// Windows-only reparse-point 检测。`file_type().is_symlink()` 在 Windows 上
+/// 只能识别"真"符号链接,**漏识 junction(`mklink /J`)和其他 reparse 类型**,
+/// 攻击面是:在项目里塞一个 junction 指向 `C:\Windows`,copy 时跟过去把系统文件
+/// 复制到 dst。直接读 `FILE_ATTRIBUTE_REPARSE_POINT (0x400)` 一并拦掉。
+#[cfg(windows)]
+fn is_reparse_point(entry: &std::fs::DirEntry) -> bool {
+    use std::os::windows::fs::MetadataExt;
+    entry
+        .metadata()
+        .map(|m| m.file_attributes() & 0x400 != 0)
+        .unwrap_or(false)
+}
+#[cfg(not(windows))]
+fn is_reparse_point(_entry: &std::fs::DirEntry) -> bool {
+    false
+}
+
 fn copy_dir_all(src: &Path, dst: &Path) -> std::io::Result<()> {
     std::fs::create_dir_all(dst)?;
     for entry in std::fs::read_dir(src)? {
@@ -186,10 +253,10 @@ fn copy_dir_all(src: &Path, dst: &Path) -> std::io::Result<()> {
         let ft = entry.file_type()?;
         let src_path = entry.path();
         let dst_path = dst.join(entry.file_name());
-        if ft.is_symlink() {
+        if ft.is_symlink() || is_reparse_point(&entry) {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::Other,
-                format!("refusing to copy symlink: {:?}", src_path),
+                format!("refusing to copy reparse point or symlink: {:?}", src_path),
             ));
         }
         if ft.is_dir() {
@@ -293,8 +360,63 @@ mod tests {
         assert!(res.is_err(), "expected Err, got {res:?}");
         let msg = res.unwrap_err().to_string();
         assert!(
-            msg.contains("refusing to copy symlink"),
+            msg.contains("refusing to copy reparse point or symlink"),
             "unexpected error: {msg}"
         );
+    }
+
+    // ---- validate_basename tests ----
+
+    #[test]
+    fn validate_basename_rejects_separator() {
+        assert!(validate_basename("foo/bar").is_err());
+        assert!(validate_basename("foo\\bar").is_err());
+    }
+
+    #[test]
+    fn validate_basename_rejects_colon() {
+        // 拦掉 Windows ADS(`file:stream`)与盘符注入
+        assert!(validate_basename("file:stream").is_err());
+        assert!(validate_basename("C:foo").is_err());
+    }
+
+    #[test]
+    fn validate_basename_rejects_reserved_names() {
+        for n in ["CON", "con", "Con", "NUL", "NUL.txt", "com1", "LPT9", "AUX.log"] {
+            let res = validate_basename(n);
+            assert!(res.is_err(), "expected {n:?} rejected, got {res:?}");
+        }
+    }
+
+    #[test]
+    fn validate_basename_accepts_normal_names() {
+        for n in [
+            "foo.txt",
+            "with-dash",
+            "with_underscore.ext",
+            "中文名.ecl",
+            "th16.std",
+            "a.b.c.d",
+        ] {
+            let res = validate_basename(n);
+            assert!(res.is_ok(), "expected {n:?} accepted, got {res:?}");
+        }
+    }
+
+    #[test]
+    fn validate_basename_rejects_dot_and_dotdot_and_whitespace() {
+        assert!(validate_basename("").is_err());
+        assert!(validate_basename(".").is_err());
+        assert!(validate_basename("..").is_err());
+        assert!(validate_basename("  ").is_err());
+        assert!(validate_basename(" leading").is_err());
+        assert!(validate_basename("trailing ").is_err());
+    }
+
+    #[test]
+    fn validate_basename_rejects_control_chars() {
+        assert!(validate_basename("foo\0bar").is_err());
+        assert!(validate_basename("foo\nbar").is_err());
+        assert!(validate_basename("foo\tbar").is_err());
     }
 }
