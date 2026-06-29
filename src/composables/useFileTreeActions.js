@@ -133,17 +133,54 @@ export function useFileTreeActions({
       positiveText: '删除',
       negativeText: '取消',
       onPositiveClick: async () => {
+        const reportsStore = useWorkbenchReportsStore()
+        const succeeded = []
+        const failed = []
+
+        projectStore.isLoading = true
         try {
           for (const entry of [...entries].sort((a, b) => b.path.length - a.path.length)) {
-            await deleteEntry(entry.path)
-            editorStore.closeTabsUnderPath(entry.path)
+            try {
+              await deleteEntry(entry.path)
+              editorStore.closeTabsUnderPath(entry.path)
+              succeeded.push(entry.name)
+            } catch (err) {
+              failed.push({ name: entry.name, error: String(err) })
+            }
           }
+
           selectedKeys.value = []
           explorerViewStore.clearSelection()
-          await projectStore.refresh()
-        } catch (error) {
-          message.error(String(error))
+          await projectStore.refresh().catch(() => {})
+        } finally {
+          projectStore.isLoading = false
         }
+
+        if (succeeded.length === 0 && failed.length === 0) return
+
+        const summary = failed.length > 0
+          ? `已删除 ${succeeded.length} 个，失败 ${failed.length} 个`
+          : `已删除 ${succeeded.length} 个`
+        const allSucceeded = failed.length === 0 && succeeded.length > 0
+        const allFailed = succeeded.length === 0 && failed.length > 0
+
+        reportsStore.publishToolResult({
+          ownerKey: `delete:${entries[0].path}`,
+          source: 'file-tree',
+          operation: 'delete',
+          scriptKind: 'fs',
+          title: allSucceeded ? '删除完成' : (allFailed ? '删除失败' : '删除部分完成'),
+          path: entries[0].path,
+          success: allSucceeded,
+          message: failed.length > 0
+            ? `${summary}\n首个错误：${failed[0].error}`
+            : summary,
+          diagnostics: []
+        })
+
+        if (allSucceeded) message.success(summary)
+        else if (allFailed) message.error(`删除失败：${failed[0].error}`)
+        else message.warning(summary)
       }
     })
   }
@@ -190,46 +227,51 @@ export function useFileTreeActions({
     const existingNames = getExistingNamesForDir(destinationDir)
     const succeeded = []
 
-    for (const entry of entries) {
-      try {
-        // 剪切到原目录：直接跳过（不算成功也不算失败）
-        if (isCut && destinationDir === getParentPath(entry.path)) continue
+    projectStore.isLoading = true
+    try {
+      for (const entry of entries) {
+        try {
+          // 剪切到原目录：直接跳过（不算成功也不算失败）
+          if (isCut && destinationDir === getParentPath(entry.path)) continue
 
-        const canPlace = isCut
-          ? canMoveEntryIntoDir(entry, destinationDir)
-          : canCopyEntryIntoDir(entry, destinationDir)
+          const canPlace = isCut
+            ? canMoveEntryIntoDir(entry, destinationDir)
+            : canCopyEntryIntoDir(entry, destinationDir)
 
-        if (!canPlace) {
-          failed.push({ name: entry.name, error: '目标位置无法放置（自身/子目录/同位置）' })
-          continue
+          if (!canPlace) {
+            failed.push({ name: entry.name, error: '目标位置无法放置（自身/子目录/同位置）' })
+            continue
+          }
+
+          const destinationName = makeUniqueDestinationName(entry.name, destinationDir, existingNames)
+          existingNames.add(destinationName.toLowerCase())
+          const destinationPath = joinPath(destinationDir, destinationName)
+
+          if (isCut) {
+            await renameEntry(entry.path, destinationPath)
+            editorStore.handlePathRename(entry.path, destinationPath)
+          } else {
+            await copyEntry(entry.path, destinationPath)
+          }
+          succeeded.push({ name: entry.name, destinationPath })
+        } catch (err) {
+          failed.push({ name: entry.name, error: String(err) })
         }
-
-        const destinationName = makeUniqueDestinationName(entry.name, destinationDir, existingNames)
-        existingNames.add(destinationName.toLowerCase())
-        const destinationPath = joinPath(destinationDir, destinationName)
-
-        if (isCut) {
-          await renameEntry(entry.path, destinationPath)
-          editorStore.handlePathRename(entry.path, destinationPath)
-        } else {
-          await copyEntry(entry.path, destinationPath)
-        }
-        succeeded.push({ name: entry.name, destinationPath })
-      } catch (err) {
-        failed.push({ name: entry.name, error: String(err) })
       }
+
+      // 全部成功且为剪切才清空内部剪贴板；任一失败则保留供用户重试
+      if (usingInternal && isCut && failed.length === 0 && succeeded.length > 0) {
+        explorerClipboardStore.clear()
+      }
+
+      selectedKeys.value = []
+      explorerViewStore.clearSelection()
+
+      // 即便全部失败也要 refresh：后端可能已部分修改
+      await projectStore.refresh().catch(() => {})
+    } finally {
+      projectStore.isLoading = false
     }
-
-    // 全部成功且为剪切才清空内部剪贴板；任一失败则保留供用户重试
-    if (usingInternal && isCut && failed.length === 0 && succeeded.length > 0) {
-      explorerClipboardStore.clear()
-    }
-
-    selectedKeys.value = []
-    explorerViewStore.clearSelection()
-
-    // 即便全部失败也要 refresh：后端可能已部分修改
-    await projectStore.refresh().catch(() => {})
 
     const total = succeeded.length + failed.length
     if (total === 0) return

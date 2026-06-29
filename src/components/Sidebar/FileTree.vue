@@ -127,9 +127,10 @@ const message = useMessage()
 // ---- Composables ----
 
 const { inputState, handleCreate, handleRename, submitInput, cancelInput } = useFileOperations()
-const { showMenu, menuX, menuY, targetNode, menuOptions, handleContextMenu, handleClickOutside } = useContextMenu()
 
 const selectedKeys = ref([])
+
+const { showMenu, menuX, menuY, targetNode, menuOptions, handleContextMenu, handleClickOutside } = useContextMenu({ selectedKeys })
 
 const fileTreeActions = useFileTreeActions({
   selectedKeys,

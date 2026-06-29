@@ -19,7 +19,7 @@ function getParentPath(path) {
   return lastSlash > 0 ? normalized.slice(0, lastSlash) : normalized
 }
 
-export function useContextMenu() {
+export function useContextMenu({ selectedKeys } = {}) {
   const projectStore = useProjectStore()
   const explorerClipboardStore = useExplorerClipboardStore()
 
@@ -90,6 +90,7 @@ export function useContextMenu() {
           {
             label: '重命名',
             key: 'rename',
+            disabled: (selectedKeys?.value?.length ?? 1) > 1,
             icon: () => h(NIcon, null, { default: () => h(Edit24Regular) })
           },
           {
