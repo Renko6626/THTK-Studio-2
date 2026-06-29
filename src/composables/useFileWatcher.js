@@ -1,6 +1,7 @@
 import { onMounted, onBeforeUnmount } from 'vue'
 import { listen } from '@tauri-apps/api/event'
 import { readFile } from '../api'
+import { normalizePath, pathsEqual } from '../utils/pathNormalize'
 
 /**
  * 监听 Rust 端发出的文件系统变更事件，
@@ -22,10 +23,11 @@ export function useFileWatcher({ editorStore, projectStore, showReloadNotice }) 
     let deletedCount = 0
 
     for (const change of changes) {
-      const tab = editorStore.tabs.find(t => t.path === change.path)
+      const normalizedChangePath = normalizePath(change.path)
+      const tab = editorStore.tabs.find(t => pathsEqual(t.path, change.path))
       if (!tab || tab.viewType !== 'text') continue
-      if (pendingPaths.has(change.path)) continue
-      pendingPaths.add(change.path)
+      if (pendingPaths.has(normalizedChangePath)) continue
+      pendingPaths.add(normalizedChangePath)
 
       try {
         if (change.kind === 'remove') {
@@ -47,7 +49,7 @@ export function useFileWatcher({ editorStore, projectStore, showReloadNotice }) 
           }
         }
       } finally {
-        pendingPaths.delete(change.path)
+        pendingPaths.delete(normalizedChangePath)
       }
     }
 

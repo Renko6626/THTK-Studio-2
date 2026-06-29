@@ -3,6 +3,7 @@ import { useMessage } from 'naive-ui'
 import { createDir, createFile, renameEntry, deleteEntry } from '../api'
 import { useProjectStore } from '../stores/project'
 import { useEditorStore } from '../stores/editor'
+import { normalizePath } from '../utils/pathNormalize'
 
 const inputState = reactive({
   type: null,
@@ -131,14 +132,14 @@ export function useFileOperations() {
 
     try {
       if (inputState.type === 'create') {
-        const newPath = `${inputState.targetPath}${separator}${val}`
+        const newPath = normalizePath(`${inputState.targetPath}${separator}${val}`)
         if (inputState.fileType === 'file') await createFile(newPath)
         else await createDir(newPath)
       }
       else if (inputState.type === 'rename') {
         const oldPath = inputState.targetPath
         const parentDir = oldPath.substring(0, oldPath.lastIndexOf(separator))
-        const newPath = `${parentDir}${separator}${val}`
+        const newPath = normalizePath(`${parentDir}${separator}${val}`)
 
         await renameEntry(oldPath, newPath)
         editorStore.handlePathRename(oldPath, newPath)
