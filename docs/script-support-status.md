@@ -11,7 +11,7 @@
 | **thmsg / .msg** | ✅ 基本解包/打包 + dmsg 翻译层(`modules/msg/`) | ❌ 无 Monaco 语言服务 | ✅ 基本可用 — `.msg` 进 binary-script 视图(ECL 专用文案，已知限制)，`.dmsg` 进普通文本视图 | ❌ 菜单触发,无 BuildDialog | ❌ 无 MCP 工具 |
 | **thanm / .anm** | ❌ | ❌ | ❌ | ❌ stub | ❌ |
 | **thstd / .std** | ✅ 基本解包/打包 + dstd 翻译层(`modules/thstd/`,含 jmp opcode 1 参数交换) | ❌ 无 Monaco 语言服务 | ✅ 基本可用 — `.std` 进 binary-script 视图(ECL 专用文案，已知限制)，`.dstd` 进普通文本视图 | ❌ 菜单触发,无 BuildDialog | ❌ 无 MCP 工具 |
-| **thdat / .dat** | ❌(打包工具,非"脚本") | — | — | ❌ stub | ❌ |
+| **thdat / .dat** | ✅ 基本解包/打包(`modules/thdat/`,无语义层) | — | ✅ 通过菜单 + native pickers | ❌ 无 BuildDialog | ❌ 无 MCP 工具 |
 
 `services/toolchains/registry.js` 里 thmsg/thanm/thstd/thdat 都有 descriptor,`supportsBuildDialog: false`——空架子搭好了,等填。
 
@@ -137,7 +137,15 @@ Rust(`modules/msg/`):
 
 ### 阶段 D:thdat(打包工具,非脚本)
 
-不是脚本编辑器范畴,是"项目打包"。最后做,或者做成简单的菜单命令(选 .dat → 解包到目录 / 选目录 → 打包成 .dat),无需 Monaco 集成。
+**已完成(2026-06-07)**：
+
+- `src-tauri/src/modules/thdat/`：`compiler`（extract `-xd` 自动检测版本 / pack `-c{ver}` 取 `effective_thdat_version`）、`commands`（`extract_dat_file` / `pack_dat_file`）。**无 map_parser/translator**——纯容器管理。
+- 命令行长度上限 28KB 守卫（thdat pack 必须列所有文件名作为参数）；超限返回 Err 不调 thdat
+- 前端菜单"脚本 → 解包 .dat / 打包目录为 .dat"：`@tauri-apps/plugin-dialog` 的 `open`/`save` 选源/目标，完成后 `projectStore.refresh()` 刷新文件树
+- 操作不依赖 activeTab（thdat 操作的是容器，不是当前打开的脚本）
+- Windows 验收清单：见 `editor-shell-status.md` §9 条目 22–25
+
+**已知限制**：目前 pack 不递归子目录（只打包顶层文件）——thdat 的 .dat 本来也是平坦结构，但如果用户的源目录有嵌套，会被忽略。未来若发现 thtk 支持嵌套打包再扩展。
 
 ## 4. 落地建议(给下一次开发会话)
 

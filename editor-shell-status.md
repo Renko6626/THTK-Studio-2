@@ -125,7 +125,17 @@ thecl 编译 → 错误诊断 → Monaco 波浪线 → 问题面板 → 点击�
 - 不提供 Monaco 语言服务、MCP 工具、AI 辅助包扩展或 BuildDialog
 - 旧版"jmp 支持 @label"功能（jmp 跳到 label 而不是字节 offset）由用户暂缓，等下一版 thtk 工具封装后再实现
 
-### 2.10 Agent 通道
+### 2.10 thdat 基本工作流（2026-06-07）
+
+已实现：
+
+- 菜单"脚本 → 解包 .dat（容器）/ 打包目录为 .dat"：`@tauri-apps/plugin-dialog` 弹原生 picker 选源和目标。**无脚本语义层**——thdat 只是把容器拆开/塞回去，内部文件类型由用户其他工具（thecl/thmsg/thanm/thstd）处理
+- 命令行 32KB 上限内置守卫（超限返回错误，batching 未实现）
+- 操作不依赖 activeTab——thdat 操作的是容器，不是当前打开的脚本；源/目标均通过 native picker 选取
+- 完成后 `projectStore.refresh()` 刷新文件树（如果目标目录在项目树内，新文件即时可见）
+- 已知限制：pack 只打包顶层文件，不递归子目录（.dat 本来是平坦结构，但用户源目录有嵌套时嵌套部分会被忽略）
+
+### 2.11 Agent 通道
 
 已实现进程内 MCP server，支持在终端内运行 claude code 并让 agent 直接操作工作区：
 
@@ -271,3 +281,7 @@ THTK-Studio 的第一阶段 MVP 工程闭环已经完成，并在此基础上完
 19. 编辑 .dstd 中的 jmp（如 `jmp(60, 100)`），打包后 thstd 接受（参数顺序内部已交换为 `ins_1(100, 60)` 喂给 thstd）
 20. 故意写错（`fakeFn()`）打包失败卡片显示 thstd stderr，.std 不被覆盖损坏
 21. thtk_dir 未配置：菜单触发立刻失败 "thstd path is not configured"
+22. 菜单"脚本 → 解包 .dat（容器）"：如果当前 tab 是 .dat 直接用其路径；否则弹文件 picker 选 .dat。再弹目录 picker（默认值是同名子目录，如 `th17.dat` → `th17/`）。完成后输出面板"解包 .dat 完成（N 个文件）"。如果目标目录在项目树内，文件树自动刷新出新文件。
+23. 菜单"脚本 → 打包目录为 .dat"：弹目录 picker 选源，弹文件 save dialog 选目标 .dat。完成后输出面板"打包 .dat 完成（N 个文件）"。
+24. 空目录打包：失败卡显示 "source directory is empty"。.dat 不被生成或覆盖。
+25. thtk_dir 未配置：菜单触发立刻失败 "thdat path is not configured"。
