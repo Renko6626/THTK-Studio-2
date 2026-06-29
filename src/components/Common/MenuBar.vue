@@ -34,7 +34,7 @@ import { useToolchainSettingsStore } from '../../stores/toolchainSettings'
 import { useWorkbenchReportsStore } from '../../stores/workbenchReports'
 import { dispatchEditorAction } from '../../composables/useEditorActionBridge'
 import { useFileOperations } from '../../composables/useFileOperations'
-import { generateAiAssistPack, decompileMsgFile, compileMsgFile } from '../../api'
+import { generateAiAssistPack, decompileMsgFile, compileMsgFile, decompileStdFile, compileStdFile } from '../../api'
 
 const editorStore = useEditorStore()
 const projectStore = useProjectStore()
@@ -61,6 +61,14 @@ const isActiveTabMsg = computed(() => {
 const isActiveTabDmsg = computed(() => {
   const tab = editorStore.activeTab
   return Boolean(tab && tab.path && tab.path.toLowerCase().endsWith('.dmsg'))
+})
+const isActiveTabStd = computed(() => {
+  const tab = editorStore.activeTab
+  return Boolean(tab && tab.path && tab.path.toLowerCase().endsWith('.std'))
+})
+const isActiveTabDstd = computed(() => {
+  const tab = editorStore.activeTab
+  return Boolean(tab && tab.path && tab.path.toLowerCase().endsWith('.dstd'))
 })
 
 const menus = computed(() => [
@@ -125,7 +133,9 @@ const menus = computed(() => [
       { label: '生成 AI 辅助包', key: 'script.generateAiPack', disabled: !hasWorkspace.value },
       { type: 'divider', key: 'msg-divider' },
       { label: '解包当前 .msg', key: 'script.decompileMsg', disabled: !isActiveTabMsg.value },
-      { label: '打包当前 .dmsg', key: 'script.compileMsg', disabled: !isActiveTabDmsg.value }
+      { label: '打包当前 .dmsg', key: 'script.compileMsg', disabled: !isActiveTabDmsg.value },
+      { label: '解包当前 .std', key: 'script.decompileStd', disabled: !isActiveTabStd.value },
+      { label: '打包当前 .dstd', key: 'script.compileStd', disabled: !isActiveTabDstd.value }
     ]
   },
   {
@@ -296,6 +306,86 @@ async function runCompileMsg() {
   }
 }
 
+function publishStdResult({ operation, inputPath, success, outputPath, message: text }) {
+  const title = operation === 'decompile'
+    ? (success ? '解包 .std 完成' : '解包 .std 失败')
+    : (success ? '打包 .std 完成' : '打包 .std 失败')
+  reportsStore.publishToolResult({
+    ownerKey: `std:${operation}:${inputPath}`,
+    source: 'toolchain',
+    operation,
+    scriptKind: 'std',
+    title,
+    path: outputPath || inputPath || null,
+    success,
+    message: text,
+    diagnostics: []
+  })
+  workbenchPanelsStore.showBottomPanel('output')
+}
+
+async function runDecompileStd() {
+  const tab = editorStore.activeTab
+  if (!tab || !tab.path) return
+  const inputPath = tab.path
+  try {
+    const result = await decompileStdFile({ inputPath })
+    publishStdResult({
+      operation: 'decompile',
+      inputPath,
+      success: Boolean(result?.success),
+      outputPath: result?.outputPath || null,
+      message: result?.message || ''
+    })
+    if (result?.success && result.outputPath && result.outputPath !== inputPath) {
+      try {
+        await editorStore.openFile({ path: result.outputPath })
+      } catch (openError) {
+        console.warn('打开生成的 .dstd 失败', openError)
+      }
+    }
+  } catch (error) {
+    publishStdResult({
+      operation: 'decompile',
+      inputPath,
+      success: false,
+      outputPath: null,
+      message: String(error)
+    })
+  }
+}
+
+async function runCompileStd() {
+  const tab = editorStore.activeTab
+  if (!tab || !tab.path) return
+  const inputPath = tab.path
+  if (tab.isDirty) {
+    const saved = await editorStore.saveActiveFile()
+    if (!saved) {
+      message.error('保存当前 .dstd 失败，已取消打包')
+      return
+    }
+  }
+  try {
+    const result = await compileStdFile({ inputPath })
+    publishStdResult({
+      operation: 'compile',
+      inputPath,
+      success: Boolean(result?.success),
+      outputPath: result?.outputPath || null,
+      message: result?.message || ''
+    })
+  } catch (error) {
+    publishStdResult({
+      operation: 'compile',
+      inputPath,
+      success: false,
+      outputPath: null,
+      message: String(error)
+    })
+  }
+}
+
 async function handleSelect(key) {
   switch (key) {
     case 'file.openFolder':
@@ -388,6 +478,12 @@ async function handleSelect(key) {
       break
     case 'script.compileMsg':
       runCompileMsg()
+      break
+    case 'script.decompileStd':
+      runDecompileStd()
+      break
+    case 'script.compileStd':
+      runCompileStd()
       break
     case 'terminal.new':
       workbenchPanelsStore.showBottomPanel('terminal')

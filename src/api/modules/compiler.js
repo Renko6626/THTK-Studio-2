@@ -51,3 +51,19 @@ export function decompileMsgFile({ inputPath, outputPath = null, withComments = 
 export function compileMsgFile({ inputPath, outputPath = null }) {
   return invoke('compile_msg_file', { inputPath, outputPath })
 }
+
+/**
+ * 反编译 STD 文件 (.std -> .dstd)
+ * @param {{ inputPath: string, outputPath?: string|null, withComments?: boolean }} params
+ */
+export function decompileStdFile({ inputPath, outputPath = null, withComments = true }) {
+  return invoke('decompile_std_file', { inputPath, outputPath, withComments })
+}
+
+/**
+ * 编译 STD 文件 (.dstd -> .std)
+ * @param {{ inputPath: string, outputPath?: string|null }} params
+ */
+export function compileStdFile({ inputPath, outputPath = null }) {
+  return invoke('compile_std_file', { inputPath, outputPath })
+}
