@@ -123,3 +123,14 @@ refresh 并发守卫 + _collectLoadedDirs 修正。
 | 4 | `useFileTreeActions.js` | C5+C6(依赖 Task 1 的 stat_entry) |
 | 5 | `useFileOperations.js` + `FileTree.vue` | H7+H8+H11+H12 |
 | 6 | docs | 收尾 |
+
+## 实际落地(2026-06-07)
+
+| Task | Commit | 内容 |
+|---|---|---|
+| 1 | 8843ccf | fs_ops 路径守卫 + C2/C3/M21 + stat_entry + 6 测试 |
+| 2 | 0166128 | file_watcher 透传目录事件 |
+| 3 | 15d8825 | project store 单飞 refresh + 空目录展开修正 |
+| 4 | a0a3e44 | paste per-entry 错误 + stat_entry 探测 is_dir |
+| 5 | 3a7d62a | rename 选中/展开恢复 + 文件名校验 + 恢复竞态 |
+| 6 | (此提交) | 验证 + 文档 |

@@ -12,7 +12,8 @@
 
 ## 🔴 Critical(真 bug — 会丢数据 / 破视图 / 安全)
 
-### C1 · `src-tauri/src/common/fs_ops.rs:6+` — 零路径安全
+### C1 ✅ `src-tauri/src/common/fs_ops.rs:6+` — 零路径安全
+**已修复(commit 8843ccf)**:assert_within_project + guard_path 守卫,所有 5 个命令前置校验;6 个新测试。
 
 所有 fs_ops 命令(create_directory / create_file / rename_entry / copy_entry / delete_entry)接受 frontend 传来的 `String`,直接喂给 `std::fs`,**无项目根包含校验、无 `..` 拦截、无符号链接守卫、无文件类型白名单**。
 
@@ -20,7 +21,8 @@
 
 修法:加 canonicalize → startswith(project_root) 守卫,封装成 `assert_within_project(path)` helper,所有命令前置校验。
 
-### C2 · `src-tauri/src/common/fs_ops.rs:21` — rename_entry 无目标存在检查 + 静默覆盖
+### C2 ✅ `src-tauri/src/common/fs_ops.rs:21` — rename_entry 无目标存在检查 + 静默覆盖
+**已修复(commit 8843ccf)**:rename 前加目标 exists 检查,返回 Err("Destination already exists: ...")。
 
 `fs::rename` 在 POSIX 上**静默覆盖**目标文件,Windows 行为不同。无 `existing destination` 检查。
 
@@ -28,7 +30,8 @@
 
 修法:rename 前加目标 exists 检查,返回 `Err("destination already exists: ...")`。
 
-### C3 · `src-tauri/src/common/fs_ops.rs:69` — copy_dir_all 跟随符号链接
+### C3 ✅ `src-tauri/src/common/fs_ops.rs:69` — copy_dir_all 跟随符号链接
+**已修复(commit 8843ccf)**:用 symlink_metadata() 检测符号链接,直接拒绝复制(Err "refusing to copy symlink"),消除死循环风险。
 
 `entry.file_type().is_dir()` 在符号链接指向目录时返回 true,然后递归——会跟着 symlink 拷出工作区,**循环 symlink 直接死循环**直到栈溢出或磁盘满。
 
@@ -36,7 +39,8 @@
 
 修法:用 `symlink_metadata()` 区分真实目录与符号链接,符号链接复制为符号链接(`std::os::unix::fs::symlink` / Windows API)而非跟随。
 
-### C4 · `src-tauri/src/common/file_watcher.rs:59` — 目录事件全被过滤
+### C4 ✅ `src-tauri/src/common/file_watcher.rs:59` — 目录事件全被过滤
+**已修复(commit 0166128)**:去掉 event.path.is_dir() 过滤,目录创建/删除事件正常透传前端。
 
 ```rust
 if event.path.is_dir() || !seen.insert(...) { continue; }
@@ -48,7 +52,8 @@ if event.path.is_dir() || !seen.insert(...) { continue; }
 
 修法:去掉 `event.path.is_dir()` 过滤(目录事件需要透传),或者改成"任何事件都发,前端自己决定怎么处理"。
 
-### C5 · `src/composables/useFileTreeActions.js:171` — paste 中途失败状态卡死
+### C5 ✅ `src/composables/useFileTreeActions.js:171` — paste 中途失败状态卡死
+**已修复(commit a0a3e44)**:改为 per-entry try/catch,收集成功/失败列表,完成后报摘要卡片,总是清剪贴板 + refresh。
 
 ```js
 try { for (entry of entries) { await renameEntry(...) } }
@@ -59,7 +64,8 @@ catch (err) { message.error(err); return }  // ← clipboard 未清,refresh 未�
 
 修法:循环里 per-entry try/catch,记录成功/失败列表,完成后报"X 成功 Y 失败"卡片,**总是清剪贴板 + refresh**。
 
-### C6 · `src/composables/useFileTreeActions.js:156` — 系统剪贴板粘贴目录绕过 cycle 检查
+### C6 ✅ `src/composables/useFileTreeActions.js:156` — 系统剪贴板粘贴目录绕过 cycle 检查
+**已修复(commit a0a3e44)**:新增 stat_entry 后端命令,粘贴前探测每个路径的 is_dir,canCopyEntryIntoDir 守卫正确生效。
 
 ```js
 const entry = { path, name, is_dir: false }  // ← 硬编码 false
@@ -73,7 +79,8 @@ const entry = { path, name, is_dir: false }  // ← 硬编码 false
 
 ## 🟠 High(影响日常使用)
 
-### H7 · `src/composables/useFileOperations.js:85` — rename 后 selectedKeys 不更新
+### H7 ✅ `src/composables/useFileOperations.js:85` — rename 后 selectedKeys 不更新
+**已修复(commit 3a7d62a)**:submitInput rename 成功后更新 selectedKeys + explorerViewStore,选中焦点正确跟随新路径。
 
 inline rename(右键 → 输入新名 → Enter)后,`selectedKeys` 还指向旧路径。n-tree 静默丢未知键,用户视觉上失去选中焦点;后续键盘导航起点没了;右键菜单读 selectedKeys 拿不到东西。
 
@@ -81,7 +88,8 @@ inline rename(右键 → 输入新名 → Enter)后,`selectedKeys` 还指向旧�
 
 修法:`submitInput` 成功后,设 `selectedKeys.value = [newPath]` + 同步 `explorerViewStore.setSelectedPaths`。
 
-### H8 · `src/components/Sidebar/FileTree.vue:200` — 重命名展开目录后展开状态丢失
+### H8 ✅ `src/components/Sidebar/FileTree.vue:200` — 重命名展开目录后展开状态丢失
+**已修复(commit 3a7d62a)**:新增 remapExpandedKeys helper,rename 后将 expandedKeys 中旧路径前缀批量替换为新前缀。
 
 `expandedKeys` 包含 `/foo/sub` 等子路径。重命名 `/foo` → `/bar` 后,watcher 过滤掉所有不在新树里的路径(包括 sub),**但不会把 /foo/sub 重映射成 /bar/sub**。
 
@@ -89,7 +97,8 @@ inline rename(右键 → 输入新名 → Enter)后,`selectedKeys` 还指向旧�
 
 修法:rename 时 explicit 转换 expandedKeys:`oldPath` 开头的所有键替换前缀为 `newPath`。
 
-### H9 · `src/stores/project.js:97` — refresh() 无并发守卫
+### H9 ✅ `src/stores/project.js:97` — refresh() 无并发守卫
+**已修复(commit 15d8825)**:加 _refreshPromise 单飞守卫,并发 refresh 等同一个 Promise,结束后若有 pending 再跑一次。
 
 多个 refresh 同时进行 → `getFileTree` 结果互相覆盖,`_collectLoadedDirs` 的并发 `loadChildren` 写入交错。
 
@@ -97,7 +106,8 @@ inline rename(右键 → 输入新名 → Enter)后,`selectedKeys` 还指向旧�
 
 修法:加 `_refreshInFlight` Promise,refresh 调用时若 in-flight 就 await 同一个 Promise,完成后再决定要不要再刷一次。
 
-### H10 · `src/stores/project.js:118` — 空目录展开状态丢失
+### H10 ✅ `src/stores/project.js:118` — 空目录展开状态丢失
+**已修复(commit 15d8825)**:_collectLoadedDirs 改为 node.children !== undefined 判定(加载过但空也视为已展开)。
 
 ```js
 if (node.is_dir && node.children?.length) { result.add(node.path); ... }
@@ -107,13 +117,15 @@ if (node.is_dir && node.children?.length) { result.add(node.path); ... }
 
 修法:改成 `node.is_dir && node.children !== undefined`(用是否加载过判断,而非有没有子)。
 
-### H11 · `src/components/Sidebar/FileTree.vue:197` — restoreExpandedKeys 与 loadProject 竞态
+### H11 ✅ `src/components/Sidebar/FileTree.vue:197` — restoreExpandedKeys 与 loadProject 竞态
+**已修复(commit 3a7d62a)**:恢复触发从 watch(rootPath) 改为 watch(() => projectStore.files, { flush: 'post' }),等树更新后再恢复。
 
 `watch(rootPath)` 立即触发,此时 `getFileTree` 还在 await,`projectStore.files` 还是上个项目的(或空)。`restoreExpandedKeys` 对错的树调 `loadChildren`,`_mergeChildren` 找不到节点静默 no-op。
 
 修法:`watch` 等到 `files` 实际更新后再恢复,或者把恢复逻辑挪到 `loadProject` 的最后(getFileTree 之后)。
 
-### H12 · `src/composables/useFileOperations.js:55` — 文件名无非法字符校验
+### H12 ✅ `src/composables/useFileOperations.js:55` — 文件名无非法字符校验
+**已修复(commit 3a7d62a)**:submitInput 前正则校验 ^[^/\\:*?"<>|\x00-\x1f]+$,失败弹具体提示;同时禁止纯空格/./..。
 
 用户输 `stage/01` 直接调 backend。Linux 静默创建嵌套目录(不是用户想要的);Windows OS 报错冒泡到 message.error 但无指引。
 
@@ -152,7 +164,7 @@ watcher 给的是 OS-native (`\\` Windows);tab.path 可能 `/`(从 dialog 来)�
 | M18 | `useContextMenu.js:80` | 多选时菜单仍显示"重命名",点了弹 toast 才知不支持 |
 | M19 | `useFileTreeActions.js:150` | 粘贴大目录无 loading,UI 静默冻结几秒 |
 | M20 | `fs_utils.rs:58` | non-UTF8 文件名 lossy 转换后 IDE 无法 rename/delete(Linux 解包 SJIS 命名的 .dat 触发) |
-| M21 | `fs_ops.rs:14` | TOCTOU 双击新建会覆盖(改用 `OpenOptions::create_new`) |
+| M21 ✅ | `fs_ops.rs:14` | TOCTOU 双击新建会覆盖(改用 `OpenOptions::create_new`) — **已修复(commit 8843ccf)**:create_file 改用 create_new(true) 原子创建。 |
 | M22 | `FileTree.vue:256` | treeRenderKey 强制重挂载 n-tree 丢滚动/焦点/拖拽中状态 |
 | M23 | `FileTree.vue:94` | 空状态 UI 与空 n-tree 同时渲染浪费空间 |
 
@@ -175,6 +187,11 @@ watcher 给的是 OS-native (`\\` Windows);tab.path 可能 `/`(从 dialog 来)�
 ## 修复批次规划
 
 ### Batch 1(必修)— 数据一致性 + 视图正确性
+
+**Batch 1 状态(2026-06-07):已完成**
+- 12 findings 修复(6 Critical + 6 High + 1 顺手 M21)
+- Rust 测试 81 → 87
+- 关键架构改动:fs_ops 路径包含校验、watcher 透传目录事件、project store 单飞 refresh、stat_entry 新命令
 
 包含:🔴 全部 6 条 + 🟠 H7/H8/H9/H10/H11/H12
 
