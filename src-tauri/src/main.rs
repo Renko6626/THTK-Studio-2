@@ -24,6 +24,7 @@ use modules::ecl::commands::{
     get_thecl_status, run_thecl_operation,
 };
 use modules::msg::commands::{compile_msg_file, decompile_msg_file};
+use modules::thdat::commands::{extract_dat_file, pack_dat_file};
 use modules::thstd::commands::{compile_std_file, decompile_std_file};
 
 use common::fs_ops;
@@ -197,6 +198,8 @@ fn main() {
             compile_msg_file,
             decompile_std_file,
             compile_std_file,
+            extract_dat_file,
+            pack_dat_file,
             generate_ai_assist_pack,
             fs_ops::create_directory,
             fs_ops::create_file,
