@@ -10,7 +10,7 @@
 | **thecl / .decl** | ✅ `modules/ecl/` 完整 | ✅ `services/languages/ecl/` 全套 | ✅ 文本 + `binary-script` | ✅ | ✅ check/compile/decompile/lookup |
 | **thmsg / .msg** | ✅ 基本解包/打包 + dmsg 翻译层(`modules/msg/`) | ❌ 无 Monaco 语言服务 | ✅ 基本可用 — `.msg` 进 binary-script 视图(ECL 专用文案，已知限制)，`.dmsg` 进普通文本视图 | ❌ 菜单触发,无 BuildDialog | ❌ 无 MCP 工具 |
 | **thanm / .anm** | ❌ | ❌ | ❌ | ❌ stub | ❌ |
-| **thstd / .std** | ❌ | ❌ | ❌ | ❌ stub | ❌ |
+| **thstd / .std** | ✅ 基本解包/打包 + dstd 翻译层(`modules/thstd/`,含 jmp opcode 1 参数交换) | ❌ 无 Monaco 语言服务 | ✅ 基本可用 — `.std` 进 binary-script 视图(ECL 专用文案，已知限制)，`.dstd` 进普通文本视图 | ❌ 菜单触发,无 BuildDialog | ❌ 无 MCP 工具 |
 | **thdat / .dat** | ❌(打包工具,非"脚本") | — | — | ❌ stub | ❌ |
 
 `services/toolchains/registry.js` 里 thmsg/thanm/thstd/thdat 都有 descriptor,`supportsBuildDialog: false`——空架子搭好了,等填。
@@ -117,6 +117,15 @@ Rust(`modules/msg/`):
 ### 阶段 B:thstd(3D 背景脚本,与 msg 同形)
 
 工作量估计:**与 thmsg 几乎相同**——格式更简单,没有 dmsg 中间层(thstd 直接吐文本);只要复制 thmsg 模块改名 + 换 ref json(`thstd_ref.json`)。
+
+**已完成(2026-06-07)**：
+
+- `src-tauri/assets/std-th17.json`：19 条指令的 JSON 语义数据（从旧仓库 `thstd_ref.json` 转换；跳过 3 条 ins_N 占位）
+- `src-tauri/src/modules/thstd/`：`map_parser`（反序列化 + th17 内嵌回退）、`translator`（行级 `ins_N` ↔ 指令名双向翻译；**opcode 1 (jmp) 参数交换 quirk**——thstd 二进制 ins_1(offset,time) ↔ ref/ECL 生态 jmp(time,offset)）、`compiler`（thstd -d/-c，UTF-8 全程，无 SJIS 桥接，比 thmsg 简单一层）、`commands`
+- 前端菜单"脚本 → 解包当前 .std / 打包当前 .dstd"——解包后 auto-open .dstd
+- Windows 验收清单：见 `editor-shell-status.md` §9 条目 18–21
+
+**暂缓**：`@label` → 字节 offset 预处理（jmp 跳到 label 而不是字节）由用户决定封装到下一版 thtk，本期不实现。
 
 ### 阶段 C:thanm(精灵动画,最重 — 因为要做预览)
 

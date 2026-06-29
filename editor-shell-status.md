@@ -113,7 +113,19 @@ thecl 编译 → 错误诊断 → Monaco 波浪线 → 问题面板 → 点击�
 - 已知限制：binary-script 视图中"打开 ECL build dialog"按钮对 .msg 无意义（BinaryScriptView.vue 写死，后续 UX 任务）
 - 不提供 Monaco 语言服务、MCP 工具、AI 辅助包扩展或 BuildDialog——这些是后续 spec
 
-### 2.9 Agent 通道
+### 2.9 thstd 基本工作流（2026-06-07）
+
+已实现：
+
+- 菜单"脚本 → 解包当前 .std"：活动标签为 .std 时可用；触发后调用 `thstd -d`，全程 UTF-8（thstd 文件无日文文本，无需 SJIS 桥接），再经 `modules/thstd/translator` 将 `ins_N` 翻译为可读指令名（使用 `assets/std-th17.json` 中的 19 条指令），写入 .dstd，输出面板弹出"解包 .std 完成"卡片，自动打开 .dstd
+- 菜单"脚本 → 打包当前 .dstd"：活动标签为 .dstd 时可用；将可读指令名反向翻译回 `ins_N`，调用 `thstd -c` 生成 .std，输出面板弹出"打包 .std 完成"卡片；失败时显示 thstd stderr，.std 不被覆盖
+- **额外处理 opcode 1 (jmp) 的参数顺序 quirk**：thstd 二进制 `ins_1(offset, time)` ↔ 生态 `jmp(time, offset)`——translator 在解包/打包两个方向均交换前两个参数
+- `.dstd` 文件在 Monaco 普通文本视图中编辑（无补全/高亮）；`.std` 进 binary-script 视图
+- 已知限制：binary-script 视图中"打开 ECL build dialog"按钮对 .std 无意义（同 thmsg，后续 UX 任务）
+- 不提供 Monaco 语言服务、MCP 工具、AI 辅助包扩展或 BuildDialog
+- 旧版"jmp 支持 @label"功能（jmp 跳到 label 而不是字节 offset）由用户暂缓，等下一版 thtk 工具封装后再实现
+
+### 2.10 Agent 通道
 
 已实现进程内 MCP server，支持在终端内运行 claude code 并让 agent 直接操作工作区：
 
@@ -255,3 +267,7 @@ THTK-Studio 的第一阶段 MVP 工程闭环已经完成，并在此基础上完
 15. 编辑 .dmsg（如改 textboxShow 的注释、或不改），"脚本 → 打包当前 .dmsg"：输出面板"打包 .msg 完成"，生成的 .msg 字节合理（可再解包验证往返正确）
 16. 故意写错 .dmsg（如 `textboxShow` 改成不存在的 `fakeShow`），打包失败卡片显示 thmsg stderr；原 .msg 不被覆盖损坏
 17. 项目未配置 thtk_dir / thmsg 路径：菜单触发后立刻弹失败卡片"thmsg path is not configured"
+18. 菜单"脚本 → 解包当前 .std"：选中 .std 标签后该项可用；触发后输出面板 "解包 .std 完成"，自动打开生成的 .dstd
+19. 编辑 .dstd 中的 jmp（如 `jmp(60, 100)`），打包后 thstd 接受（参数顺序内部已交换为 `ins_1(100, 60)` 喂给 thstd）
+20. 故意写错（`fakeFn()`）打包失败卡片显示 thstd stderr，.std 不被覆盖损坏
+21. thtk_dir 未配置：菜单触发立刻失败 "thstd path is not configured"
