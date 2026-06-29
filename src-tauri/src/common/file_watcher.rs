@@ -34,7 +34,7 @@ pub fn start_watching(
     watcher_state: &Mutex<FileWatcherState>,
     app_handle: &AppHandle,
     root_path: &str,
-) {
+) -> Result<(), String> {
     let mut state = watcher_state.lock().unwrap_or_else(|e| e.into_inner());
 
     // Drop 旧的 watcher（自动停止监听）
@@ -43,7 +43,7 @@ pub fn start_watching(
     let app_handle = app_handle.clone();
     let root = PathBuf::from(root_path);
 
-    let debouncer = new_debouncer(
+    let mut debouncer = new_debouncer(
         Duration::from_millis(500),
         move |result: Result<Vec<notify_debouncer_mini::DebouncedEvent>, notify::Error>| {
             let events = match result {
@@ -87,20 +87,19 @@ pub fn start_watching(
                 let _ = app_handle.emit("file-system-changed", &changes);
             }
         },
-    );
+    )
+    .map_err(|err| format!("[file-watcher] failed to create debouncer: {err:?}"))?;
 
-    match debouncer {
-        Ok(mut debouncer) => {
-            if let Err(err) = debouncer.watcher().watch(&root, RecursiveMode::Recursive) {
-                eprintln!("[file-watcher] failed to watch {:?}: {:?}", root, err);
-                return;
-            }
-            state._debouncer = Some(debouncer);
-        }
-        Err(err) => {
-            eprintln!("[file-watcher] failed to create debouncer: {:?}", err);
-        }
+    if let Err(err) = debouncer.watcher().watch(&root, RecursiveMode::Recursive) {
+        // Drop the debouncer explicitly before returning to avoid leaking watch state.
+        drop(debouncer);
+        return Err(format!(
+            "[file-watcher] failed to watch {root:?}: {err:?}"
+        ));
     }
+
+    state._debouncer = Some(debouncer);
+    Ok(())
 }
 
 /// 停止文件监听

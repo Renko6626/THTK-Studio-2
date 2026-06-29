@@ -88,7 +88,21 @@ fn set_project_root(state: State<AppState>, path: String, app_handle: tauri::App
     *root = Some(path.clone());
     drop(root);
 
-    file_watcher::start_watching(&state.file_watcher, &app_handle, &path);
+    match file_watcher::start_watching(&state.file_watcher, &app_handle, &path) {
+        Ok(()) => {}
+        Err(error) => {
+            use tauri::Emitter;
+            let _ = app_handle.emit(
+                "mcp://report",
+                serde_json::json!({
+                    "title": "文件监听不可用",
+                    "body": format!("文件系统监听器启动失败,外部文件变更不会自动反映到 IDE。可通过文件树刷新按钮手动同步。\n\n错误:{error}"),
+                    "level": "error",
+                    "path": null,
+                }),
+            );
+        }
+    }
 
     // 取出端口/token 后立即放锁,避免持锁做文件 IO(pty_create 等会争用这把锁)
     let endpoint = {
