@@ -28,10 +28,26 @@ export function decompileEcl(binaryPath, mapPaths = []) {
 
 /**
  * 运行原始 thtk 命令 (调试用)
- * @param {string} toolPath 
- * @param {Array<string>} args 
- * @param {string|null} workDir 
+ * @param {string} toolPath
+ * @param {Array<string>} args
+ * @param {string|null} workDir
  */
 export function runThtkRaw(toolPath, args, workDir = null) {
   return invoke('run_thtk_raw', { toolPath, args, workDir })
+}
+
+/**
+ * 反编译 MSG 文件 (.msg -> .dmsg)
+ * @param {{ inputPath: string, outputPath?: string|null, withComments?: boolean }} params
+ */
+export function decompileMsgFile({ inputPath, outputPath = null, withComments = true }) {
+  return invoke('decompile_msg_file', { inputPath, outputPath, withComments })
+}
+
+/**
+ * 编译 MSG 文件 (.dmsg -> .msg)
+ * @param {{ inputPath: string, outputPath?: string|null }} params
+ */
+export function compileMsgFile({ inputPath, outputPath = null }) {
+  return invoke('compile_msg_file', { inputPath, outputPath })
 }

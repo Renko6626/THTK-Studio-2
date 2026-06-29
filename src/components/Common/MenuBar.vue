@@ -34,7 +34,7 @@ import { useToolchainSettingsStore } from '../../stores/toolchainSettings'
 import { useWorkbenchReportsStore } from '../../stores/workbenchReports'
 import { dispatchEditorAction } from '../../composables/useEditorActionBridge'
 import { useFileOperations } from '../../composables/useFileOperations'
-import { generateAiAssistPack } from '../../api'
+import { generateAiAssistPack, decompileMsgFile, compileMsgFile } from '../../api'
 
 const editorStore = useEditorStore()
 const projectStore = useProjectStore()
@@ -54,6 +54,14 @@ const activeExtension = computed(() => editorStore.activeTab?.path?.split('.').p
 const canCompileActiveSource = computed(() => activeExtension.value === 'decl')
 const canDecompileActiveBinary = computed(() => activeExtension.value === 'ecl')
 const canGenerateActiveHeader = computed(() => activeExtension.value === 'decl')
+const isActiveTabMsg = computed(() => {
+  const tab = editorStore.activeTab
+  return Boolean(tab && tab.path && tab.path.toLowerCase().endsWith('.msg'))
+})
+const isActiveTabDmsg = computed(() => {
+  const tab = editorStore.activeTab
+  return Boolean(tab && tab.path && tab.path.toLowerCase().endsWith('.dmsg'))
+})
 
 const menus = computed(() => [
   {
@@ -114,7 +122,10 @@ const menus = computed(() => [
       { label: '编译当前 ECL 源文件', key: 'script.compileEcl', disabled: !canCompileActiveSource.value },
       { label: '反编译当前 ECL 二进制', key: 'script.decompileEcl', disabled: !canDecompileActiveBinary.value },
       { label: '为当前 ECL 生成头文件', key: 'script.generateHeader', disabled: !canGenerateActiveHeader.value },
-      { label: '生成 AI 辅助包', key: 'script.generateAiPack', disabled: !hasWorkspace.value }
+      { label: '生成 AI 辅助包', key: 'script.generateAiPack', disabled: !hasWorkspace.value },
+      { type: 'divider', key: 'msg-divider' },
+      { label: '解包当前 .msg', key: 'script.decompileMsg', disabled: !isActiveTabMsg.value },
+      { label: '打包当前 .dmsg', key: 'script.compileMsg', disabled: !isActiveTabDmsg.value }
     ]
   },
   {
@@ -205,6 +216,86 @@ async function runGenerateAiPack() {
   }
 }
 
+function publishMsgResult({ operation, inputPath, success, outputPath, message: text }) {
+  const title = operation === 'decompile'
+    ? (success ? '解包 .msg 完成' : '解包 .msg 失败')
+    : (success ? '打包 .msg 完成' : '打包 .msg 失败')
+  reportsStore.publishToolResult({
+    ownerKey: `msg:${operation}:${inputPath}`,
+    source: 'toolchain',
+    operation,
+    scriptKind: 'msg',
+    title,
+    path: outputPath || inputPath || null,
+    success,
+    message: text,
+    diagnostics: []
+  })
+  workbenchPanelsStore.showBottomPanel('output')
+}
+
+async function runDecompileMsg() {
+  const tab = editorStore.activeTab
+  if (!tab || !tab.path) return
+  const inputPath = tab.path
+  try {
+    const result = await decompileMsgFile({ inputPath })
+    publishMsgResult({
+      operation: 'decompile',
+      inputPath,
+      success: Boolean(result?.success),
+      outputPath: result?.outputPath || null,
+      message: result?.message || ''
+    })
+    if (result?.success && result.outputPath && result.outputPath !== inputPath) {
+      try {
+        await editorStore.openFile({ path: result.outputPath })
+      } catch (openError) {
+        console.warn('打开生成的 .dmsg 失败', openError)
+      }
+    }
+  } catch (error) {
+    publishMsgResult({
+      operation: 'decompile',
+      inputPath,
+      success: false,
+      outputPath: null,
+      message: String(error)
+    })
+  }
+}
+
+async function runCompileMsg() {
+  const tab = editorStore.activeTab
+  if (!tab || !tab.path) return
+  const inputPath = tab.path
+  if (tab.isDirty) {
+    const saved = await editorStore.saveActiveFile()
+    if (!saved) {
+      message.error('保存当前 .dmsg 失败，已取消打包')
+      return
+    }
+  }
+  try {
+    const result = await compileMsgFile({ inputPath })
+    publishMsgResult({
+      operation: 'compile',
+      inputPath,
+      success: Boolean(result?.success),
+      outputPath: result?.outputPath || null,
+      message: result?.message || ''
+    })
+  } catch (error) {
+    publishMsgResult({
+      operation: 'compile',
+      inputPath,
+      success: false,
+      outputPath: null,
+      message: String(error)
+    })
+  }
+}
+
 async function handleSelect(key) {
   switch (key) {
     case 'file.openFolder':
@@ -291,6 +382,12 @@ async function handleSelect(key) {
       break
     case 'script.generateAiPack':
       runGenerateAiPack()
+      break
+    case 'script.decompileMsg':
+      runDecompileMsg()
+      break
+    case 'script.compileMsg':
+      runCompileMsg()
       break
     case 'terminal.new':
       workbenchPanelsStore.showBottomPanel('terminal')
