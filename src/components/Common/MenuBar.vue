@@ -23,53 +23,41 @@
 
 <script setup>
 import { computed } from 'vue'
-import { open, save } from '@tauri-apps/plugin-dialog'
+import { open } from '@tauri-apps/plugin-dialog'
 import { NDropdown, useMessage, useDialog } from 'naive-ui'
 import { useEditorStore } from '../../stores/editor'
 import { useProjectStore } from '../../stores/project'
 import { useTerminalStore } from '../../stores/terminal'
 import { useWorkbenchPanelsStore } from '../../stores/workbenchPanels'
-import { useBuildDialogStore } from '../../stores/buildDialog'
 import { useToolchainSettingsStore } from '../../stores/toolchainSettings'
 import { useWorkbenchReportsStore } from '../../stores/workbenchReports'
 import { dispatchEditorAction } from '../../composables/useEditorActionBridge'
 import { useFileOperations } from '../../composables/useFileOperations'
-import { generateAiAssistPack, decompileMsgFile, compileMsgFile, decompileStdFile, compileStdFile, extractDatFile, packDatFile } from '../../api'
+import { useToolchainActions } from '../../composables/useToolchainActions'
+import { generateAiAssistPack } from '../../api'
 
 const editorStore = useEditorStore()
 const projectStore = useProjectStore()
 const terminalStore = useTerminalStore()
 const workbenchPanelsStore = useWorkbenchPanelsStore()
-const buildDialogStore = useBuildDialogStore()
 const toolchainSettingsStore = useToolchainSettingsStore()
 const reportsStore = useWorkbenchReportsStore()
 const { handleCreate } = useFileOperations()
 const message = useMessage()
 const dialog = useDialog()
+const tcActions = useToolchainActions({ message })
 
 const hasWorkspace = computed(() => Boolean(projectStore.rootPath))
 const hasActiveTab = computed(() => Boolean(editorStore.activeTab))
 const hasEditableTab = computed(() => editorStore.activeTab?.viewType !== 'binary-script' && Boolean(editorStore.activeTab))
 const activeExtension = computed(() => editorStore.activeTab?.path?.split('.').pop()?.toLowerCase() || '')
-const canCompileActiveSource = computed(() => activeExtension.value === 'decl')
-const canDecompileActiveBinary = computed(() => activeExtension.value === 'ecl')
-const canGenerateActiveHeader = computed(() => activeExtension.value === 'decl')
-const isActiveTabMsg = computed(() => {
-  const tab = editorStore.activeTab
-  return Boolean(tab && tab.path && tab.path.toLowerCase().endsWith('.msg'))
-})
-const isActiveTabDmsg = computed(() => {
-  const tab = editorStore.activeTab
-  return Boolean(tab && tab.path && tab.path.toLowerCase().endsWith('.dmsg'))
-})
-const isActiveTabStd = computed(() => {
-  const tab = editorStore.activeTab
-  return Boolean(tab && tab.path && tab.path.toLowerCase().endsWith('.std'))
-})
-const isActiveTabDstd = computed(() => {
-  const tab = editorStore.activeTab
-  return Boolean(tab && tab.path && tab.path.toLowerCase().endsWith('.dstd'))
-})
+const activeIsEcl  = computed(() => activeExtension.value === 'ecl')
+const activeIsDecl = computed(() => activeExtension.value === 'decl')
+const activeIsMsg  = computed(() => activeExtension.value === 'msg')
+const activeIsDmsg = computed(() => activeExtension.value === 'dmsg')
+const activeIsStd  = computed(() => activeExtension.value === 'std')
+const activeIsDstd = computed(() => activeExtension.value === 'dstd')
+const activeIsDat  = computed(() => activeExtension.value === 'dat')
 
 const menus = computed(() => [
   {
@@ -127,18 +115,27 @@ const menus = computed(() => [
     key: 'script',
     label: '脚本',
     options: [
-      { label: '编译当前 ECL 源文件', key: 'script.compileEcl', disabled: !canCompileActiveSource.value },
-      { label: '反编译当前 ECL 二进制', key: 'script.decompileEcl', disabled: !canDecompileActiveBinary.value },
-      { label: '为当前 ECL 生成头文件', key: 'script.generateHeader', disabled: !canGenerateActiveHeader.value },
-      { label: '生成 AI 辅助包', key: 'script.generateAiPack', disabled: !hasWorkspace.value },
-      { type: 'divider', key: 'msg-divider' },
-      { label: '解包当前 .msg', key: 'script.decompileMsg', disabled: !isActiveTabMsg.value },
-      { label: '打包当前 .dmsg', key: 'script.compileMsg', disabled: !isActiveTabDmsg.value },
-      { label: '解包当前 .std', key: 'script.decompileStd', disabled: !isActiveTabStd.value },
-      { label: '打包当前 .dstd', key: 'script.compileStd', disabled: !isActiveTabDstd.value },
-      { type: 'divider', key: 'dat-divider' },
-      { label: '解包 .dat (容器)', key: 'script.extractDat' },
-      { label: '打包目录为 .dat', key: 'script.packDat' }
+      // ECL
+      { label: '反编译当前 .ecl', key: 'script.decompileEclQuick', disabled: !activeIsEcl.value },
+      { label: '反编译当前 .ecl(高级…)', key: 'script.decompileEclAdvanced', disabled: !activeIsEcl.value },
+      { label: '编译当前 .decl', key: 'script.compileEclQuick', disabled: !activeIsDecl.value },
+      { label: '编译当前 .decl(高级…)', key: 'script.compileEclAdvanced', disabled: !activeIsDecl.value },
+      { label: '生成 ECL 头文件…', key: 'script.generateEclHeader', disabled: !activeIsDecl.value },
+      { type: 'divider', key: 'script-msg-div' },
+      // MSG
+      { label: '反编译当前 .msg', key: 'script.decompileMsg', disabled: !activeIsMsg.value },
+      { label: '编译当前 .dmsg', key: 'script.compileMsg', disabled: !activeIsDmsg.value },
+      { type: 'divider', key: 'script-std-div' },
+      // STD
+      { label: '反编译当前 .std', key: 'script.decompileStd', disabled: !activeIsStd.value },
+      { label: '编译当前 .dstd', key: 'script.compileStd', disabled: !activeIsDstd.value },
+      { type: 'divider', key: 'script-dat-div' },
+      // DAT
+      { label: '解包当前 .dat', key: 'script.extractDat' },
+      { label: '打包目录为 .dat', key: 'script.packDat' },
+      { type: 'divider', key: 'script-ai-div' },
+      // AI pack
+      { label: '生成 AI 辅助包', key: 'script.generateAiPack', disabled: !hasWorkspace.value }
     ]
   },
   {
@@ -156,14 +153,6 @@ async function openFolder() {
     await projectStore.loadProject(selected)
     message.success(`已打开 ${projectStore.rootName}`)
   }
-}
-
-function openTheclDialog(mode) {
-  buildDialogStore.openTheclDialog({
-    mode,
-    inputPath: editorStore.activeTab?.path || '',
-    useShiftJis: true
-  })
 }
 
 function publishAiPackResult({ success, path, message: text }) {
@@ -226,265 +215,6 @@ async function runGenerateAiPack() {
     })
   } catch (error) {
     publishAiPackResult({ success: false, path: null, message: String(error) })
-  }
-}
-
-function publishMsgResult({ operation, inputPath, success, outputPath, message: text }) {
-  const title = operation === 'decompile'
-    ? (success ? '解包 .msg 完成' : '解包 .msg 失败')
-    : (success ? '打包 .msg 完成' : '打包 .msg 失败')
-  reportsStore.publishToolResult({
-    ownerKey: `msg:${operation}:${inputPath}`,
-    source: 'toolchain',
-    operation,
-    scriptKind: 'msg',
-    title,
-    path: outputPath || inputPath || null,
-    success,
-    message: text,
-    diagnostics: []
-  })
-  workbenchPanelsStore.showBottomPanel('output')
-}
-
-async function runDecompileMsg() {
-  const tab = editorStore.activeTab
-  if (!tab || !tab.path) return
-  const inputPath = tab.path
-  try {
-    const result = await decompileMsgFile({ inputPath })
-    publishMsgResult({
-      operation: 'decompile',
-      inputPath,
-      success: Boolean(result?.success),
-      outputPath: result?.outputPath || null,
-      message: result?.message || ''
-    })
-    if (result?.success && result.outputPath && result.outputPath !== inputPath) {
-      try {
-        await editorStore.openFile({ path: result.outputPath })
-      } catch (openError) {
-        console.warn('打开生成的 .dmsg 失败', openError)
-      }
-    }
-  } catch (error) {
-    publishMsgResult({
-      operation: 'decompile',
-      inputPath,
-      success: false,
-      outputPath: null,
-      message: String(error)
-    })
-  }
-}
-
-async function runCompileMsg() {
-  const tab = editorStore.activeTab
-  if (!tab || !tab.path) return
-  const inputPath = tab.path
-  if (tab.isDirty) {
-    const saved = await editorStore.saveActiveFile()
-    if (!saved) {
-      message.error('保存当前 .dmsg 失败，已取消打包')
-      return
-    }
-  }
-  try {
-    const result = await compileMsgFile({ inputPath })
-    publishMsgResult({
-      operation: 'compile',
-      inputPath,
-      success: Boolean(result?.success),
-      outputPath: result?.outputPath || null,
-      message: result?.message || ''
-    })
-  } catch (error) {
-    publishMsgResult({
-      operation: 'compile',
-      inputPath,
-      success: false,
-      outputPath: null,
-      message: String(error)
-    })
-  }
-}
-
-function publishStdResult({ operation, inputPath, success, outputPath, message: text }) {
-  const title = operation === 'decompile'
-    ? (success ? '解包 .std 完成' : '解包 .std 失败')
-    : (success ? '打包 .std 完成' : '打包 .std 失败')
-  reportsStore.publishToolResult({
-    ownerKey: `std:${operation}:${inputPath}`,
-    source: 'toolchain',
-    operation,
-    scriptKind: 'std',
-    title,
-    path: outputPath || inputPath || null,
-    success,
-    message: text,
-    diagnostics: []
-  })
-  workbenchPanelsStore.showBottomPanel('output')
-}
-
-async function runDecompileStd() {
-  const tab = editorStore.activeTab
-  if (!tab || !tab.path) return
-  const inputPath = tab.path
-  try {
-    const result = await decompileStdFile({ inputPath })
-    publishStdResult({
-      operation: 'decompile',
-      inputPath,
-      success: Boolean(result?.success),
-      outputPath: result?.outputPath || null,
-      message: result?.message || ''
-    })
-    if (result?.success && result.outputPath && result.outputPath !== inputPath) {
-      try {
-        await editorStore.openFile({ path: result.outputPath })
-      } catch (openError) {
-        console.warn('打开生成的 .dstd 失败', openError)
-      }
-    }
-  } catch (error) {
-    publishStdResult({
-      operation: 'decompile',
-      inputPath,
-      success: false,
-      outputPath: null,
-      message: String(error)
-    })
-  }
-}
-
-async function runCompileStd() {
-  const tab = editorStore.activeTab
-  if (!tab || !tab.path) return
-  const inputPath = tab.path
-  if (tab.isDirty) {
-    const saved = await editorStore.saveActiveFile()
-    if (!saved) {
-      message.error('保存当前 .dstd 失败，已取消打包')
-      return
-    }
-  }
-  try {
-    const result = await compileStdFile({ inputPath })
-    publishStdResult({
-      operation: 'compile',
-      inputPath,
-      success: Boolean(result?.success),
-      outputPath: result?.outputPath || null,
-      message: result?.message || ''
-    })
-  } catch (error) {
-    publishStdResult({
-      operation: 'compile',
-      inputPath,
-      success: false,
-      outputPath: null,
-      message: String(error)
-    })
-  }
-}
-
-function deriveDefaultExtractDir(archivePath) {
-  // /p/th17.dat → /p/th17
-  const lastSep = Math.max(archivePath.lastIndexOf('/'), archivePath.lastIndexOf('\\'))
-  const dir = archivePath.slice(0, lastSep + 1)
-  const name = archivePath.slice(lastSep + 1)
-  const stem = name.replace(/\.dat$/i, '')
-  return dir + stem
-}
-
-function publishDatResult({ operation, success, archivePath, targetDir, fileCount, message: text }) {
-  const ownerKey = `dat:${operation}:${archivePath}`
-  const opLabel = operation === 'extract' ? '解包' : '打包'
-  const fileNote = typeof fileCount === 'number' ? `(${fileCount} 个文件)` : ''
-  reportsStore.publishToolResult({
-    ownerKey,
-    source: 'toolchain',
-    operation,
-    scriptKind: 'dat',
-    title: `${opLabel} .dat ${success ? '完成' : '失败'} ${fileNote}`.trim(),
-    path: archivePath || targetDir || null,
-    success,
-    message: text || '',
-    diagnostics: []
-  })
-  workbenchPanelsStore.showBottomPanel('output')
-}
-
-async function runExtractDat() {
-  // 1) 选 .dat 归档:若当前 tab 已是 .dat 直接复用,否则弹文件选择器
-  let archivePath = null
-  const activeTab = editorStore.activeTab
-  if (activeTab && activeTab.path && activeTab.path.toLowerCase().endsWith('.dat')) {
-    archivePath = activeTab.path
-  } else {
-    archivePath = await open({
-      multiple: false,
-      directory: false,
-      filters: [{ name: 'Touhou Archive', extensions: ['dat'] }]
-    })
-    if (!archivePath) return
-  }
-  // 2) 选目标目录,默认 <archive_parent>/<stem>/
-  const defaultDir = deriveDefaultExtractDir(archivePath)
-  const targetDir = await open({ directory: true, defaultPath: defaultDir })
-  if (!targetDir) return
-  // 3) 调用后端,推卡片,刷新文件树
-  try {
-    const result = await extractDatFile({ archivePath, targetDir })
-    publishDatResult({
-      operation: 'extract',
-      success: Boolean(result?.success),
-      archivePath,
-      targetDir,
-      fileCount: typeof result?.fileCount === 'number' ? result.fileCount : null,
-      message: result?.message || ''
-    })
-    try { await projectStore.refresh() } catch {}
-  } catch (error) {
-    publishDatResult({
-      operation: 'extract',
-      success: false,
-      archivePath,
-      targetDir,
-      fileCount: null,
-      message: String(error)
-    })
-  }
-}
-
-async function runPackDat() {
-  const sourceDir = await open({ directory: true })
-  if (!sourceDir) return
-  const archivePath = await save({
-    filters: [{ name: 'Touhou Archive', extensions: ['dat'] }]
-  })
-  if (!archivePath) return
-  try {
-    const result = await packDatFile({ sourceDir, archivePath })
-    publishDatResult({
-      operation: 'pack',
-      success: Boolean(result?.success),
-      archivePath,
-      targetDir: sourceDir,
-      fileCount: typeof result?.fileCount === 'number' ? result.fileCount : null,
-      message: result?.message || ''
-    })
-    try { await projectStore.refresh() } catch {}
-  } catch (error) {
-    publishDatResult({
-      operation: 'pack',
-      success: false,
-      archivePath,
-      targetDir: sourceDir,
-      fileCount: null,
-      message: String(error)
-    })
   }
 }
 
@@ -563,35 +293,41 @@ async function handleSelect(key) {
     case 'view.showProblems':
       workbenchPanelsStore.showBottomPanel('problems')
       break
-    case 'script.compileEcl':
-      openTheclDialog('compile')
+    case 'script.decompileEclQuick':
+      tcActions.runDecompileEclQuick(editorStore.activeTab?.path)
       break
-    case 'script.decompileEcl':
-      openTheclDialog('decompile')
+    case 'script.decompileEclAdvanced':
+      tcActions.runDecompileEclAdvanced(editorStore.activeTab?.path)
       break
-    case 'script.generateHeader':
-      openTheclDialog('header')
+    case 'script.compileEclQuick':
+      tcActions.runCompileEclQuick(editorStore.activeTab)
+      break
+    case 'script.compileEclAdvanced':
+      tcActions.runCompileEclAdvanced(editorStore.activeTab)
+      break
+    case 'script.generateEclHeader':
+      tcActions.runGenerateEclHeader(editorStore.activeTab)
+      break
+    case 'script.decompileMsg':
+      tcActions.runDecompileMsg(editorStore.activeTab?.path)
+      break
+    case 'script.compileMsg':
+      tcActions.runCompileMsg(editorStore.activeTab)
+      break
+    case 'script.decompileStd':
+      tcActions.runDecompileStd(editorStore.activeTab?.path)
+      break
+    case 'script.compileStd':
+      tcActions.runCompileStd(editorStore.activeTab)
+      break
+    case 'script.extractDat':
+      tcActions.runExtractDat(activeIsDat.value ? editorStore.activeTab?.path : null)
+      break
+    case 'script.packDat':
+      tcActions.runPackDat()
       break
     case 'script.generateAiPack':
       runGenerateAiPack()
-      break
-    case 'script.decompileMsg':
-      runDecompileMsg()
-      break
-    case 'script.compileMsg':
-      runCompileMsg()
-      break
-    case 'script.decompileStd':
-      runDecompileStd()
-      break
-    case 'script.compileStd':
-      runCompileStd()
-      break
-    case 'script.extractDat':
-      runExtractDat()
-      break
-    case 'script.packDat':
-      runPackDat()
       break
     case 'terminal.new':
       workbenchPanelsStore.showBottomPanel('terminal')
