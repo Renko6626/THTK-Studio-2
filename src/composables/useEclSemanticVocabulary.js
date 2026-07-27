@@ -23,7 +23,8 @@ export function useEclSemanticVocabulary({
 
     try {
       const semanticData = await loadDefaultEclSemanticData({
-        projectRoot: projectStore.rootPath
+        projectRoot: projectStore.rootPath,
+        projectConfig: projectStore.projectConfig
       })
 
       if (disposed || token !== loadingToken) return
@@ -41,13 +42,18 @@ export function useEclSemanticVocabulary({
     }
   }
 
+  // 全局工具链设置不在 Pinia 里，只能靠事件通知
   function handleToolchainSettingsChanged() {
     void refreshSemanticVocabulary()
   }
 
+  // 同时盯住 projectConfig：词表来源里的版本、eclmap 和 thtk 目录都来自它。
+  // 只盯 rootPath 不够——loadProject 是先同步设 rootPath、await 之后才填
+  // projectConfig，只监听前者会用上一个项目的配置加载词表且再也不刷新。
+  // 这条 watch 同时覆盖了"保存项目设置后立即生效"，不需要额外的事件。
   watch(
-    () => projectStore.rootPath,
-    (nextPath) => {
+    [() => projectStore.rootPath, () => projectStore.projectConfig],
+    ([nextPath]) => {
       const nextScopeKey = nextPath || '__global__'
       if (previousScopeKey && previousScopeKey !== nextScopeKey) {
         clearEclSemanticVocabulary(previousScopeKey)

@@ -29,6 +29,7 @@ import { useEditorStore } from '../../stores/editor'
 import { useProjectStore } from '../../stores/project'
 import { useTerminalStore } from '../../stores/terminal'
 import { useWorkbenchPanelsStore } from '../../stores/workbenchPanels'
+import { useProjectSettingsStore } from '../../stores/projectSettings'
 import { useToolchainSettingsStore } from '../../stores/toolchainSettings'
 import { useWorkbenchReportsStore } from '../../stores/workbenchReports'
 import { dispatchEditorAction } from '../../composables/useEditorActionBridge'
@@ -40,6 +41,7 @@ const editorStore = useEditorStore()
 const projectStore = useProjectStore()
 const terminalStore = useTerminalStore()
 const workbenchPanelsStore = useWorkbenchPanelsStore()
+const projectSettingsStore = useProjectSettingsStore()
 const toolchainSettingsStore = useToolchainSettingsStore()
 const reportsStore = useWorkbenchReportsStore()
 const { handleCreate } = useFileOperations()
@@ -73,6 +75,7 @@ const menus = computed(() => [
       { label: '全部保存', key: 'file.saveAll', disabled: !editorStore.tabs.length },
       { label: '关闭当前标签页', key: 'file.closeActive', disabled: !hasActiveTab.value },
       { type: 'divider', key: 'file.divider.3' },
+      { label: '项目设置...', key: 'file.projectSettings', disabled: !hasWorkspace.value },
       { label: '工具链设置...', key: 'file.toolchainSettings' },
       { type: 'divider', key: 'file.divider.4' },
       { label: '刷新资源管理器', key: 'file.refresh', disabled: !hasWorkspace.value }
@@ -247,6 +250,9 @@ async function handleSelect(key) {
       } else {
         editorStore.closeActiveTab()
       }
+      break
+    case 'file.projectSettings':
+      projectSettingsStore.open()
       break
     case 'file.toolchainSettings':
       toolchainSettingsStore.open()

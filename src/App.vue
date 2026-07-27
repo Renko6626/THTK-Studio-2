@@ -54,6 +54,7 @@
         </WorkbenchLayout>
         <BuildConfigDialog />
         <ToolchainSettingsDialog />
+        <ProjectSettingsDialog />
       </n-message-provider>
     </n-dialog-provider>
   </n-config-provider>
@@ -71,6 +72,7 @@ import TabGroup from './components/Editor/TabGroup.vue'
 import WorkbenchEditorHost from './components/Editor/WorkbenchEditorHost.vue'
 import BuildConfigDialog from './components/Dialogs/BuildConfigDialog.vue'
 import ToolchainSettingsDialog from './components/Dialogs/ToolchainSettingsDialog.vue'
+import ProjectSettingsDialog from './components/Dialogs/ProjectSettingsDialog.vue'
 import BottomPanelHost from './components/ToolWindow/BottomPanelHost.vue'
 import { useEditorStore } from './stores/editor'
 import { useExplorerViewStore } from './stores/explorerView'
