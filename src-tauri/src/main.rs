@@ -141,11 +141,13 @@ fn set_project_root(state: State<AppState>, path: String, app_handle: tauri::App
 // Project Config Commands
 // ----------------------------------------------------------------
 
+/// 返回三态结果（absent / loaded / invalid），让前端能区分"还没配置"和
+/// "配置文件坏了"——后者不确认就覆盖会毁掉用户手写的内容。
 #[tauri::command]
-fn load_project_config(state: State<AppState>) -> Option<project_config::ProjectConfig> {
+fn load_project_config(state: State<AppState>) -> Result<project_config::ProjectConfigLoad, String> {
     let root = state.current_project_root.lock().unwrap_or_else(|e| e.into_inner());
-    let root_path = root.as_deref()?;
-    project_config::load_project_config(root_path)
+    let root_path = root.as_deref().ok_or("No project root set")?;
+    Ok(project_config::load_project_config_detailed(root_path))
 }
 
 #[tauri::command]

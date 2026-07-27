@@ -7,7 +7,12 @@ export const useProjectStore = defineStore('project', {
     rootPath: null,        // 当前打开的项目根目录
     files: [],             // 文件树数据（浅层，子目录按需加载）
     isLoading: false,
-    projectConfig: null,   // .thtk-project.json 的内容，null 表示不存在
+    projectConfig: null,   // .thtk-project.json 的内容，null 表示不可用
+    // 'absent'（没有配置文件）/ 'loaded'（可用）/ 'invalid'（文件坏了或字段非法）。
+    // 必须区分后两者：把损坏当成"还没配置"会让保存动作静默覆盖用户手写的内容。
+    projectConfigStatus: 'absent',
+    projectConfigError: null,
+    projectConfigPath: '',
     _refreshPromise: null,
     _refreshPending: false
   }),
@@ -28,8 +33,14 @@ export const useProjectStore = defineStore('project', {
     /** 项目配置的 map 路径列表 */
     mapPaths: (state) => state.projectConfig?.mapPaths || [],
 
-    /** 是否已有项目配置文件 */
-    hasProjectConfig: (state) => state.projectConfig !== null
+    /** 项目级 thtk 目录覆盖，空字符串表示沿用全局设置 */
+    projectThtkDir: (state) => state.projectConfig?.toolchain?.thtkDir || '',
+
+    /** 是否已有可用的项目配置文件 */
+    hasProjectConfig: (state) => state.projectConfigStatus === 'loaded',
+
+    /** 配置文件存在但无法使用（JSON 损坏或字段非法） */
+    hasInvalidProjectConfig: (state) => state.projectConfigStatus === 'invalid'
   },
 
   actions: {
@@ -44,12 +55,7 @@ export const useProjectStore = defineStore('project', {
       try {
         await setProjectRoot(path)
         this.files = await getFileTree(path)
-        // 尝试加载项目配置
-        try {
-          this.projectConfig = await loadProjectConfig()
-        } catch {
-          this.projectConfig = null
-        }
+        await this.reloadProjectConfig()
       } catch (err) {
         console.error('Failed to load project:', err)
       } finally {
@@ -57,22 +63,35 @@ export const useProjectStore = defineStore('project', {
       }
     },
 
+    /** 重新读取 .thtk-project.json 并记录其三态状态 */
+    async reloadProjectConfig() {
+      try {
+        this._applyProjectConfigLoad(await loadProjectConfig())
+      } catch (err) {
+        // 命令本身失败（例如项目根未设置）——状态未知，按不可用处理并留下原因，
+        // 不要伪装成"没有配置文件"，否则保存动作会以为可以放心创建。
+        this._applyProjectConfigLoad({
+          status: 'invalid',
+          value: null,
+          error: String(err),
+          path: ''
+        })
+      }
+    },
+
+    _applyProjectConfigLoad(result) {
+      this.projectConfigStatus = result?.status || 'absent'
+      this.projectConfig = result?.value || null
+      this.projectConfigError = result?.error || null
+      this.projectConfigPath = result?.path || ''
+    },
+
     /** 保存项目配置到 .thtk-project.json */
     async saveConfig(config) {
       await saveProjectConfig(config)
       this.projectConfig = config
-    },
-
-    /** 更新项目配置的部分字段并保存 */
-    async updateConfig(partial) {
-      const current = this.projectConfig || {
-        gameVersion: '',
-        encoding: 'shift-jis',
-        mapPaths: [],
-        toolchain: { thtkDir: '' }
-      }
-      const merged = { ...current, ...partial }
-      await this.saveConfig(merged)
+      this.projectConfigStatus = 'loaded'
+      this.projectConfigError = null
     },
 
     /** 按需加载某个目录的子节点，返回子节点列表 */

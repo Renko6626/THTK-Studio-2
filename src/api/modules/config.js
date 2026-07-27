@@ -32,7 +32,8 @@ export function getToolchainStatuses() {
 
 /**
  * 加载项目配置 (.thtk-project.json)
- * @returns {Promise<Object|null>} 项目配置或 null（不存在时）
+ * @returns {Promise<{status: 'absent'|'loaded'|'invalid', value: Object|null, error: string|null, path: string}>}
+ *   status 区分"没有配置文件"与"文件损坏"；后者不经确认不得覆盖。
  */
 export function loadProjectConfig() {
   return invoke('load_project_config')
