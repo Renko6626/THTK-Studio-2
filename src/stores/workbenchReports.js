@@ -1,5 +1,16 @@
 import { defineStore } from 'pinia'
 
+// 输出与问题条目原先无上限，长时间使用会单调增长（终端侧已用 scrollback 上限解决）。
+// 超出时丢弃最旧的：输出面板里越新的结果越可能是用户正在看的那一次。
+// 代价是单次超长的工具输出会丢掉开头几行——这比整个会话吃光内存要好。
+const MAX_OUTPUT_ENTRIES = 5000
+const MAX_PROBLEM_ENTRIES = 2000
+
+/** 保留最近的 limit 条，返回新数组 */
+function capEntries(entries, limit) {
+  return entries.length > limit ? entries.slice(entries.length - limit) : entries
+}
+
 function createId(prefix) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
@@ -83,6 +94,11 @@ export const useWorkbenchReportsStore = defineStore('workbenchReports', {
         path: entry.path || null,
         text: entry.text || ''
       })
+
+      // 只在越界时裁掉溢出的部分，通常一次一条
+      if (this.outputEntries.length > MAX_OUTPUT_ENTRIES) {
+        this.outputEntries.splice(0, this.outputEntries.length - MAX_OUTPUT_ENTRIES)
+      }
     },
 
     replaceOutput(ownerKey, entries) {
@@ -99,10 +115,10 @@ export const useWorkbenchReportsStore = defineStore('workbenchReports', {
         text: entry.text || ''
       }))
 
-      this.outputEntries = [
-        ...this.outputEntries.filter(item => item.ownerKey !== ownerKey),
-        ...nextEntries
-      ]
+      this.outputEntries = capEntries(
+        [...this.outputEntries.filter(item => item.ownerKey !== ownerKey), ...nextEntries],
+        MAX_OUTPUT_ENTRIES
+      )
     },
 
     pushOutputText(entry) {
@@ -128,10 +144,10 @@ export const useWorkbenchReportsStore = defineStore('workbenchReports', {
         message: problem.message || 'Unknown issue'
       }))
 
-      this.problemEntries = [
-        ...this.problemEntries.filter(item => item.ownerKey !== ownerKey),
-        ...normalized
-      ]
+      this.problemEntries = capEntries(
+        [...this.problemEntries.filter(item => item.ownerKey !== ownerKey), ...normalized],
+        MAX_PROBLEM_ENTRIES
+      )
     },
 
     publishToolResult({

@@ -13,7 +13,6 @@ use common::file_watcher;
 use common::fs_utils;
 use common::project_config;
 use common::toolchain;
-use common::terminal;
 use common::system_clipboard;
 use config::AppConfig;
 use tauri::State;
@@ -247,8 +246,6 @@ fn main() {
             fs_ops::stat_entry,
             system_clipboard::set_file_clipboard,
             system_clipboard::get_file_clipboard,
-            terminal::run_shell_command,
-            terminal::resolve_directory,
             common::pty::pty_create,
             common::pty::pty_write,
             common::pty::pty_resize,
