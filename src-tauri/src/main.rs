@@ -42,15 +42,28 @@ fn save_settings(state: State<AppState>, config: AppConfig) -> Result<(), String
     state.config_manager.update_config(config)
 }
 
+/// 取当前项目根，供 toolchain::effective_config 应用项目级覆盖。
+fn current_project_root(state: &State<AppState>) -> Option<String> {
+    state
+        .current_project_root
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone()
+}
+
+// 状态查询同样要过项目级覆盖，否则设置界面显示的"已解析路径"会和
+// 实际编译时用的 exe 不是同一个。
 #[tauri::command]
 fn get_toolchain_status(state: State<AppState>, tool: String) -> Result<toolchain::ToolchainStatus, String> {
-    let config = state.config_manager.get_config();
+    let root = current_project_root(&state);
+    let config = toolchain::effective_config(&state.config_manager.get_config(), root.as_deref());
     toolchain::get_toolchain_status(&config, &tool)
 }
 
 #[tauri::command]
 fn get_toolchain_statuses(state: State<AppState>) -> Vec<toolchain::ToolchainStatus> {
-    let config = state.config_manager.get_config();
+    let root = current_project_root(&state);
+    let config = toolchain::effective_config(&state.config_manager.get_config(), root.as_deref());
     toolchain::get_all_toolchain_statuses(&config)
 }
 

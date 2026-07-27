@@ -31,13 +31,13 @@ pub async fn decompile_std_file(
     output_path: Option<String>,
     with_comments: Option<bool>,
 ) -> Result<compiler::StdResult, String> {
-    let config = state.config_manager.get_config();
-    ensure_thstd_configured(&config)?;
     let root = state
         .current_project_root
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .clone();
+    let config = toolchain::effective_config(&state.config_manager.get_config(), root.as_deref());
+    ensure_thstd_configured(&config)?;
     let version = effective_std_version(&config, root.as_deref());
     let req = compiler::StdRequest {
         mode: compiler::StdMode::Decompile,
@@ -55,13 +55,13 @@ pub async fn compile_std_file(
     input_path: String,
     output_path: Option<String>,
 ) -> Result<compiler::StdResult, String> {
-    let config = state.config_manager.get_config();
-    ensure_thstd_configured(&config)?;
     let root = state
         .current_project_root
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .clone();
+    let config = toolchain::effective_config(&state.config_manager.get_config(), root.as_deref());
+    ensure_thstd_configured(&config)?;
     let version = effective_std_version(&config, root.as_deref());
     let req = compiler::StdRequest {
         mode: compiler::StdMode::Compile,

@@ -33,7 +33,12 @@ pub async fn extract_dat_file(
     archive_path: String,
     target_dir: String,
 ) -> Result<compiler::ThdatResult, String> {
-    let config = state.config_manager.get_config();
+    let root = state
+        .current_project_root
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone();
+    let config = toolchain::effective_config(&state.config_manager.get_config(), root.as_deref());
     ensure_thdat_configured(&config)?;
     // Extract uses -xd (auto-detect); version field is ignored.
     let req = compiler::ThdatRequest {
@@ -51,13 +56,13 @@ pub async fn pack_dat_file(
     source_dir: String,
     archive_path: String,
 ) -> Result<compiler::ThdatResult, String> {
-    let config = state.config_manager.get_config();
-    ensure_thdat_configured(&config)?;
     let root = state
         .current_project_root
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .clone();
+    let config = toolchain::effective_config(&state.config_manager.get_config(), root.as_deref());
+    ensure_thdat_configured(&config)?;
     let version = effective_thdat_version(&config, root.as_deref());
     let req = compiler::ThdatRequest {
         mode: compiler::ThdatMode::Pack,

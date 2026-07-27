@@ -91,8 +91,11 @@ impl ThtkMcp {
         }
     }
 
+    /// 已应用项目级覆盖（.thtk-project.json 的 toolchain.thtkDir）的配置。
+    /// 六个工具都经这里取配置，保证 agent 调用的工具链与 IDE 内一致。
     fn config(&self) -> crate::config::AppConfig {
-        self.app.state::<AppState>().config_manager.get_config()
+        let config = self.app.state::<AppState>().config_manager.get_config();
+        crate::common::toolchain::effective_config(&config, self.project_root().as_deref())
     }
 
     fn project_root(&self) -> Option<String> {

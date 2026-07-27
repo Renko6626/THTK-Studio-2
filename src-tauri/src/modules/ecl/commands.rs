@@ -64,7 +64,12 @@ pub async fn compile_ecl_file(
     source_path: String,
     map_paths: Vec<String>,
 ) -> Result<compiler::EclResult, String> {
-    let config = state.config_manager.get_config();
+    let root = state
+        .current_project_root
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone();
+    let config = toolchain::effective_config(&state.config_manager.get_config(), root.as_deref());
     let thtk_dir = config.thtk_dir.clone();
     let game_ver = config.default_game_version.clone();
 
@@ -82,7 +87,12 @@ pub async fn decompile_ecl_file(
     binary_path: String,
     map_paths: Vec<String>,
 ) -> Result<compiler::EclResult, String> {
-    let config = state.config_manager.get_config();
+    let root = state
+        .current_project_root
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone();
+    let config = toolchain::effective_config(&state.config_manager.get_config(), root.as_deref());
     let thtk_dir = config.thtk_dir.clone();
     let game_ver = config.default_game_version.clone();
 
@@ -100,7 +110,12 @@ pub async fn run_thecl_operation(
     state: State<'_, AppState>,
     mut request: compiler::TheclRequest,
 ) -> Result<compiler::EclResult, String> {
-    let config = state.config_manager.get_config();
+    let root = state
+        .current_project_root
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone();
+    let config = toolchain::effective_config(&state.config_manager.get_config(), root.as_deref());
     let thtk_dir = config.thtk_dir.clone();
 
     ensure_thecl_configured(&config)?;

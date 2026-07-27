@@ -33,13 +33,13 @@ pub async fn decompile_msg_file(
     output_path: Option<String>,
     with_comments: Option<bool>,
 ) -> Result<compiler::MsgResult, String> {
-    let config = state.config_manager.get_config();
-    ensure_thmsg_configured(&config)?;
     let root = state
         .current_project_root
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .clone();
+    let config = toolchain::effective_config(&state.config_manager.get_config(), root.as_deref());
+    ensure_thmsg_configured(&config)?;
     let version = effective_msg_version(&config, root.as_deref());
     let req = compiler::MsgRequest {
         mode: compiler::MsgMode::Decompile,
@@ -57,13 +57,13 @@ pub async fn compile_msg_file(
     input_path: String,
     output_path: Option<String>,
 ) -> Result<compiler::MsgResult, String> {
-    let config = state.config_manager.get_config();
-    ensure_thmsg_configured(&config)?;
     let root = state
         .current_project_root
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .clone();
+    let config = toolchain::effective_config(&state.config_manager.get_config(), root.as_deref());
+    ensure_thmsg_configured(&config)?;
     let version = effective_msg_version(&config, root.as_deref());
     let req = compiler::MsgRequest {
         mode: compiler::MsgMode::Compile,

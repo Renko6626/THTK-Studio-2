@@ -69,6 +69,33 @@ pub fn resolve_tool_override(config: &AppConfig, tool_id: &str) -> String {
     String::new()
 }
 
+/// 应用项目级覆盖，得到本次调用真正生效的配置。
+///
+/// 目前只覆盖 thtk_dir：`.thtk-project.json` 的 `toolchain.thtkDir` 非空时顶掉全局值。
+/// 单个工具的显式覆盖（`tool_overrides` / `thecl_path`）优先级仍然更高——那是用户
+/// 对某个 exe 的精确指定，不应该被项目级的目录设置顶掉，`resolve_tool_path` 里
+/// 的顺序已经保证了这一点。
+///
+/// 所有会调起外部工具或展示工具链状态的路径都应该先过这个函数，否则项目配置里的
+/// thtkDir 就只是写进 JSON 却无人读取的死数据。
+pub fn effective_config(config: &AppConfig, project_root: Option<&str>) -> AppConfig {
+    let Some(root) = project_root else {
+        return config.clone();
+    };
+    let Some(project) = crate::common::project_config::load_project_config(root) else {
+        return config.clone();
+    };
+
+    let project_thtk_dir = project.toolchain.thtk_dir.trim();
+    if project_thtk_dir.is_empty() {
+        return config.clone();
+    }
+
+    let mut effective = config.clone();
+    effective.thtk_dir = project_thtk_dir.to_string();
+    effective
+}
+
 pub fn resolve_tool_path(config: &AppConfig, tool_id: &str, exe_name: &str) -> String {
     let override_path = resolve_tool_override(config, tool_id);
     if !override_path.is_empty() {
@@ -153,4 +180,100 @@ fn query_tool_version(exe_path: &str) -> Result<String, String> {
     }
 
     Ok(output.lines().next().unwrap_or("").trim().to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::common::project_config::{ProjectConfig, ProjectToolchainConfig};
+    use std::env;
+    use std::fs;
+
+    fn temp_root(name: &str) -> PathBuf {
+        let dir = env::temp_dir().join(format!("thtk-toolchain-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    fn write_project_thtk_dir(root: &Path, thtk_dir: &str) {
+        let config = ProjectConfig {
+            toolchain: ProjectToolchainConfig {
+                thtk_dir: thtk_dir.to_string(),
+            },
+            ..ProjectConfig::default()
+        };
+        crate::common::project_config::save_project_config(&root.to_string_lossy(), &config)
+            .unwrap();
+    }
+
+    fn global_config(thtk_dir: &str) -> AppConfig {
+        AppConfig {
+            thtk_dir: thtk_dir.to_string(),
+            ..AppConfig::default()
+        }
+    }
+
+    #[test]
+    fn project_thtk_dir_overrides_global() {
+        let dir = temp_root("override");
+        write_project_thtk_dir(&dir, "/project/thtk");
+
+        let effective = effective_config(&global_config("/global/thtk"), Some(&dir.to_string_lossy()));
+
+        assert_eq!(effective.thtk_dir, "/project/thtk");
+        assert!(resolve_tool_path(&effective, "thmsg", "thmsg.exe").contains("/project/thtk"));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn empty_or_missing_project_override_keeps_global() {
+        let dir = temp_root("fallback");
+
+        // 没有 .thtk-project.json
+        assert_eq!(
+            effective_config(&global_config("/global/thtk"), Some(&dir.to_string_lossy())).thtk_dir,
+            "/global/thtk"
+        );
+
+        // 有配置但 thtkDir 为空白 —— 不能把全局值清掉
+        write_project_thtk_dir(&dir, "   ");
+        assert_eq!(
+            effective_config(&global_config("/global/thtk"), Some(&dir.to_string_lossy())).thtk_dir,
+            "/global/thtk"
+        );
+
+        // 没有项目根
+        assert_eq!(
+            effective_config(&global_config("/global/thtk"), None).thtk_dir,
+            "/global/thtk"
+        );
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn explicit_tool_override_still_wins_over_project_dir() {
+        let dir = temp_root("precedence");
+        write_project_thtk_dir(&dir, "/project/thtk");
+
+        let mut config = global_config("/global/thtk");
+        config
+            .tool_overrides
+            .insert("thmsg".to_string(), "/exact/thmsg.exe".to_string());
+
+        let effective = effective_config(&config, Some(&dir.to_string_lossy()));
+
+        // 项目级目录只顶掉 thtk_dir，用户对单个 exe 的精确指定优先级更高
+        assert_eq!(effective.thtk_dir, "/project/thtk");
+        assert_eq!(
+            resolve_tool_path(&effective, "thmsg", "thmsg.exe"),
+            "/exact/thmsg.exe"
+        );
+        // 未被精确指定的工具仍走项目目录
+        assert!(resolve_tool_path(&effective, "thstd", "thstd.exe").contains("/project/thtk"));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
 }
