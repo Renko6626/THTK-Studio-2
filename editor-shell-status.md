@@ -195,8 +195,8 @@ ECL 编译 → 错误诊断 → Monaco 波浪线 → 问题面板 → 点击跳�
 - ~~外部文件变更检测~~ ✅ 已完成
 - ~~文件树展开状态持久化~~ ✅ 已完成
 - ~~文件树懒加载~~ ✅ 已完成
+- ~~项目配置对话框~~ ✅ 已完成（三态读写 + 原子保存 + 损坏配置二次确认）
 - 最近项目 / 欢迎页流程闭环
-- 项目配置对话框（`.thtk-project.json` 的数据模型与读写已完成）
 - 切换项目时的脏标签保护、失效路径处理与清晰错误反馈
 - ANM 的第一版工具链与工作区视图
 
@@ -233,14 +233,15 @@ ECL 编译 → 错误诊断 → Monaco 波浪线 → 问题面板 → 点击跳�
 
 - ANM 尚未实现；MSG / STD 目前只有基础工具链与通用文本视图
 - 前端仍主要是 JavaScript，规划目标是 TypeScript
-- Rust 配置管理仍有生产路径 unwrap/expect，有 panic 风险
-- 输出面板无内存上限，长时间使用可能内存增长（终端侧已通过 scrollback 上限解决）
+- Rust 配置管理仍有生产路径 unwrap/expect，有 panic 风险（`config.rs` 的 3 处 `Mutex::lock().unwrap()` 最值得改；translator 里的常量正则 unwrap 实际不会触发）
+- ~~输出面板无内存上限~~ ✅ 已加上限并淘汰最旧条目
 - 路径比较逻辑在 Windows 上工作正常，跨平台兼容需额外处理
-- `.mcp.json` 含会话 Bearer token，用户若误提交到 git 会短暂泄漏；建议加入项目 `.gitignore`
+- ~~`.mcp.json` 含会话 Bearer token 可能被误提交~~ ✅ 已加入 `.gitignore`（opencode / codex 用 env 引用，token 不落盘）
+- 项目打开仍是三步非事务流程，中途失败可能留下半个状态；`loadProject` 也仍会吞掉加载错误
 - PTY 输出按 chunk lossy UTF-8 解码，多字节字符跨 chunk 时可能出现替换字符（已注释，出现问题再改累积解码）
 - `report_to_user` 的 warning 级别在输出面板被扁平化为 info（publishToolResult API 限制）
 - eclmap 切换/重载后"提示重新生成 AI 辅助包"尚未实现（本期裁剪，references 需手动重跑菜单命令刷新）
-- 旧一次性命令面板代码（`src/api/modules/terminal.js`、`src-tauri/src/common/terminal.rs`）已无消费方，待清理
+- ~~旧一次性命令面板代码已无消费方~~ ✅ 两个文件与对应命令注册均已删除
 
 ---
 
@@ -253,8 +254,8 @@ ECL 编译 → 错误诊断 → Monaco 波浪线 → 问题面板 → 点击跳�
 5. ~~文件树懒加载~~ ✅
 6. ~~FileTree.vue 代码拆分~~ ✅
 7. ~~给 `msg / std` 接基础工具链与二进制工作区入口~~ ✅
-8. ~~定义并接入项目配置文件格式~~ ✅ 数据层已完成；UI 待补
-9. 欢迎页 / 最近项目 / 项目配置 UI
+8. ~~定义并接入项目配置文件格式~~ ✅ 数据层与项目设置对话框均已完成
+9. 欢迎页 / 最近项目 / 项目切换保护
 10. ~~真正 PTY 终端~~ ✅ 已完成（portable-pty + xterm.js 多 tab）
 11. ~~进程内 MCP server + agent 通道~~ ✅ 已完成（rmcp，六工具，.mcp.json 自动接线）
 12. ANM 文本工具链与专用预览

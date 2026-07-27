@@ -5,6 +5,23 @@
 **范围：** 项目配置 UI、最近项目、欢迎页、项目切换保护、相关测试与文档。  
 **不在本轮：** ANM 工具链、MSG / STD 语言服务、全局索引、大规模 TypeScript 迁移、通用 UI 重做。
 
+## 实施状态（2026-07-27 更新）
+
+| 任务 | 状态 | 说明 |
+| --- | --- | --- |
+| Task 1 收紧后端契约 | 部分完成 | 已做 `absent/loaded/invalid` 三态、字段校验、原子保存；**未做**事务式 `open_project`，项目打开仍是三步流程，`loadProject` 仍吞错 |
+| Task 2 最近项目存储 | 未开始 | |
+| Task 3 统一打开 / 切换动作 | 未开始 | |
+| Task 4 欢迎页与最近项目视图 | 未开始 | |
+| Task 5 项目配置对话框 | ✅ 完成 | 见下方偏差说明 |
+| Task 6 测试门禁与容量修复 | 部分完成 | 已给输出 / 问题 store 加容量上限；**未做**前端测试框架与 typecheck |
+| Task 7 文档与桌面验收 | 部分完成 | 文档已同步；Windows 手动验收未执行 |
+
+与计划的两处偏差：
+
+- **`projectSettings` 用 `.js` 而非 `.ts`。** 仓库当前没有 `typescript` 依赖、没有 `tsconfig.json`、也没有 typecheck 命令（这些属于 Task 6）。孤立的 `.ts` 只会被 esbuild 转译、永不做类型检查，反而不如与其余 9 个 store 保持一致。等 Task 6 建起门禁后统一迁移。
+- **额外做了项目级 `thtk` 目录覆盖的后端接线。** 计划要求表单包含该字段，但 `toolchain.thtkDir` 此前是死数据（无人读取），直接加输入框会是假功能。已新增 `toolchain::effective_config` 并接入 ECL / MSG / STD / DAT / MCP 与状态查询。
+
 ## 现状与约束
 
 - Rust 已定义并读写 `.thtk-project.json`，前端 `project` store 也已加载和保存该结构，但没有 UI 调用保存动作。
