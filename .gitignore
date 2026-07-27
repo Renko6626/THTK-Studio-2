@@ -32,6 +32,9 @@ ghidra_projects/
 *.exe
 *.dat
 
+# IDE 每次启动重写的 MCP 接线文件，含轮换的会话 Bearer token —— 不要提交
+.mcp.json
+
 # python cache
 __pycache__/
 *.pyc
