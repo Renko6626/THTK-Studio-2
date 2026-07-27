@@ -43,6 +43,11 @@
 - [../editor-shell-status.md](../editor-shell-status.md)
   - 当前 IDE 壳子已经做到哪一步、还缺哪些基础能力
 
+当前实施计划：
+
+- [superpowers/plans/2026-07-13-mvp-project-workflow-closure.md](./superpowers/plans/2026-07-13-mvp-project-workflow-closure.md)
+  - 第一阶段 MVP 收尾：项目配置 UI、最近项目、欢迎流程与安全的项目切换
+
 建议维护方式：
 
 - 面向长期架构的约束，优先写进 `frontend-guidelines.md` 或 `backend-guidelines.md`

@@ -21,7 +21,7 @@ THTK-Studio 是一个面向东方 Project 脚本与资源魔改工作流的桌�
 
 ## 当前开发进度
 
-项目处于"第一阶段 MVP 工程闭环"的收尾期。thecl 的完整工作流已经闭环（编辑 → 编译 → 诊断 → Monaco 波浪线 → 问题面板 → 点击跳转）。下一步应扩展更多工具链。
+项目处于“第一阶段 MVP 工程闭环”的收尾期。ECL 的完整工作流已经闭环，MSG / STD / DAT 已具备基础编译、反编译或容器操作流程，真正的 PTY 终端与进程内 MCP Agent 通道也已落地。当前首要缺口是项目配置 UI、最近项目 / 欢迎流程，以及尚未实现的 ANM 工具链。
 
 ### 已完成
 
@@ -44,59 +44,69 @@ THTK-Studio 是一个面向东方 Project 脚本与资源魔改工作流的桌�
 - 输出面板（按任务分组）/ 问题面板（点击跳转到源码位置）
 - `.ecl` 二进制文件专用工作区视图
 - ECL 语言支持：语法高亮、eclmap 语义数据、补全、悬停、转到定义、引用查找、签名帮助、文档符号、静态诊断
+- MSG 基础工作流：`.msg` ↔ `.dmsg`、Shift-JIS / UTF-8 桥接、指令名翻译
+- STD 基础工作流：`.std` ↔ `.dstd`、指令名翻译、`jmp` 参数顺序适配
+- DAT 基础工作流：容器解包与目录打包
+- 真正内嵌终端：xterm.js + portable-pty，多会话、流式输出与 resize
+- 进程内 MCP Agent 通道：ECL 检查 / 编译 / 反编译 / 语义查询与客户端自动接线
+- 项目配置数据模型：`.thtk-project.json` 读写及工具链配置覆盖
+- 文件系统安全加固：项目路径守卫、文件名校验、符号链接 / reparse point 防护与严格 CSP
 
 ### 已有但尚未闭环
 
-- 工作区视图体系有 `text / binary-script` 两种，未扩展到 `msg / std / anm`
-- 右侧边栏和底部面板已成形，大纲/检查面板仍是占位
-- "终端"本质仍是命令执行面板，不是 PTY 终端
+- 工作区视图体系仍只有 `text / binary-script` 两种；MSG / STD 复用文本视图，ANM 尚无专用视图
+- `.thtk-project.json` 已有后端与 store，但没有应用内创建 / 编辑入口
+- MSG / STD 已有基础工具链流程，但没有 Monaco 语言服务、结构化诊断或 MCP 工具
+- 输出 / 问题数据尚无容量上限；旧一次性命令执行接口仍待清理
 
 ### 尚未完成
 
-- 项目配置文件格式（`.thtk-project.json`）
 - 最近项目 / 欢迎页
-- MSG / STD / ANM 工具链 UI 和专用工作区视图
-- 真正内嵌终端（PTY/ConPTY + xterm.js + 流式输出）
+- 项目配置对话框与项目切换流程闭环
+- ANM 工具链、文本编辑层与 sprite / 动画预览
+- MSG / STD 语言服务与结构化诊断
 - 全局搜索、索引、资源引用分析
-- ANM / 时间线 / MSG 预览
-- AI 辅助
+- 时间线 / MSG 等领域预览
+- 前端 TypeScript 迁移、测试与类型检查门禁
 
 ## 阶段进度
 
 按 `project.md` 的阶段划分：
 
-1. **第一阶段 MVP 工程闭环**：接近完成（thecl 闭环 ✅，文件管理 ✅，懒加载 ✅，文件监听 ✅）
-2. 第二阶段 语言服务 MVP：ECL 基础语言服务已有，其他未开始
+1. **第一阶段 MVP 工程闭环**：接近完成（ECL / MSG / STD / DAT 基础工作流、文件管理、PTY 与项目配置数据层已完成；项目入口与配置 UI 待收尾）
+2. 第二阶段 语言服务 MVP：ECL 基础语言服务已有，MSG / STD / ANM 待实现
 3. 第三阶段 可视化预览：未开始
 4. 第四阶段 高级工程能力：未开始
-5. 第五阶段 AI 集成：未开始
+5. 第五阶段 AI 集成：Agent 通道与 ECL 辅助包已提前实现，领域能力仍需扩展
 
 ## 代码结构
 
 ```text
 src/
-  api/            前端到 Tauri command 的桥接（6 个模块）
-  components/     编辑器、侧边栏、对话框、工具面板（20 个 SFC）
-  composables/    工作台行为、文件树交互、工具链动作（10 个 hook）
-  services/       工作区视图、工具链元数据、ECL 语言服务（22 个模块）
-  stores/         Pinia 状态管理（9 个 store）
+  api/            前端到 Tauri command 的桥接
+  components/     编辑器、侧边栏、对话框、工具面板
+  composables/    工作台行为、文件树交互、工具链动作
+  services/       工作区视图、终端运行时、工具链元数据、ECL 语言服务
+  stores/         Pinia 状态管理
   utils/          图标、前端辅助函数
 
 src-tauri/src/
-  main.rs         Tauri 入口与 command 注册（20 个命令）
-  app_state.rs    全局状态（ConfigManager + project root + file watcher）
+  main.rs         Tauri 桌面入口与 command 注册
+  app_state.rs    全局状态（配置、项目根、文件监听、PTY、MCP）
   config.rs       应用配置读写
-  common/         文件系统、命令执行、文件监听、工具链等通用能力（7 个模块）
-  modules/ecl/    ECL/thecl 工具链封装、错误解析、eclmap 解析
+  common/         文件系统、PTY、项目配置、文件监听、工具链等通用能力
+  modules/        ECL / MSG / STD / DAT 工具链与 MCP server
 ```
 
 ## 下一阶段建议
 
-1. 扩展 `msg / std / anm` 工具链到统一注册表
-2. 明确项目配置文件格式
-3. 欢迎页 / 最近项目
-4. Rust 端错误处理清理（消除 unwrap panic 风险）
-5. 真正 PTY 终端
+1. 完成项目配置 UI、欢迎页 / 最近项目与安全的项目切换流程
+2. 建立前端测试、lint / typecheck 基线，并从新增领域边界开始使用 TypeScript
+3. 清理 Rust 配置错误处理、旧一次性终端接口与输出面板容量问题
+4. 实现 ANM 文本工具链，再单独设计 sprite / 动画预览
+5. 为 MSG / STD 补结构化诊断与基础语言服务
+
+本轮 MVP 收尾计划见 [docs/superpowers/plans/2026-07-13-mvp-project-workflow-closure.md](./docs/superpowers/plans/2026-07-13-mvp-project-workflow-closure.md)。
 
 ## 开发
 
