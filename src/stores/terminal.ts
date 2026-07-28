@@ -7,18 +7,39 @@ import {
 import { useProjectStore } from './project'
 import { useWorkbenchReportsStore } from './workbenchReports'
 
+export interface TerminalSessionInfo {
+  id: number
+  title: string
+  exited: boolean
+}
+
+interface TerminalState {
+  /** xterm 实例在 sessionRuntime 的模块级 Map 里，这里只存展示用的元信息 */
+  sessions: TerminalSessionInfo[]
+  activeSessionId: number | null
+  /** 创建中(ptyCreate 未返回)的会话数，供自动开启去重 */
+  pendingOpenCount: number
+}
+
+export interface OpenSessionOptions {
+  /** 指定 shell(如 "cmd.exe")；null = 后端自动探测 */
+  shell?: string | null
+  /** tab 标题里展示的 shell 名(如 "cmd") */
+  label?: string | null
+}
+
 let titleCounter = 0
 
 export const useTerminalStore = defineStore('terminal', {
-  state: () => ({
-    sessions: [],          // { id, title, exited } — xterm 实例在 sessionRuntime 模块级 Map 里
+  state: (): TerminalState => ({
+    sessions: [],
     activeSessionId: null,
-    pendingOpenCount: 0    // 创建中(ptyCreate 未返回)的会话数，供自动开启去重
+    pendingOpenCount: 0
   }),
 
   getters: {
-    sessionCount: (state) => state.sessions.length,
-    activeSession: (state) =>
+    sessionCount: (state): number => state.sessions.length,
+    activeSession: (state): TerminalSessionInfo | null =>
       state.sessions.find((session) => session.id === state.activeSessionId) || null
   },
 
@@ -28,7 +49,7 @@ export const useTerminalStore = defineStore('terminal', {
      * @param shell 指定 shell(如 "cmd.exe");null = 后端自动探测
      * @param label tab 标题里展示的 shell 名(如 "cmd")
      */
-    async openSession({ shell = null, label = null } = {}) {
+    async openSession({ shell = null, label = null }: OpenSessionOptions = {}) {
       const projectStore = useProjectStore()
       const cwd = projectStore.rootPath || null
       this.pendingOpenCount += 1
@@ -87,18 +108,18 @@ export const useTerminalStore = defineStore('terminal', {
       }
     },
 
-    setActive(id) {
+    setActive(id: number) {
       if (!this.sessions.some((session) => session.id === id)) return
       this.activeSessionId = id
       showSession(id)
     },
 
-    markExited(id) {
+    markExited(id: number) {
       const session = this.sessions.find((s) => s.id === id)
       if (session) session.exited = true
     },
 
-    async closeSession(id) {
+    async closeSession(id: number) {
       const index = this.sessions.findIndex((session) => session.id === id)
       if (index === -1) return
       // Determine and activate the next session BEFORE the async dispose so the

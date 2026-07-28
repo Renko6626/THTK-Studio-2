@@ -1,17 +1,21 @@
 import { defineStore } from 'pinia'
 
+interface ExplorerViewState {
+  selectedPaths: string[]
+}
+
 export const useExplorerViewStore = defineStore('explorerView', {
-  state: () => ({
+  state: (): ExplorerViewState => ({
     selectedPaths: []
   }),
 
   getters: {
-    selectionCount: (state) => state.selectedPaths.length,
-    hasSelection: (state) => state.selectedPaths.length > 0
+    selectionCount: (state): number => state.selectedPaths.length,
+    hasSelection: (state): boolean => state.selectedPaths.length > 0
   },
 
   actions: {
-    setSelectedPaths(paths) {
+    setSelectedPaths(paths: string[] | null | undefined) {
       this.selectedPaths = Array.isArray(paths) ? [...paths] : []
     },
 

@@ -12,16 +12,6 @@ import { pathsEqual } from '../utils/pathNormalize'
 /** 用户在"有未保存修改"确认框里的选择 */
 type DirtySwitchChoice = 'save' | 'discard' | 'cancel'
 
-/**
- * 本文件依赖的标签字段。editor store 还是 JS，它的 `tabs: []` 会被推断成
- * `never[]`；这里只声明真正用到的那两个字段，而不是假装把整个 store 类型化。
- * editor store 迁到 TS 之后这个类型应该删掉。
- */
-interface EditorTabLike {
-  path: string
-  isDirty: boolean
-}
-
 interface ProjectActionsDeps {
   message: MessageApi
   dialog: DialogApi
@@ -129,8 +119,7 @@ export function useProjectActions({ message, dialog }: ProjectActionsDeps) {
     // 只数将被关掉的那些——项目外打开的文件不会被关，拿它们凑数会让用户在
     // 其实没有风险的时候看到确认框。
     const atRiskCount = isSwitching && previousRoot
-      ? (editorStore.tabs as EditorTabLike[])
-          .filter(tab => tab.isDirty && isUnderRoot(tab.path, previousRoot)).length
+      ? editorStore.tabs.filter(tab => tab.isDirty && isUnderRoot(tab.path, previousRoot)).length
       : 0
 
     if (atRiskCount > 0) {

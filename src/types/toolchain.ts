@@ -124,3 +124,32 @@ export interface EntryStat {
   isDir: boolean
   size: number
 }
+
+/**
+ * 构建对话框的表单载荷。注意它与 `TheclRequest` **不是**同一个东西：
+ * 这里的 `outputPath` 用空字符串表示"自动推导"，请求构建器再把它转成 null。
+ * 字段以 `src/services/toolchains/theclMetadata.ts` 的 createDefaultTheclPayload 为准。
+ */
+export interface TheclBuildPayload {
+  tool: 'thecl'
+  mode: TheclMode
+  inputPath: string
+  version: string
+  outputPath: string
+  mapPaths: string[]
+  useShiftJis: boolean
+  rawDump: boolean
+  simpleCreation: boolean
+  showOffsets: boolean
+}
+
+/**
+ * 其余四个工具在注册表里 `supportsBuildDialog: false`，还没有表单，
+ * 只有最小载荷。等它们真正接上构建对话框时，各自补自己的 payload 类型。
+ */
+export interface GenericBuildPayload {
+  tool: Exclude<ToolchainId, 'thecl'>
+  inputPath: string
+}
+
+export type BuildDialogPayload = TheclBuildPayload | GenericBuildPayload

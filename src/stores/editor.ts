@@ -1,25 +1,65 @@
 import { defineStore } from 'pinia'
 import { readFile, saveFile } from '../api'
+import type { FileCategory, FileNode } from '../types'
+import type { EditorSnapshot, EditorTabSnapshot } from '../utils/workbenchState'
+
+export type EditorViewType = 'text' | 'binary-script'
+
+export interface EditorTab {
+  path: string
+  name: string
+  content: string
+  originalContent: string
+  isDirty: boolean
+  language: string
+  viewType: EditorViewType
+  size: number | null
+  extension: string | null
+  category: FileCategory | null
+}
+
+interface EditorState {
+  tabs: EditorTab[]
+  /** 当前激活的 tab path */
+  activePath: string | null
+  compiling: boolean
+}
+
+/** createTextTab 的可选覆盖项 */
+type TextTabOverrides = Partial<Omit<EditorTab, 'path' | 'content' | 'language'>>
+
+interface RestoreSessionResult {
+  restoredCount: number
+  /** 磁盘已变化、草稿无法安全恢复而被丢弃的数量 */
+  droppedDraftCount: number
+  /** 文件读不到、按快照内容恢复成脏标签的数量 */
+  missingCount: number
+}
 
 const MAX_PERSISTED_DRAFT_CHARS = 200_000
 const MAX_PERSISTED_TOTAL_DRAFT_CHARS = 1_000_000
 
-function getPathSeparator(path) {
+function getPathSeparator(path: string): string {
   return path.includes('\\') ? '\\' : '/'
 }
 
-function getBaseName(path) {
-  return path.split(/[\\/]/).pop()
+function getBaseName(path: string): string {
+  return path.split(/[\\/]/).pop() || path
 }
 
 const BINARY_SCRIPT_EXTENSIONS = new Set(['ecl', 'msg', 'std', 'dat', 'anm'])
 
-function isBinaryScript(fileNode) {
+function isBinaryScript(fileNode: FileNode | null | undefined): boolean {
   const extension = String(fileNode?.extension || '').toLowerCase()
   return BINARY_SCRIPT_EXTENSIONS.has(extension)
 }
 
-function createTextTab(path, content, language, overrides = {}) {
+function createTextTab(
+  path: string,
+  content: string,
+  language: string,
+  overrides: TextTabOverrides = {}
+): EditorTab {
   return {
     path,
     name: getBaseName(path),
@@ -35,7 +75,7 @@ function createTextTab(path, content, language, overrides = {}) {
   }
 }
 
-function createBinaryScriptTab(fileNode) {
+function createBinaryScriptTab(fileNode: EditorTabSnapshot | FileNode): EditorTab {
   return {
     path: fileNode.path,
     name: fileNode.name || getBaseName(fileNode.path),
@@ -51,20 +91,20 @@ function createBinaryScriptTab(fileNode) {
 }
 
 export const useEditorStore = defineStore('editor', {
-  state: () => ({
-    tabs: [],          // [{ path, name, content, isDirty, language, viewType }]
-    activePath: null,  // 当前激活的 tab path
-    compiling: false   // 是否正在编译
+  state: (): EditorState => ({
+    tabs: [],
+    activePath: null,
+    compiling: false
   }),
 
   getters: {
-    activeTab: (state) => state.tabs.find(t => t.path === state.activePath),
-    hasDirtyTabs: (state) => state.tabs.some(t => t.isDirty)
+    activeTab: (state): EditorTab | undefined => state.tabs.find(t => t.path === state.activePath),
+    hasDirtyTabs: (state): boolean => state.tabs.some(t => t.isDirty)
   },
 
   actions: {
-    inferLanguage(path) {
-      const ext = path.split('.').pop()?.toLowerCase()
+    inferLanguage(path: string): string {
+      const ext = path.split('.').pop()?.toLowerCase() ?? ''
       if (['decl', 'ecl', 'c', 'cpp', 'h'].includes(ext)) return 'cpp'
       if (['js', 'json', 'ts'].includes(ext)) return ext
       if (ext === 'vue') return 'html'
@@ -72,7 +112,7 @@ export const useEditorStore = defineStore('editor', {
     },
 
     // 核心：打开文件
-    async openFile(fileNode) {
+    async openFile(fileNode: FileNode) {
       // 1. 如果 Tab 已存在，直接切换过去
       const existingTab = this.tabs.find(t => t.path === fileNode.path)
       if (existingTab) {
@@ -105,7 +145,7 @@ export const useEditorStore = defineStore('editor', {
     },
 
     // 关闭文件
-    closeTab(path) {
+    closeTab(path: string) {
       const index = this.tabs.findIndex(t => t.path === path)
       if (index === -1) return
 
@@ -119,7 +159,7 @@ export const useEditorStore = defineStore('editor', {
     },
 
     // 更新内容 (打字时触发)
-    updateContent(path, newContent) {
+    updateContent(path: string, newContent: string) {
       const tab = this.tabs.find(t => t.path === path)
       if (tab) {
         tab.content = newContent
@@ -127,8 +167,15 @@ export const useEditorStore = defineStore('editor', {
       }
     },
 
-    // 保存文件
-    async saveActiveFile() {
+    /**
+     * 保存当前文件。
+     *
+     * ⚠️ 返回类型是 `boolean | undefined` 而不是 `boolean`：非文本标签会走裸 return，
+     * 产出 undefined。而 saveAllFiles 把 falsy 当成失败，那个结果又被
+     * useProjectActions 当作"是否中止项目切换"的依据。这是既有 bug，
+     * 按迁移纪律不在本次提交里改行为——下一个提交单独修并配测试。
+     */
+    async saveActiveFile(): Promise<boolean | undefined> {
       const tab = this.activeTab
       if (!tab || tab.viewType !== 'text') return
 
@@ -143,7 +190,7 @@ export const useEditorStore = defineStore('editor', {
       }
     },
 
-    async saveAllFiles() {
+    async saveAllFiles(): Promise<boolean> {
       const dirtyTabs = this.tabs.filter(tab => tab.isDirty)
       if (!dirtyTabs.length) return true
 
@@ -168,7 +215,7 @@ export const useEditorStore = defineStore('editor', {
       }
     },
 
-    closeTabsUnderPath(path) {
+    closeTabsUnderPath(path: string | null | undefined) {
       if (!path) return
       const prefixWin = `${path}\\`
       const prefixUnix = `${path}/`
@@ -182,7 +229,7 @@ export const useEditorStore = defineStore('editor', {
       }
     },
 
-    handlePathRename(oldPath, newPath) {
+    handlePathRename(oldPath: string, newPath: string) {
       if (!oldPath || !newPath || oldPath === newPath) return
 
       const separator = getPathSeparator(oldPath)
@@ -216,7 +263,7 @@ export const useEditorStore = defineStore('editor', {
       }
     },
 
-    async restoreSession(snapshot) {
+    async restoreSession(snapshot: EditorSnapshot | null): Promise<RestoreSessionResult | undefined> {
       if (!snapshot?.tabs?.length) return
 
       const restoredTabs = []
@@ -244,7 +291,11 @@ export const useEditorStore = defineStore('editor', {
           }
 
           const shouldRestoreDraft = canRestoreDraft
-          const content = shouldRestoreDraft ? savedTab.content : diskContent
+          // canRestoreDraft 里已经断言过 content 是 string，这里再判一次只为让 TS 收窄
+          const content =
+            shouldRestoreDraft && typeof savedTab.content === 'string'
+              ? savedTab.content
+              : diskContent
 
           restoredTabs.push(createTextTab(
             savedTab.path,
@@ -291,13 +342,13 @@ export const useEditorStore = defineStore('editor', {
       }
     },
 
-    toSnapshot() {
+    toSnapshot(): EditorSnapshot {
       let persistedDraftChars = 0
 
       return {
         activePath: this.activePath,
         tabs: this.tabs.map((tab) => {
-          const snapshot = {
+          const snapshot: EditorTabSnapshot = {
             path: tab.path,
             name: tab.name,
             isDirty: tab.isDirty,

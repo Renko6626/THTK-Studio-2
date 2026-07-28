@@ -1,15 +1,33 @@
 import { defineStore } from 'pinia'
 import { getFileTree, getDirChildren, openProject } from '../api'
 import { loadProjectConfig, saveProjectConfig } from '../api'
+import type { FileNode, ProjectConfig, ProjectConfigLoad, ProjectConfigStatus } from '../types'
+
+interface ProjectState {
+  /** 当前打开的项目根目录 */
+  rootPath: string | null
+  /** 文件树数据（浅层，子目录按需加载） */
+  files: FileNode[]
+  isLoading: boolean
+  /** .thtk-project.json 的内容，null 表示不可用 */
+  projectConfig: ProjectConfig | null
+  /**
+   * 'absent'（没有配置文件）/ 'loaded'（可用）/ 'invalid'（文件坏了或字段非法）。
+   * 必须区分后两者：把损坏当成"还没配置"会让保存动作静默覆盖用户手写的内容。
+   */
+  projectConfigStatus: ProjectConfigStatus
+  projectConfigError: string | null
+  projectConfigPath: string
+  _refreshPromise: Promise<void> | null
+  _refreshPending: boolean
+}
 
 export const useProjectStore = defineStore('project', {
-  state: () => ({
-    rootPath: null,        // 当前打开的项目根目录
-    files: [],             // 文件树数据（浅层，子目录按需加载）
+  state: (): ProjectState => ({
+    rootPath: null,
+    files: [],
     isLoading: false,
-    projectConfig: null,   // .thtk-project.json 的内容，null 表示不可用
-    // 'absent'（没有配置文件）/ 'loaded'（可用）/ 'invalid'（文件坏了或字段非法）。
-    // 必须区分后两者：把损坏当成"还没配置"会让保存动作静默覆盖用户手写的内容。
+    projectConfig: null,
     projectConfigStatus: 'absent',
     projectConfigError: null,
     projectConfigPath: '',
@@ -18,29 +36,29 @@ export const useProjectStore = defineStore('project', {
   }),
 
   getters: {
-    rootName: (state) => {
+    rootName: (state): string => {
       if (!state.rootPath) return ''
       const parts = state.rootPath.split(/[\\/]/).filter(Boolean)
       return parts[parts.length - 1] || state.rootPath
     },
 
     /** 项目配置的游戏版本，回退到空字符串 */
-    gameVersion: (state) => state.projectConfig?.gameVersion || '',
+    gameVersion: (state): string => state.projectConfig?.gameVersion || '',
 
     /** 项目配置的编码 */
-    encoding: (state) => state.projectConfig?.encoding || 'shift-jis',
+    encoding: (state): string => state.projectConfig?.encoding || 'shift-jis',
 
     /** 项目配置的 map 路径列表 */
-    mapPaths: (state) => state.projectConfig?.mapPaths || [],
+    mapPaths: (state): string[] => state.projectConfig?.mapPaths || [],
 
     /** 项目级 thtk 目录覆盖，空字符串表示沿用全局设置 */
-    projectThtkDir: (state) => state.projectConfig?.toolchain?.thtkDir || '',
+    projectThtkDir: (state): string => state.projectConfig?.toolchain?.thtkDir || '',
 
     /** 是否已有可用的项目配置文件 */
-    hasProjectConfig: (state) => state.projectConfigStatus === 'loaded',
+    hasProjectConfig: (state): boolean => state.projectConfigStatus === 'loaded',
 
     /** 配置文件存在但无法使用（JSON 损坏或字段非法） */
-    hasInvalidProjectConfig: (state) => state.projectConfigStatus === 'invalid'
+    hasInvalidProjectConfig: (state): boolean => state.projectConfigStatus === 'invalid'
   },
 
   actions: {
@@ -54,7 +72,7 @@ export const useProjectStore = defineStore('project', {
      * 后端是事务式的：验证与首层扫描都通过后才提交项目根、切换文件监听、
      * 注册 MCP 客户端并记录最近项目，所以这里失败不会留下半个状态。
      */
-    async loadProject(path) {
+    async loadProject(path: string) {
       this.isLoading = true
       try {
         const result = await openProject(path)
@@ -90,7 +108,7 @@ export const useProjectStore = defineStore('project', {
       }
     },
 
-    _applyProjectConfigLoad(result) {
+    _applyProjectConfigLoad(result: ProjectConfigLoad | null | undefined) {
       this.projectConfigStatus = result?.status || 'absent'
       this.projectConfig = result?.value || null
       this.projectConfigError = result?.error || null
@@ -101,22 +119,22 @@ export const useProjectStore = defineStore('project', {
      * 保存项目配置到 .thtk-project.json。
      * expectedRoot 是调用方开始编辑时的项目根，后端据此拒绝写错项目。
      */
-    async saveConfig(config, expectedRoot) {
-      await saveProjectConfig(config, expectedRoot ?? this.rootPath)
+    async saveConfig(config: ProjectConfig, expectedRoot?: string) {
+      await saveProjectConfig(config, expectedRoot ?? this.rootPath ?? '')
       this.projectConfig = config
       this.projectConfigStatus = 'loaded'
       this.projectConfigError = null
     },
 
     /** 按需加载某个目录的子节点，返回子节点列表 */
-    async loadChildren(dirPath) {
+    async loadChildren(dirPath: string): Promise<FileNode[]> {
       const children = await getDirChildren(dirPath)
       this._mergeChildren(this.files, dirPath, children)
       return children
     },
 
     /** 递归查找目标目录并设置其 children */
-    _mergeChildren(nodes, dirPath, children) {
+    _mergeChildren(nodes: FileNode[], dirPath: string, children: FileNode[]): boolean {
       for (const node of nodes) {
         if (node.path === dirPath) {
           node.children = children
@@ -148,11 +166,14 @@ export const useProjectStore = defineStore('project', {
     },
 
     async _doRefresh() {
+      const rootPath = this.rootPath
+      if (!rootPath) return
+
       // 记住当前已加载的目录路径，刷新后重新加载它们
-      const loadedDirs = new Set()
+      const loadedDirs = new Set<string>()
       this._collectLoadedDirs(this.files, loadedDirs)
 
-      this.files = await getFileTree(this.rootPath)
+      this.files = await getFileTree(rootPath)
 
       // 重新加载之前已展开的子目录
       for (const dirPath of loadedDirs) {
@@ -165,13 +186,16 @@ export const useProjectStore = defineStore('project', {
     },
 
     /** 收集所有已加载了 children 的目录路径 */
-    _collectLoadedDirs(nodes, result) {
+    _collectLoadedDirs(nodes: FileNode[], result: Set<string>) {
       for (const node of nodes) {
         if (node.is_dir && node.children !== undefined) {
           result.add(node.path)
           // 仅当有子时才递归;空数组不需要进
-          if (node.children.length) {
-            this._collectLoadedDirs(node.children, result)
+          // ⚠️ 这里的 ! 刻意保留了既有的空值 bug：后端对未展开目录发的是
+          // children: null，而上面的判断只排除了 undefined，于是这行会抛。
+          // 按迁移纪律本次提交不改行为，下一个提交单独修并配测试。
+          if (node.children!.length) {
+            this._collectLoadedDirs(node.children!, result)
           }
         }
       }

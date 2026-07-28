@@ -1,7 +1,11 @@
 import { defineStore } from 'pinia'
 
+interface ToolchainSettingsState {
+  visible: boolean
+}
+
 export const useToolchainSettingsStore = defineStore('toolchainSettings', {
-  state: () => ({
+  state: (): ToolchainSettingsState => ({
     visible: false
   }),
 
