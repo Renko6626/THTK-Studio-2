@@ -196,8 +196,9 @@ ECL 编译 → 错误诊断 → Monaco 波浪线 → 问题面板 → 点击跳�
 - ~~文件树展开状态持久化~~ ✅ 已完成
 - ~~文件树懒加载~~ ✅ 已完成
 - ~~项目配置对话框~~ ✅ 已完成（三态读写 + 原子保存 + 损坏配置二次确认）
-- 最近项目 / 欢迎页流程闭环
-- 切换项目时的脏标签保护、失效路径处理与清晰错误反馈
+- ~~最近项目 / 欢迎页流程闭环~~ ✅ 已完成
+- ~~切换项目时的脏标签保护、失效路径处理与清晰错误反馈~~ ✅ 已完成
+- 前端测试与 typecheck 门禁（目前只有 Rust 单测覆盖）
 - ANM 的第一版工具链与工作区视图
 
 ### 4.2 中优先级
@@ -233,11 +234,12 @@ ECL 编译 → 错误诊断 → Monaco 波浪线 → 问题面板 → 点击跳�
 
 - ANM 尚未实现；MSG / STD 目前只有基础工具链与通用文本视图
 - 前端仍主要是 JavaScript，规划目标是 TypeScript
-- Rust 配置管理仍有生产路径 unwrap/expect，有 panic 风险（`config.rs` 的 3 处 `Mutex::lock().unwrap()` 最值得改；translator 里的常量正则 unwrap 实际不会触发）
+- ~~`config.rs` 的 `Mutex::lock().unwrap()` 锁中毒会连锁 panic~~ ✅ 已换成 `unwrap_or_else(into_inner)`；余下的 unwrap 是 translator 里的常量正则，实际不会触发
+- 前端没有任何自动化测试，所有 UI 行为只经过构建检查与人工复核
 - ~~输出面板无内存上限~~ ✅ 已加上限并淘汰最旧条目
 - 路径比较逻辑在 Windows 上工作正常，跨平台兼容需额外处理
 - ~~`.mcp.json` 含会话 Bearer token 可能被误提交~~ ✅ 已加入 `.gitignore`（opencode / codex 用 env 引用，token 不落盘）
-- 项目打开仍是三步非事务流程，中途失败可能留下半个状态；`loadProject` 也仍会吞掉加载错误
+- ~~项目打开是三步非事务流程，中途失败会留下半个状态~~ ✅ 已改为事务式 `open_project`，失败不改动任何状态
 - PTY 输出按 chunk lossy UTF-8 解码，多字节字符跨 chunk 时可能出现替换字符（已注释，出现问题再改累积解码）
 - `report_to_user` 的 warning 级别在输出面板被扁平化为 info（publishToolResult API 限制）
 - eclmap 切换/重载后"提示重新生成 AI 辅助包"尚未实现（本期裁剪，references 需手动重跑菜单命令刷新）
@@ -255,16 +257,17 @@ ECL 编译 → 错误诊断 → Monaco 波浪线 → 问题面板 → 点击跳�
 6. ~~FileTree.vue 代码拆分~~ ✅
 7. ~~给 `msg / std` 接基础工具链与二进制工作区入口~~ ✅
 8. ~~定义并接入项目配置文件格式~~ ✅ 数据层与项目设置对话框均已完成
-9. 欢迎页 / 最近项目 / 项目切换保护
+9. ~~欢迎页 / 最近项目 / 项目切换保护~~ ✅ 已完成
 10. ~~真正 PTY 终端~~ ✅ 已完成（portable-pty + xterm.js 多 tab）
 11. ~~进程内 MCP server + agent 通道~~ ✅ 已完成（rmcp，六工具，.mcp.json 自动接线）
-12. ANM 文本工具链与专用预览
+12. 前端测试与 typecheck 门禁 + Windows 实机验收
+13. ANM 文本工具链与专用预览
 
 ---
 
 ## 8. 总结
 
-THTK-Studio 的核心编辑与工具链底座已经完成，并提前落地了 Agent 通道。第一阶段还剩项目入口、最近项目与项目配置 UI 需要闭环。
+THTK-Studio 的核心编辑与工具链底座已经完成，并提前落地了 Agent 通道。第一阶段的功能项已全部闭环，剩下的是测试门禁与 Windows 实机验收。
 
 已完成的核心闭环：
 - 编辑 → 编译 → 诊断 → Monaco 波浪线 → 问题面板 → 点击跳转

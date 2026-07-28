@@ -5,22 +5,25 @@
 **范围：** 项目配置 UI、最近项目、欢迎页、项目切换保护、相关测试与文档。  
 **不在本轮：** ANM 工具链、MSG / STD 语言服务、全局索引、大规模 TypeScript 迁移、通用 UI 重做。
 
-## 实施状态（2026-07-27 更新）
+## 实施状态（2026-07-28 更新）
 
 | 任务 | 状态 | 说明 |
 | --- | --- | --- |
-| Task 1 收紧后端契约 | 部分完成 | 已做 `absent/loaded/invalid` 三态、字段校验、原子保存；**未做**事务式 `open_project`，项目打开仍是三步流程，`loadProject` 仍吞错 |
-| Task 2 最近项目存储 | 未开始 | |
-| Task 3 统一打开 / 切换动作 | 未开始 | |
-| Task 4 欢迎页与最近项目视图 | 未开始 | |
-| Task 5 项目配置对话框 | ✅ 完成 | 见下方偏差说明 |
-| Task 6 测试门禁与容量修复 | 部分完成 | 已给输出 / 问题 store 加容量上限；**未做**前端测试框架与 typecheck |
-| Task 7 文档与桌面验收 | 部分完成 | 文档已同步；Windows 手动验收未执行 |
+| Task 1 收紧后端契约 | ✅ 完成 | 三态配置 + 原子保存 + 事务式 `open_project` |
+| Task 2 最近项目存储 | ✅ 完成 | 见下方偏差说明 |
+| Task 3 统一打开 / 切换动作 | ✅ 完成 | |
+| Task 4 欢迎页与最近项目视图 | ✅ 完成 | |
+| Task 5 项目配置对话框 | ✅ 完成 | |
+| Task 6 测试门禁与容量修复 | 部分完成 | 已给输出 / 问题 store 加容量上限；**未做**前端测试框架、typecheck 与 Playwright smoke |
+| Task 7 文档与桌面验收 | 部分完成 | 文档已同步；**Windows 手动验收未执行**（开发机无 DISPLAY，Tauri 窗口跑不起来） |
 
-与计划的两处偏差：
+与计划的偏差：
 
-- **`projectSettings` 用 `.js` 而非 `.ts`。** 仓库当前没有 `typescript` 依赖、没有 `tsconfig.json`、也没有 typecheck 命令（这些属于 Task 6）。孤立的 `.ts` 只会被 esbuild 转译、永不做类型检查，反而不如与其余 9 个 store 保持一致。等 Task 6 建起门禁后统一迁移。
-- **额外做了项目级 `thtk` 目录覆盖的后端接线。** 计划要求表单包含该字段，但 `toolchain.thtkDir` 此前是死数据（无人读取），直接加输入框会是假功能。已新增 `toolchain::effective_config` 并接入 ECL / MSG / STD / DAT / MCP 与状态查询。
+- **新增前端边界用 `.js` 而非 `.ts`。** 仓库当前没有 `typescript` 依赖、没有 `tsconfig.json`、也没有 typecheck 命令（这些属于 Task 6）。孤立的 `.ts` 只会被 esbuild 转译、永不做类型检查，反而不如与其余 store 保持一致。等 Task 6 建起门禁后统一迁移。
+- **额外做了项目级 `thtk` 目录覆盖的后端接线。** 计划要求配置表单包含该字段，但 `toolchain.thtkDir` 此前是死数据（无人读取），直接加输入框会是假功能。已新增 `toolchain::effective_config` 并接入 ECL / MSG / STD / DAT / MCP 与状态查询。
+- **没有暴露 `record_recent_project` 命令。** 计划列了四个命令，但记录动作由 `open_project` 成功后在 Rust 侧完成，再对前端开一个入口就是没有调用方的死代码。实际提供 `list` / `remove` / `clear` 三个。
+- **额外拆出 `WorkbenchRoot.vue`。** naive-ui 的 `useMessage` / `useDialog` 只能在 provider 后代中调用，而 `App.vue` 自己的 setup 在它自己的 provider 外面——这挡住了让 Ctrl+O 走统一打开流程。工作台整体下沉一层，`App.vue` 只留 provider。
+- **额外修了 `save_settings` 的整体替换问题。** 它用完整 `AppConfig` 做载荷，而设置表单只填其中一部分，缺失字段取 serde 默认值；不修的话保存一次工具链设置就会清空刚加的 `recent_projects`。
 
 ## 现状与约束
 

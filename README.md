@@ -21,7 +21,7 @@ THTK-Studio 是一个面向东方 Project 脚本与资源魔改工作流的桌�
 
 ## 当前开发进度
 
-项目处于“第一阶段 MVP 工程闭环”的收尾期。ECL 的完整工作流已经闭环，MSG / STD / DAT 已具备基础编译、反编译或容器操作流程，真正的 PTY 终端、进程内 MCP Agent 通道与项目配置对话框也已落地。当前首要缺口是最近项目 / 欢迎流程、项目切换保护，以及尚未实现的 ANM 工具链。
+第一阶段 MVP 工程闭环的功能项已经做完：ECL 完整工作流闭环，MSG / STD / DAT 具备基础编译、反编译或容器操作流程，PTY 终端、进程内 MCP Agent 通道、项目配置对话框、欢迎页与最近项目、事务式项目打开与切换保护均已落地。剩余缺口是前端测试 / 类型检查门禁、Windows 实机验收，以及尚未实现的 ANM 工具链。
 
 ### 已完成
 
@@ -51,18 +51,19 @@ THTK-Studio 是一个面向东方 Project 脚本与资源魔改工作流的桌�
 - 进程内 MCP Agent 通道：ECL 检查 / 编译 / 反编译 / 语义查询与客户端自动接线
 - 项目配置：`.thtk-project.json` 三态读写（不存在 / 有效 / 损坏）、原子保存与项目设置对话框
 - 项目级工具链覆盖：项目配置的 `toolchain.thtkDir` 对 ECL / MSG / STD / DAT / MCP 全部生效
+- 事务式项目打开：验证与扫描通过后才提交状态，失败不改动当前工作区
+- 欢迎页与最近项目（10 项、去重置顶、失效标记与移除）
+- 项目切换保护：脏标签三向确认、切换后只清理旧项目的标签、恢复失败落回欢迎页
 - 文件系统安全加固：项目路径守卫、文件名校验、符号链接 / reparse point 防护与严格 CSP
 
 ### 已有但尚未闭环
 
 - 工作区视图体系仍只有 `text / binary-script` 两种；MSG / STD 复用文本视图，ANM 尚无专用视图
 - MSG / STD 已有基础工具链流程，但没有 Monaco 语言服务、结构化诊断或 MCP 工具
-- 项目打开仍是"设根目录 → 取文件树 → 读配置"三步，失败时可能留下半个状态
 
 ### 尚未完成
 
-- 最近项目 / 欢迎页
-- 项目切换保护（脏标签确认、失效路径处理）
+- 前端测试、lint / typecheck 门禁与 TypeScript 迁移
 - ANM 工具链、文本编辑层与 sprite / 动画预览
 - MSG / STD 语言服务与结构化诊断
 - 全局搜索、索引、资源引用分析
@@ -73,7 +74,7 @@ THTK-Studio 是一个面向东方 Project 脚本与资源魔改工作流的桌�
 
 按 `project.md` 的阶段划分：
 
-1. **第一阶段 MVP 工程闭环**：接近完成（ECL / MSG / STD / DAT 基础工作流、文件管理、PTY 与项目配置已完成；项目入口与切换保护待收尾）
+1. **第一阶段 MVP 工程闭环**：功能项已完成（ECL / MSG / STD / DAT 基础工作流、文件管理、PTY、项目配置、项目入口与切换保护）；测试门禁与实机验收待补
 2. 第二阶段 语言服务 MVP：ECL 基础语言服务已有，MSG / STD / ANM 待实现
 3. 第三阶段 可视化预览：未开始
 4. 第四阶段 高级工程能力：未开始
@@ -100,11 +101,11 @@ src-tauri/src/
 
 ## 下一阶段建议
 
-1. 完成欢迎页 / 最近项目与安全的项目切换流程（事务式 `open_project`、脏标签确认）
-2. 建立前端测试、lint / typecheck 基线，并从新增领域边界开始使用 TypeScript
-3. 清理 Rust 配置层的 `Mutex::lock().unwrap()` 等 panic 风险
-4. 实现 ANM 文本工具链，再单独设计 sprite / 动画预览
-5. 为 MSG / STD 补结构化诊断与基础语言服务
+1. 建立前端测试、lint / typecheck 基线，并把新增的领域边界迁到 TypeScript
+2. 在 Windows 上跑一遍项目工作流的手动验收清单（见收尾计划文档）
+3. 实现 ANM 文本工具链，再单独设计 sprite / 动画预览
+4. 为 MSG / STD 补结构化诊断与基础语言服务
+5. 全局搜索与资源引用分析
 
 本轮 MVP 收尾计划见 [docs/superpowers/plans/2026-07-13-mvp-project-workflow-closure.md](./docs/superpowers/plans/2026-07-13-mvp-project-workflow-closure.md)。
 
