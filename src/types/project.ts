@@ -6,6 +6,8 @@
  * 改这里之前先确认 Rust 那边也改了——两边对不上时 TS 只能保证前端内部自洽。
  */
 
+import type { FileNode } from './fs'
+
 export type ProjectConfigStatus = 'absent' | 'loaded' | 'invalid'
 
 export type ProjectEncoding = 'shift-jis' | 'utf-8'
@@ -36,7 +38,7 @@ export interface ProjectConfigLoad {
 
 export interface ProjectOpenResult {
   rootPath: string
-  files: unknown[]
+  files: FileNode[]
   projectConfig: ProjectConfigLoad
 }
 

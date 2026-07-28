@@ -7,6 +7,8 @@ mod app_state;
 mod common;
 mod config;
 mod utils;
+#[cfg(test)]
+mod wire_format_tests;
 
 use app_state::AppState;
 use common::file_watcher;
