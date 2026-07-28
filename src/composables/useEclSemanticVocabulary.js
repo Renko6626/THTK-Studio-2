@@ -47,10 +47,10 @@ export function useEclSemanticVocabulary({
     void refreshSemanticVocabulary()
   }
 
-  // 同时盯住 projectConfig：词表来源里的版本、eclmap 和 thtk 目录都来自它。
-  // 只盯 rootPath 不够——loadProject 是先同步设 rootPath、await 之后才填
-  // projectConfig，只监听前者会用上一个项目的配置加载词表且再也不刷新。
-  // 这条 watch 同时覆盖了"保存项目设置后立即生效"，不需要额外的事件。
+  // 同时盯住 projectConfig：词表来源里的版本、eclmap 和 thtk 目录都来自它，
+  // 而它在打开项目之外还会被项目设置的保存和重读改变。只盯 rootPath 的话，
+  // 改完项目设置词表不会跟着变。（打开项目时两者是同一次提交里一起变的，
+  // Vue 会合并成一次触发，不会重复加载。）
   watch(
     [() => projectStore.rootPath, () => projectStore.projectConfig],
     ([nextPath]) => {

@@ -18,6 +18,17 @@ function isAbsolutePath(path) {
   return /^([a-zA-Z]:[\\/]|[\\/])/.test(path)
 }
 
+/** 多份 eclmap 合并时按名字去重，靠后的 map 覆盖靠前的（与 thecl 的加载顺序一致） */
+function dedupeByName(entries) {
+  const byName = new Map()
+  for (const entry of entries) {
+    const key = entry?.name ?? entry?.opcode
+    if (key === undefined || key === null) continue
+    byName.set(key, entry)
+  }
+  return [...byName.values()]
+}
+
 /** 项目配置里的 map 路径允许写相对路径，按项目根解析（与 Rust 侧 resolve_map_paths 同义） */
 function resolveAgainstRoot(path, projectRoot) {
   const trimmed = String(path || '').trim()
@@ -49,44 +60,53 @@ function createCandidatePaths(version, roots = []) {
 export async function loadDefaultEclSemanticData({ projectRoot, projectConfig } = {}) {
   const settings = await getSettings()
   const version = normalizeVersion(projectConfig?.gameVersion || settings?.default_game_version)
-  const projectMapPath = resolveAgainstRoot(projectConfig?.mapPaths?.[0], projectRoot)
-  const configuredMapPath = projectMapPath || String(settings?.eclmap_path || '').trim()
 
-  if (configuredMapPath) {
-    try {
-      const semantics = await getEclMapSemantics(configuredMapPath)
-      return {
-        ...semantics,
-        resolvedPath: configuredMapPath,
-        version: semantics?.version || version
-      }
-    } catch (error) {
-      return {
-        version,
-        sourcePath: '',
-        resolvedPath: configuredMapPath,
-        instructions: [],
-        builtins: [],
-        error: String(error)
-      }
-    }
-  }
+  // 项目声明的**全部** map 都要进词表：thecl 和 mcp 侧都是把 mapPaths 整体传下去的，
+  // 只取第一条会让 maps[1..] 里定义的指令在编辑器里查无此项，正好是这套改动
+  // 想要消除的"编辑器和编译器不同源"。
+  const projectMapPaths = (projectConfig?.mapPaths || [])
+    .map(path => resolveAgainstRoot(path, projectRoot))
+    .filter(Boolean)
 
-  // 项目级 thtk 目录覆盖也参与候选路径推导，顺序与 toolchain::effective_config 一致
+  const globalMapPath = String(settings?.eclmap_path || '').trim()
+  const explicitPaths = projectMapPaths.length ? projectMapPaths : [globalMapPath].filter(Boolean)
+
+  // 按 thtk 目录推导 thXX.eclm 的候选位置。这里是"依次尝试"，和后端
+  // toolchain::effective_config 的"项目值直接顶掉全局值"不是同一套语义——
+  // 后端只需要挑一个 exe 目录，这里多试几个位置能少让用户手配一次。
   const roots = [projectRoot, projectConfig?.toolchain?.thtkDir, settings?.thtk_dir]
-  const candidates = createCandidatePaths(version, roots)
 
+  // 显式配置的路径全部失败时，继续走目录推导；否则项目里一条过期的 map 路径
+  // 会把整个 ECL 语言服务打哑，哪怕全局配置本来是好的。
+  const candidates = [...explicitPaths, ...createCandidatePaths(version, roots)]
+
+  const merged = { instructions: [], builtins: [] }
+  const resolvedPaths = []
   let lastError = null
+  let base = null
+
   for (const candidate of candidates) {
     try {
       const semantics = await getEclMapSemantics(candidate)
-      return {
-        ...semantics,
-        resolvedPath: candidate,
-        version: semantics?.version || version
-      }
+      base = base || semantics
+      resolvedPaths.push(candidate)
+      merged.instructions.push(...(semantics?.instructions || []))
+      merged.builtins.push(...(semantics?.builtins || []))
+
+      // 显式配置的多条 map 要合并；目录推导出的候选只取第一个命中的
+      if (!explicitPaths.includes(candidate)) break
     } catch (error) {
       lastError = error
+    }
+  }
+
+  if (resolvedPaths.length) {
+    return {
+      ...base,
+      instructions: dedupeByName(merged.instructions),
+      builtins: dedupeByName(merged.builtins),
+      resolvedPath: resolvedPaths.join(' + '),
+      version: base?.version || version
     }
   }
 
