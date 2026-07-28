@@ -14,7 +14,7 @@
 | Task 3 统一打开 / 切换动作 | ✅ 完成 | |
 | Task 4 欢迎页与最近项目视图 | ✅ 完成 | |
 | Task 5 项目配置对话框 | ✅ 完成 | |
-| Task 6 测试门禁与容量修复 | 部分完成 | 已给输出 / 问题 store 加容量上限；**未做**前端测试框架、typecheck 与 Playwright smoke |
+| Task 6 测试门禁与容量修复 | 基本完成 | vitest 35 个测试 + `typecheck` 门禁 + 容量上限；**未做** Playwright smoke，见下 |
 | Task 7 文档与桌面验收 | 部分完成 | 文档已同步；**Windows 手动验收未执行**（开发机无 DISPLAY，Tauri 窗口跑不起来） |
 
 与计划的偏差：
@@ -24,6 +24,14 @@
 - **没有暴露 `record_recent_project` 命令。** 计划列了四个命令，但记录动作由 `open_project` 成功后在 Rust 侧完成，再对前端开一个入口就是没有调用方的死代码。实际提供 `list` / `remove` / `clear` 三个。
 - **额外拆出 `WorkbenchRoot.vue`。** naive-ui 的 `useMessage` / `useDialog` 只能在 provider 后代中调用，而 `App.vue` 自己的 setup 在它自己的 provider 外面——这挡住了让 Ctrl+O 走统一打开流程。工作台整体下沉一层，`App.vue` 只留 provider。
 - **额外修了 `save_settings` 的整体替换问题。** 它用完整 `AppConfig` 做载荷，而设置表单只填其中一部分，缺失字段取 serde 默认值；不修的话保存一次工具链设置就会清空刚加的 `recent_projects`。
+- **未做 Playwright smoke（Task 6）。** 该流程要驱动真实 Tauri 窗口（需 tauri-driver + WebDriver），而开发机没有 DISPLAY 也没有 xvfb，写出来无法运行也无法验证。组件渲染层同理：要么依赖 naive-ui 的完整 provider 链，要么依赖真实 Tauri。这两块统一交给下方的 Windows 手动验收清单。vitest 的覆盖范围因此限定为 store / composable / service 这层领域逻辑。
+- **测试迁移到 TS 的范围仅限新增边界。** `tsconfig.json` 只 `include` `.ts` 文件，`allowJs` 打开但 `checkJs` 关闭。既有的 20 个 `.vue` 和 58 个 `.js` 不在门禁内——全量迁移是独立的一批工作。
+
+## 一轮多 agent 审阅（2026-07-28）
+
+Task 1–5 完成后做过一次四路并行代码审阅（Rust / 前端状态 / UI / 对抗性回归），发现并已修复四个 Critical：会话恢复失败销毁未保存草稿、serde 忽略未知键导致拼错的配置键被静默丢弃、项目设置对话框可写入已切换的另一个项目、欢迎页裸 `<button>` 因仓库无 CSS reset 渲染成系统原生外观。细节见 `git log`。
+
+仍未处理的已知问题：`open_project` 是同步命令会阻塞主线程；工具链每次调用重复读两次项目配置；配置 `invalid` 时前端置空 `projectConfig` 导致 ECL 路径与 msg/std/dat 行为不一致；`uno.config..js` 文件名笔误使 UnoCSS preflight 从未生效（改名会改变全局样式，需单独一批并实机比对）。
 
 ## 现状与约束
 

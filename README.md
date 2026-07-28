@@ -63,7 +63,8 @@ THTK-Studio 是一个面向东方 Project 脚本与资源魔改工作流的桌�
 
 ### 尚未完成
 
-- 前端测试、lint / typecheck 门禁与 TypeScript 迁移
+- 既有 `.vue` / `.js` 的 TypeScript 迁移（新增边界已用 TS，门禁只覆盖这部分）
+- 组件层与端到端测试（需要真实 Tauri 窗口，目前靠 Windows 手动验收）
 - ANM 工具链、文本编辑层与 sprite / 动画预览
 - MSG / STD 语言服务与结构化诊断
 - 全局搜索、索引、资源引用分析
@@ -101,10 +102,10 @@ src-tauri/src/
 
 ## 下一阶段建议
 
-1. 建立前端测试、lint / typecheck 基线，并把新增的领域边界迁到 TypeScript
-2. 在 Windows 上跑一遍项目工作流的手动验收清单（见收尾计划文档）
-3. 实现 ANM 文本工具链，再单独设计 sprite / 动画预览
-4. 为 MSG / STD 补结构化诊断与基础语言服务
+1. 在 Windows 上跑一遍项目工作流的手动验收清单（见收尾计划文档）
+2. 实现 ANM 文本工具链，再单独设计 sprite / 动画预览
+3. 为 MSG / STD 补结构化诊断与基础语言服务
+4. 把既有 store / composable 逐步迁到 TypeScript
 5. 全局搜索与资源引用分析
 
 本轮 MVP 收尾计划见 [docs/superpowers/plans/2026-07-13-mvp-project-workflow-closure.md](./docs/superpowers/plans/2026-07-13-mvp-project-workflow-closure.md)。
@@ -116,6 +117,8 @@ npm install
 npm run tauri dev    # 完整桌面应用
 npm run dev          # 前端单独开发
 npm run build        # 前端构建
+npm test             # 前端单元测试（store / composable / service 层）
+npm run typecheck    # 对已迁移到 .ts 的边界做类型检查
 ```
 
 ## Linux 服务器开发

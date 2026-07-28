@@ -15,10 +15,21 @@ npm install              # install frontend deps (node_modules is gitignored)
 npm run tauri dev        # full desktop app (triggers cargo build; first run is slow)
 npm run dev              # frontend only, Vite dev server on 127.0.0.1:1420
 npm run build            # frontend build into ./dist
+npm test                 # vitest unit tests (domain logic only — see below)
+npm run typecheck        # vue-tsc over the .ts boundaries
 cargo clean --manifest-path src-tauri/Cargo.toml   # reclaim the large target/ dir
 ```
 
-There is **no frontend test runner configured** (`playwright` is a devDependency but no test script exists) and no linter. "Validation" means checking for type/build issues and import consistency by building.
+Frontend gates (added 2026-07-28):
+
+```bash
+npm test          # vitest run — 35 unit tests over stores / composables / services
+npm run typecheck # vue-tsc over .ts files only
+```
+
+Scope is deliberate: `vitest.config.js` covers **domain logic**, not component rendering — component tests would need either the full naive-ui provider chain or a real Tauri host, and no Playwright/e2e exists because driving the Tauri window needs a display this dev box doesn't have. UI behaviour is verified by the Windows manual checklist in the MVP closure plan.
+
+`tsconfig.json` only `include`s `.ts` files with `checkJs: false`; the existing `.vue`/`.js` are outside the gate. **New domain boundaries should be written in `.ts`** — that is what puts them under typecheck. `typescript` must stay pinned to 5.x (7.x dropped the `./lib/tsc` export `vue-tsc` needs). There is no linter.
 
 Rust unit tests exist and run with:
 ```bash
