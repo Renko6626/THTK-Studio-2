@@ -21,7 +21,7 @@ use tauri::State;
 mod modules; // 确保 src-tauri/src/modules/mod.rs 存在且包含 pub mod ecl;
 use modules::ecl::commands::{
     compile_ecl_file, decompile_ecl_file, generate_ai_assist_pack, get_ecl_map_semantics,
-    get_thecl_status, run_thecl_operation,
+    run_thecl_operation,
 };
 use modules::msg::commands::{compile_msg_file, decompile_msg_file};
 use modules::thdat::commands::{extract_dat_file, pack_dat_file};
@@ -248,13 +248,31 @@ fn load_project_config(state: State<AppState>) -> Result<project_config::Project
     Ok(project_config::load_project_config_detailed(root_path))
 }
 
+/// `expected_root` 是 UI 打开对话框时所编辑的那个项目根。
+///
+/// 写入目标取自后端的当前项目根，两者必须一致：项目设置对话框是非模态于快捷键的
+/// （Ctrl+O 的全局 keydown 不被 naive-ui 拦截），A 项目开着设置框时切到 B，
+/// 表单里还是 A 的值。不校验的话这一保存会把 A 的配置写进 B 的
+/// `.thtk-project.json`，而且因为 B 的配置是合法的，连损坏确认都不会弹。
 #[tauri::command]
 fn save_project_config_cmd(
     state: State<AppState>,
     config: project_config::ProjectConfig,
+    expected_root: String,
 ) -> Result<(), String> {
     let root = state.current_project_root.lock().unwrap_or_else(|e| e.into_inner());
     let root_path = root.as_deref().ok_or("No project root set")?;
+
+    if !recent_projects::paths_equal(root_path, &expected_root) {
+        return Err(format!(
+            "项目已切换到 {root_path}，未写入 {expected_root}。请重新打开项目设置。"
+        ));
+    }
+
+    // 数据契约要求保存前校验项目根状态：目录若已被外部删除，
+    // 否则失败会以"写入临时文件失败: No such file or directory"这种形式冒出来
+    fs_utils::validate_project_dir(root_path)?;
+
     project_config::save_project_config(root_path, &config)
 }
 
@@ -317,7 +335,6 @@ fn main() {
             get_dir_children,
             compile_ecl_file,
             decompile_ecl_file,
-            get_thecl_status,
             get_ecl_map_semantics,
             run_thecl_operation,
             decompile_msg_file,

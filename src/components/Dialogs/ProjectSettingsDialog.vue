@@ -164,10 +164,14 @@ const form = reactive({
   thtkDir: ''
 })
 
+// 表单开始编辑时锁定的项目根。保存时一并发给后端做比对。
+const editingRoot = ref('')
+
 watch(
   () => projectSettingsStore.visible,
   async (visible) => {
     if (!visible) return
+    editingRoot.value = projectStore.rootPath || ''
     loading.value = true
     try {
       // 每次打开都重读磁盘：文件可能被外部工具或用户手动改过
@@ -179,10 +183,24 @@ watch(
   }
 )
 
+// 对话框拦不住全局快捷键：开着设置框按 Ctrl+O 就会切走项目，而表单里还是上一个
+// 项目的值。此时继续保存会写错文件，所以直接关掉并说明原因。
+watch(
+  () => projectStore.rootPath,
+  (nextRoot) => {
+    if (!projectSettingsStore.visible) return
+    if (nextRoot && editingRoot.value && nextRoot === editingRoot.value) return
+    message.warning('项目已切换，已关闭项目设置以免写错文件。')
+    close()
+  }
+)
+
 /** 从 store 填充表单。配置不可用时用默认值，不去猜损坏文件里的内容。 */
 function syncForm() {
   const config = projectStore.projectConfig
-  form.gameVersion = config?.gameVersion || ''
+  // null 而非 ''：n-select 对空字符串会套用 fallbackOption 当成"已选中"，
+  // placeholder 就再也不显示了
+  form.gameVersion = config?.gameVersion || null
   form.encoding = config?.encoding || 'shift-jis'
   form.mapPaths = [...(config?.mapPaths || [])]
   form.thtkDir = config?.toolchain?.thtkDir || ''
@@ -275,7 +293,7 @@ async function persist() {
   try {
     // 保存后 projectConfig 被替换，useEclSemanticVocabulary 的 watch 会据此
     // 重新加载 ECL 词表；工具链侧每次调用都现读项目配置，无需额外通知。
-    await projectStore.saveConfig(buildConfig())
+    await projectStore.saveConfig(buildConfig(), editingRoot.value)
     message.success(creating ? '已创建 .thtk-project.json' : '项目设置已保存')
     close()
   } catch (error) {

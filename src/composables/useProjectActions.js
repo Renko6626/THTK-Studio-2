@@ -1,9 +1,18 @@
+import { h } from 'vue'
 import { open } from '@tauri-apps/plugin-dialog'
+import { NButton } from 'naive-ui'
 import { useEditorStore } from '../stores/editor'
+import { useExplorerClipboardStore } from '../stores/explorerClipboard'
 import { useExplorerViewStore } from '../stores/explorerView'
 import { useProjectStore } from '../stores/project'
 import { useRecentProjectsStore } from '../stores/recentProjects'
 import { pathsEqual } from '../utils/pathNormalize'
+
+/** 与 editorStore.closeTabsUnderPath 同口径：判断某个文件是否属于该项目根 */
+function isUnderRoot(filePath, root) {
+  if (!filePath || !root) return false
+  return filePath === root || filePath.startsWith(`${root}\\`) || filePath.startsWith(`${root}/`)
+}
 
 /**
  * 项目打开 / 切换的唯一入口。
@@ -13,8 +22,20 @@ import { pathsEqual } from '../utils/pathNormalize'
  *
  * 调用方需要传入 naive-ui 的 message / dialog 实例（它们只能在 setup 里取）。
  */
+/**
+ * 正在进行中的打开操作。必须是模块级：四个组件各自调用 useProjectActions()，
+ * 闭包互不共享，放在闭包里等于没有保护。
+ *
+ * 需要跨越原生选择器和确认框两个 await —— 这段窗口里 projectStore.isLoading
+ * 还是 false，欢迎页那种 :disabled="isLoading" 拦不住。两次并发打开会让后端按
+ * 调用顺序提交项目根、前端按解析顺序提交，出现文件树是 A 而工具链/MCP/终端
+ * 工作目录指向 B 的错位。
+ */
+let openInFlight = false
+
 export function useProjectActions({ message, dialog }) {
   const editorStore = useEditorStore()
+  const explorerClipboardStore = useExplorerClipboardStore()
   const explorerViewStore = useExplorerViewStore()
   const projectStore = useProjectStore()
   const recentProjectsStore = useRecentProjectsStore()
@@ -26,23 +47,36 @@ export function useProjectActions({ message, dialog }) {
   function confirmDirtySwitch(dirtyCount) {
     return new Promise((resolve) => {
       let settled = false
+      let instance = null
       const finish = (choice) => {
         if (settled) return
         settled = true
         resolve(choice)
       }
+      const choose = (choice) => {
+        finish(choice)
+        instance?.destroy()
+      }
 
-      dialog.warning({
+      // 自绘三个按钮而不是用 positiveText / negativeText：默认只渲染两个按钮，
+      // 取消要靠右上角 × 或 Esc。而低强调的那个按钮（用户肌肉记忆里的"取消"位）
+      // 恰好是"放弃并切换"——点错就丢改动。销毁性操作不能藏在默认位置。
+      instance = dialog.warning({
         title: '有未保存的修改',
         content: `${dirtyCount} 个文件尚未保存。切换项目会关闭当前项目的所有标签。`,
-        positiveText: '保存并切换',
-        negativeText: '放弃并切换',
         closable: true,
         maskClosable: false,
-        onPositiveClick: () => finish('save'),
-        onNegativeClick: () => finish('discard'),
         onClose: () => finish('cancel'),
-        onEsc: () => finish('cancel')
+        onEsc: () => finish('cancel'),
+        action: () =>
+          h('div', { class: 'flex items-center gap-2' }, [
+            h(NButton, { size: 'small', quaternary: true, onClick: () => choose('cancel') },
+              { default: () => '取消' }),
+            h(NButton, { size: 'small', onClick: () => choose('discard') },
+              { default: () => '放弃并切换' }),
+            h(NButton, { size: 'small', type: 'primary', onClick: () => choose('save') },
+              { default: () => '保存并切换' })
+          ])
       })
     })
   }
@@ -57,14 +91,29 @@ export function useProjectActions({ message, dialog }) {
    */
   async function openProjectPath(path, { silent = false } = {}) {
     if (!path) return false
+    if (openInFlight) return false
 
+    openInFlight = true
+    try {
+      return await runOpen(path, silent)
+    } finally {
+      openInFlight = false
+    }
+  }
+
+  async function runOpen(path, silent) {
     const previousRoot = projectStore.rootPath
     const isSwitching = Boolean(previousRoot) && !pathsEqual(previousRoot, path)
 
-    // 只有真正切换项目才会关掉旧标签，重开同一个项目不会丢东西，不必打扰用户
-    if (isSwitching && editorStore.hasDirtyTabs) {
-      const dirtyCount = editorStore.tabs.filter(tab => tab.isDirty).length
-      const choice = await confirmDirtySwitch(dirtyCount)
+    // 只有真正切换项目才会关掉旧标签，重开同一个项目不会丢东西，不必打扰用户。
+    // 只数将被关掉的那些——项目外打开的文件不会被关，拿它们凑数会让用户在
+    // 其实没有风险的时候看到确认框。
+    const atRiskCount = isSwitching
+      ? editorStore.tabs.filter(tab => tab.isDirty && isUnderRoot(tab.path, previousRoot)).length
+      : 0
+
+    if (atRiskCount > 0) {
+      const choice = await confirmDirtySwitch(atRiskCount)
 
       if (choice === 'cancel') return false
       if (choice === 'save') {
@@ -87,8 +136,13 @@ export function useProjectActions({ message, dialog }) {
     }
 
     if (previousRoot && !pathsEqual(previousRoot, projectStore.rootPath)) {
-      // 只清理属于旧项目的标签与选择；项目外打开的文件保持不动
+      // 只清理属于旧项目的标签；项目外打开的文件保持不动
       editorStore.closeTabsUnderPath(previousRoot)
+      explorerViewStore.clearSelection()
+      // 剪贴板里存的是旧项目的绝对路径，留着会让下一次粘贴跨项目搬文件
+      explorerClipboardStore.clear()
+    } else if (previousRoot) {
+      // 重开同一个项目：文件树整棵重建了，旧的选中项已经不对应任何节点
       explorerViewStore.clearSelection()
     }
 
@@ -104,7 +158,17 @@ export function useProjectActions({ message, dialog }) {
 
   /** 弹原生目录选择器，再走统一的打开流程 */
   async function openProjectFromPicker() {
-    const selected = await open({ directory: true, multiple: false })
+    // 选择器本身也要占住重入锁：否则连按两次 Ctrl+O 会开出两个系统对话框
+    if (openInFlight) return false
+
+    openInFlight = true
+    let selected
+    try {
+      selected = await open({ directory: true, multiple: false })
+    } finally {
+      openInFlight = false
+    }
+
     if (!selected) return false
     return openProjectPath(String(selected))
   }

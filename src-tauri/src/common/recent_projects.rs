@@ -5,8 +5,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 /// 最近项目列表上限，超出时淘汰最旧的一条。
 pub const MAX_RECENT_PROJECTS: usize = 10;
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-#[serde(rename_all = "camelCase")]
+// serde(default)：settings.json 被手工编辑过时，某一条缺字段不应该让整个
+// AppConfig 反序列化失败——那会把工具链路径等全部设置一起重置掉。
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
+#[serde(default, rename_all = "camelCase")]
 pub struct RecentProject {
     /// 平台原生绝对路径
     pub path: String,
@@ -21,6 +23,11 @@ pub struct RecentProject {
 ///
 /// 刻意不做大小写折叠——前端的 `pathsEqual` 也没做。Windows 路径大小写不敏感，
 /// 严格说两边都应该折叠，但那要连前端一起改，否则同一路径在两侧的判定会不一致。
+/// 两个路径是否指向同一位置（跨分隔符、忽略尾部分隔符）。
+pub fn paths_equal(a: &str, b: &str) -> bool {
+    normalize_for_compare(a) == normalize_for_compare(b)
+}
+
 fn normalize_for_compare(path: &str) -> String {
     let mut result = path.replace('\\', "/");
 

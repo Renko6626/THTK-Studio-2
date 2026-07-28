@@ -20,7 +20,7 @@
 与计划的偏差：
 
 - **新增前端边界用 `.js` 而非 `.ts`。** 仓库当前没有 `typescript` 依赖、没有 `tsconfig.json`、也没有 typecheck 命令（这些属于 Task 6）。孤立的 `.ts` 只会被 esbuild 转译、永不做类型检查，反而不如与其余 store 保持一致。等 Task 6 建起门禁后统一迁移。
-- **额外做了项目级 `thtk` 目录覆盖的后端接线。** 计划要求配置表单包含该字段，但 `toolchain.thtkDir` 此前是死数据（无人读取），直接加输入框会是假功能。已新增 `toolchain::effective_config` 并接入 ECL / MSG / STD / DAT / MCP 与状态查询。
+- **额外做了项目级 `thtk` 目录覆盖的后端接线。** 计划要求配置表单包含该字段，但 `toolchain.thtkDir` 此前是死数据（无人读取），直接加输入框会是假功能。已新增 `toolchain::effective_config` 并接入 ECL / MSG / STD / DAT / MCP、`get_toolchain_status(es)` 与 `generate_ai_assist_pack`。
 - **没有暴露 `record_recent_project` 命令。** 计划列了四个命令，但记录动作由 `open_project` 成功后在 Rust 侧完成，再对前端开一个入口就是没有调用方的死代码。实际提供 `list` / `remove` / `clear` 三个。
 - **额外拆出 `WorkbenchRoot.vue`。** naive-ui 的 `useMessage` / `useDialog` 只能在 provider 后代中调用，而 `App.vue` 自己的 setup 在它自己的 provider 外面——这挡住了让 Ctrl+O 走统一打开流程。工作台整体下沉一层，`App.vue` 只留 provider。
 - **额外修了 `save_settings` 的整体替换问题。** 它用完整 `AppConfig` 做载荷，而设置表单只填其中一部分，缺失字段取 serde 默认值；不修的话保存一次工具链设置就会清空刚加的 `recent_projects`。

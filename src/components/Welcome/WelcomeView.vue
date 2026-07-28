@@ -38,7 +38,11 @@
         最近项目读取失败：{{ recentProjectsStore.error }}
       </div>
 
-      <div v-if="recentProjectsStore.isEmpty" class="text-xs text-gray-600 py-2 select-none">
+      <!-- 读取失败时列表是空的，但那不代表"没打开过项目"，两句话不能同时出现 -->
+      <div
+        v-if="recentProjectsStore.isEmpty && !recentProjectsStore.error"
+        class="text-xs text-gray-600 py-2 select-none"
+      >
         还没有打开过项目。
       </div>
 
@@ -46,11 +50,11 @@
         <div
           v-for="item in recentProjectsStore.items"
           :key="item.path"
-          class="flex items-center gap-3 px-3 py-2 rounded hover:bg-white/5"
+          class="flex items-center gap-3 px-3 py-2 rounded hover:bg-white/5 focus-within:bg-white/5"
         >
           <button
             type="button"
-            class="flex-1 min-w-0 text-left disabled:cursor-not-allowed"
+            class="recent-entry flex-1 min-w-0 text-left disabled:cursor-not-allowed"
             :disabled="projectStore.isLoading"
             @click="openRecent(item)"
           >
@@ -76,6 +80,7 @@
             size="tiny"
             quaternary
             :disabled="projectStore.isLoading"
+            :title="`从最近项目移除 ${item.name}`"
             @click="removeRecent(item)"
           >
             移除
@@ -136,6 +141,7 @@ function formatOpenedAt(timestamp) {
   if (!timestamp) return ''
 
   const elapsed = Date.now() - timestamp
+  // 时钟回拨或手改过 settings.json 时可能出现未来时间，别显示"-3 分钟前"
   if (elapsed < 0) return ''
 
   const minutes = Math.floor(elapsed / 60000)
@@ -154,3 +160,21 @@ function formatOpenedAt(timestamp) {
   return `${date.getFullYear()}-${month}-${day}`
 }
 </script>
+
+<style scoped>
+/*
+ * 本项目没有 CSS reset（uno.config..js 文件名有笔误，UnoCSS 的 preflight 从未生效），
+ * 裸 <button> 会拿到 UA 默认的浅灰按钮外观和按钮字体，里面的浅色文字会变成
+ * 浅灰底上的浅灰字。同仓库其他裸 button 也都各自做了这件事。
+ */
+.recent-entry {
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+</style>

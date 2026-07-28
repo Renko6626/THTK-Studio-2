@@ -40,24 +40,31 @@ export function useWorkbenchSession({
     terminalStore.hydrate(terminalSnapshot)
     workbenchPanelsStore.hydrate(panelSnapshot ? JSON.parse(panelSnapshot) : null)
 
-    let projectRestored = false
+    const notices = []
+
     if (projectSnapshot?.rootPath) {
-      // silent：上次的目录可能已被删除或改名，这属于正常情况。失败就停在欢迎页，
-      // 不弹错误、也不重试——最近项目列表仍然留着那条记录供用户处理。
-      projectRestored = await openProjectPath(projectSnapshot.rootPath, { silent: true })
-      if (!projectRestored) {
-        showReloadNotice(`上次的项目已无法打开：${projectSnapshot.rootPath}`)
+      // silent：上次的目录可能已被删除、改名，或只是网络盘还没挂上，这属于正常情况。
+      // 不弹错误也不重试——最近项目列表里那条记录还在，用户可以自己处理。
+      const restored = await openProjectPath(projectSnapshot.rootPath, { silent: true })
+      if (!restored) {
+        notices.push(`上次的项目暂时打不开：${projectSnapshot.rootPath}`)
       }
     }
 
-    // 项目没恢复成功就别再恢复标签页——那些路径都在打不开的目录底下
-    if (editorSnapshot && (projectRestored || !projectSnapshot?.rootPath)) {
+    // 无论项目是否恢复成功都要恢复标签页。restoreSession 的失败分支会用快照里
+    // 保存的草稿内容把读不到的文件恢复成脏标签；跳过它等于把用户没保存的改动扔掉，
+    // 而紧接着的 flushSnapshots 会用空快照覆盖 localStorage —— 盘回来了也找不回。
+    if (editorSnapshot) {
       const restoreResult = await editorStore.restoreSession(editorSnapshot)
       if (restoreResult?.droppedDraftCount) {
-        showReloadNotice(`有 ${restoreResult.droppedDraftCount} 个草稿因磁盘已变化而未恢复。`)
+        notices.push(`有 ${restoreResult.droppedDraftCount} 个草稿因磁盘已变化而未恢复。`)
       } else if (restoreResult?.missingCount) {
-        showReloadNotice(`有 ${restoreResult.missingCount} 个文件在恢复时未找到。`)
+        notices.push(`有 ${restoreResult.missingCount} 个文件未找到，已按上次的内容保留为未保存标签。`)
       }
+    }
+
+    if (notices.length) {
+      showReloadNotice(notices.join('　'))
     }
   }
 

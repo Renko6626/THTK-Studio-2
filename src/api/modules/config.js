@@ -15,13 +15,6 @@ export function saveSettings(config) {
   return invoke('save_settings', { config })
 }
 
-/**
- * 获取当前 thecl 可用性与版本信息
- */
-export function getTheclStatus() {
-  return invoke('get_thecl_status')
-}
-
 export function getToolchainStatus(tool) {
   return invoke('get_toolchain_status', { tool })
 }
@@ -40,17 +33,20 @@ export function loadProjectConfig() {
 }
 
 /**
- * 保存项目配置
+ * 保存项目配置。
  * @param {Object} config
+ * @param {string} expectedRoot 打开表单时所编辑的项目根。后端会与当前项目根比对，
+ *   不一致直接拒绝——防止对话框开着时项目被切换，把 A 的配置写进 B。
  */
-export function saveProjectConfig(config) {
-  return invoke('save_project_config_cmd', { config })
+export function saveProjectConfig(config, expectedRoot) {
+  return invoke('save_project_config_cmd', { config, expectedRoot })
 }
 
 /**
  * 最近打开的项目，按最近打开时间降序，最多 10 条。
- * 不会自动剔除失效路径——磁盘临时离线不该让记录消失，由用户决定删不删。
- * @returns {Promise<Array<{path: string, name: string, lastOpenedAt: number}>>}
+ * 不会自动剔除失效路径——磁盘临时离线不该让记录消失，由用户决定删不删；
+ * `available` 是后端每次读取时现算的，不落盘。
+ * @returns {Promise<Array<{path: string, name: string, lastOpenedAt: number, available: boolean}>>}
  */
 export function listRecentProjects() {
   return invoke('list_recent_projects')

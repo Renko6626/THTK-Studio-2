@@ -8,6 +8,15 @@ const PROJECT_CONFIG_FILENAME: &str = ".thtk-project.json";
 /// 也有 UTF-8 的 .decl/.dmsg 源码，因此两者都必须支持。
 pub const SUPPORTED_ENCODINGS: [&str; 2] = ["shift-jis", "utf-8"];
 
+/// `.thtk-project.json` 顶层允许出现的键。
+///
+/// serde 默认**忽略**未知字段，所以把 `mapPaths` 拼成 `mapPath` 会安静地解析成功、
+/// 内容被丢掉，UI 看到的是 status=loaded 加一个空列表，一保存用户的东西就没了。
+/// 手写 JSON 时拼错键名恰恰是最常见的笔误，只靠 serde 的语法/类型报错拦不住。
+/// 这里显式白名单，只在面向 UI 的加载器上生效。
+const KNOWN_TOP_LEVEL_KEYS: [&str; 4] = ["gameVersion", "encoding", "mapPaths", "toolchain"];
+const KNOWN_TOOLCHAIN_KEYS: [&str; 1] = ["thtkDir"];
+
 /// 项目级配置，保存在工作区根目录的 .thtk-project.json
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(default, rename_all = "camelCase")]
@@ -69,6 +78,43 @@ fn config_path_for(project_root: &str) -> PathBuf {
     Path::new(project_root).join(PROJECT_CONFIG_FILENAME)
 }
 
+/// 拒绝顶层不是对象、以及任何无法识别的键。
+///
+/// 宁可报错也不要静默丢弃：用户手写的内容被无声吞掉，然后被下一次保存覆盖，
+/// 比直接告诉他"这个字段我不认识"糟糕得多。
+fn check_known_keys(raw: &serde_json::Value) -> Result<(), String> {
+    let Some(object) = raw.as_object() else {
+        return Err("配置文件的顶层不是 JSON 对象".to_string());
+    };
+
+    if let Some(key) = object
+        .keys()
+        .find(|key| !KNOWN_TOP_LEVEL_KEYS.contains(&key.as_str()))
+    {
+        return Err(format!(
+            "无法识别的字段 {key:?}（可用字段：{}）",
+            KNOWN_TOP_LEVEL_KEYS.join(" / ")
+        ));
+    }
+
+    if let Some(toolchain) = object.get("toolchain") {
+        let Some(toolchain_object) = toolchain.as_object() else {
+            return Err("toolchain 不是 JSON 对象".to_string());
+        };
+        if let Some(key) = toolchain_object
+            .keys()
+            .find(|key| !KNOWN_TOOLCHAIN_KEYS.contains(&key.as_str()))
+        {
+            return Err(format!(
+                "toolchain 下有无法识别的字段 {key:?}（可用字段：{}）",
+                KNOWN_TOOLCHAIN_KEYS.join(" / ")
+            ));
+        }
+    }
+
+    Ok(())
+}
+
 /// 校验配置字段。game_version 允许为空（表示回退到全局默认版本）。
 pub fn validate_project_config(config: &ProjectConfig) -> Result<(), String> {
     let encoding = config.encoding.trim();
@@ -114,9 +160,19 @@ pub fn load_project_config_detailed(project_root: &str) -> ProjectConfigLoad {
         Err(e) => return invalid(format!("无法读取配置文件: {e}")),
     };
 
-    let config: ProjectConfig = match serde_json::from_str(&content) {
-        Ok(config) => config,
+    // 先解析成 Value 做键名检查，再转成结构体——直接 from_str 会让未知键静默消失
+    let raw: serde_json::Value = match serde_json::from_str(&content) {
+        Ok(raw) => raw,
         Err(e) => return invalid(format!("JSON 解析失败: {e}")),
+    };
+
+    if let Err(e) = check_known_keys(&raw) {
+        return invalid(e);
+    }
+
+    let config: ProjectConfig = match serde_json::from_value(raw) {
+        Ok(config) => config,
+        Err(e) => return invalid(format!("字段类型不正确: {e}")),
     };
 
     if let Err(e) = validate_project_config(&config) {
@@ -152,10 +208,24 @@ pub fn load_project_config(project_root: &str) -> Option<ProjectConfig> {
 /// 先写同目录临时文件再 rename，避免写入中断留下半截 JSON 把用户的配置毁掉。
 /// 同目录是必要条件——跨挂载点 rename 不是原子的，也可能直接失败。
 pub fn save_project_config(project_root: &str, config: &ProjectConfig) -> Result<(), String> {
-    validate_project_config(config)?;
+    // 归一化后再写：校验是按 trim 过的值做的，直接落盘会让 `" utf-8 "` 这种
+    // 通过校验却在消费端按等值比较时既不等于 shift-jis 也不等于 utf-8。
+    let config = ProjectConfig {
+        game_version: config.game_version.trim().to_string(),
+        encoding: config.encoding.trim().to_string(),
+        map_paths: config
+            .map_paths
+            .iter()
+            .map(|path| path.trim().to_string())
+            .collect(),
+        toolchain: ProjectToolchainConfig {
+            thtk_dir: config.toolchain.thtk_dir.trim().to_string(),
+        },
+    };
+    validate_project_config(&config)?;
 
     let config_path = config_path_for(project_root);
-    let json = serde_json::to_string_pretty(config).map_err(|e| e.to_string())?;
+    let json = serde_json::to_string_pretty(&config).map_err(|e| e.to_string())?;
 
     // 带 pid 后缀，避免多个实例同时保存时互相踩临时文件
     let temp_path = config_path.with_extension(format!("json.tmp{}", std::process::id()));
@@ -359,14 +429,95 @@ mod tests {
 
     #[test]
     fn resolves_relative_map_paths_against_project_root() {
+        // 绝对路径的写法必须按平台给：Windows 下 "/abs/x" 的 is_absolute() 是 false
+        // （缺盘符前缀），用它做断言会让这个测试只在 Unix 上通过。
+        #[cfg(windows)]
+        let absolute = r"C:\abs\th18.eclm";
+        #[cfg(not(windows))]
+        let absolute = "/abs/th18.eclm";
+
         let resolved = resolve_map_paths(
             "/projects/th18",
-            &["maps/th18.eclm".to_string(), "/abs/th18.eclm".to_string()],
+            &["maps/th18.eclm".to_string(), absolute.to_string()],
         );
 
         assert!(resolved[0].contains("projects"));
         assert!(resolved[0].ends_with("th18.eclm"));
         // 绝对路径原样保留
-        assert_eq!(resolved[1], "/abs/th18.eclm");
+        assert_eq!(resolved[1], absolute);
+    }
+
+    #[test]
+    fn invalid_on_misspelled_key_instead_of_silently_dropping_it() {
+        let dir = temp_root("typo-key");
+        let path = dir.join(PROJECT_CONFIG_FILENAME);
+        // mapPaths 拼成 mapPath —— serde 默认会忽略它，内容被丢掉且报 loaded
+        let original = r#"{"gameVersion":"18","mapPath":["maps/th18.eclm"]}"#;
+        fs::write(&path, original).unwrap();
+
+        let result = load_project_config_detailed(&root_str(&dir));
+
+        assert_eq!(result.status, ProjectConfigStatus::Invalid);
+        let error = result.error.unwrap();
+        assert!(error.contains("mapPath"), "错误里要点名是哪个键: {error}");
+        // 加载不得改动用户的文件
+        assert_eq!(fs::read_to_string(&path).unwrap(), original);
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn invalid_on_unknown_nested_toolchain_key() {
+        let dir = temp_root("typo-nested");
+        fs::write(
+            dir.join(PROJECT_CONFIG_FILENAME),
+            r#"{"toolchain":{"thtkdir":"D:/thtk"}}"#,
+        )
+        .unwrap();
+
+        let result = load_project_config_detailed(&root_str(&dir));
+
+        assert_eq!(result.status, ProjectConfigStatus::Invalid);
+        assert!(result.error.unwrap().contains("thtkdir"));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn invalid_when_top_level_is_not_an_object() {
+        let dir = temp_root("not-object");
+        // 合法 JSON，但 serde 会把它当成按位置解析的结构体，全取默认值
+        fs::write(dir.join(PROJECT_CONFIG_FILENAME), "[]").unwrap();
+
+        let result = load_project_config_detailed(&root_str(&dir));
+
+        assert_eq!(result.status, ProjectConfigStatus::Invalid);
+        assert!(result.error.unwrap().contains("不是 JSON 对象"));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn save_normalizes_whitespace_so_consumers_can_compare_by_equality() {
+        let dir = temp_root("normalize");
+        let config = ProjectConfig {
+            game_version: "  18  ".to_string(),
+            encoding: "  utf-8  ".to_string(),
+            map_paths: vec!["  maps/th18.eclm  ".to_string()],
+            toolchain: ProjectToolchainConfig {
+                thtk_dir: "  D:/thtk  ".to_string(),
+            },
+        };
+
+        save_project_config(&root_str(&dir), &config).unwrap();
+        let loaded = load_project_config_detailed(&root_str(&dir)).value.unwrap();
+
+        // 消费端一律按等值比较 encoding，留着空白会让它既不等于 shift-jis 也不等于 utf-8
+        assert_eq!(loaded.encoding, "utf-8");
+        assert_eq!(loaded.game_version, "18");
+        assert_eq!(loaded.map_paths, vec!["maps/th18.eclm".to_string()]);
+        assert_eq!(loaded.toolchain.thtk_dir, "D:/thtk");
+
+        let _ = fs::remove_dir_all(&dir);
     }
 }

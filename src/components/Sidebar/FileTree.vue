@@ -509,12 +509,14 @@ function quickCreate(type) {
 }
 
 async function openFolder() {
-  const opened = await projectActions.openProjectFromPicker()
-  if (opened) {
-    // 树的本地选中态不归 explorerViewStore 管，切换成功后自己清一下
-    selectedKeys.value = []
-  }
+  await projectActions.openProjectFromPicker()
 }
+
+// 项目根一变（无论从哪个入口触发：菜单、Ctrl+O、欢迎页还是这里），树的本地选中
+// 都指向已经不存在的节点。放在 watch 里而不是 openFolder 里，才能覆盖全部入口。
+watch(() => projectStore.rootPath, () => {
+  selectedKeys.value = []
+})
 
 onBeforeUnmount(() => {
   if (expandSaveTimer) window.clearTimeout(expandSaveTimer)

@@ -181,7 +181,7 @@ ECL 编译 → 错误诊断 → Monaco 波浪线 → 问题面板 → 点击跳�
 - **scrollback 上限**：xterm.js scrollback 设为 5000 行，防止内存无限增长
 - **退出检测**：ConPTY 安全的 waiter-thread 退出检测；shell 退出后 tab 显示退出码并变灰，无崩溃
 
-旧的一次性命令面板（`src/api/modules/terminal.js`、`src-tauri/src/common/terminal.rs` 的 `run_shell_command`）已无消费方，待后续清理。
+旧的一次性命令面板（`src/api/modules/terminal.js`、`src-tauri/src/common/terminal.rs` 的 `run_shell_command`）已随 PTY 上线后删除。
 
 ---
 

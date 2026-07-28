@@ -158,8 +158,11 @@ Rust 侧不应该只是：
 | file_watcher.rs | 文件系统变更监听（notify + debounce + Tauri 事件） |
 | fs_utils.rs | 文件树浅层扫描 + 按需加载子目录 + 文件分类 |
 | fs_ops.rs | 文件 CRUD 操作（创建/重命名/删除/复制） |
-| toolchain.rs | 工具路径解析 + 版本检测（5 个工具） |
-| terminal.rs | Shell 命令执行（cmd/PowerShell） |
+| toolchain.rs | 工具路径解析 + 版本检测（5 个工具）+ 项目级 thtkDir 覆盖 |
+| project_config.rs | `.thtk-project.json` 三态读取 + 原子保存 |
+| recent_projects.rs | 最近项目去重/置顶/上限 + 可用性判定 |
+| pty.rs | PTY 会话管理（portable-pty，跨平台 shell 探测） |
+| mcp_config.rs | `.mcp.json` / `opencode.json` / `.codex` 非破坏性接线 |
 | system_clipboard.rs | Windows 系统文件剪贴板（via PowerShell） |
 
 ---

@@ -96,7 +96,7 @@
 5. msg/std 结构化诊断(thmsg/thstd stderr 解析,Monaco markers)
 6. msg/std 语言服务(Monarch 高亮 + 补全/悬停,~thecl 30% 工作量)
 7. thdat batching(超过 28KB 命令行长度时分批打包)
-8. 旧一次性命令面板代码彻底清理(`api/modules/terminal.js`、`run_shell_command` Rust 端)
+8. ~~旧一次性命令面板代码彻底清理(`api/modules/terminal.js`、`run_shell_command` Rust 端)~~ ✅ 已于 2026-07-27 删除
 
 ## 验收清单(Windows 单独跑)
 

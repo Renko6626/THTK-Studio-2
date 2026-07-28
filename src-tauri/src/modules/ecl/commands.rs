@@ -130,14 +130,6 @@ pub async fn run_thecl_operation(
 }
 
 #[tauri::command]
-pub async fn get_thecl_status(
-    state: State<'_, AppState>,
-) -> Result<toolchain::ToolchainStatus, String> {
-    let config = state.config_manager.get_config();
-    toolchain::get_toolchain_status(&config, "thecl")
-}
-
-#[tauri::command]
 pub async fn get_ecl_map_semantics(path: String) -> Result<map_parser::EclMapSemanticData, String> {
     map_parser::parse_ecl_map_file(&path)
 }
@@ -147,13 +139,15 @@ pub async fn generate_ai_assist_pack(
     state: State<'_, AppState>,
     force: bool,
 ) -> Result<super::ai_pack::AiPackResult, String> {
-    let config = state.config_manager.get_config();
     let root = state
         .current_project_root
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .clone()
         .ok_or("No project root set")?;
+    // 必须过项目级覆盖：否则辅助包的 references 会按全局 thtk_dir 的 eclmap 生成，
+    // 而 check_ecl / compile_ecl 用的是项目级的，agent 拿到的语义和实际编译不是一回事
+    let config = toolchain::effective_config(&state.config_manager.get_config(), Some(&root));
 
     let map_path = crate::modules::mcp::tools::resolve_map_path(&config, Some(&root))?;
     let semantics = map_parser::parse_ecl_map_file(&map_path)?;

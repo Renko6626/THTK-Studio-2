@@ -97,9 +97,12 @@ export const useProjectStore = defineStore('project', {
       this.projectConfigPath = result?.path || ''
     },
 
-    /** 保存项目配置到 .thtk-project.json */
-    async saveConfig(config) {
-      await saveProjectConfig(config)
+    /**
+     * 保存项目配置到 .thtk-project.json。
+     * expectedRoot 是调用方开始编辑时的项目根，后端据此拒绝写错项目。
+     */
+    async saveConfig(config, expectedRoot) {
+      await saveProjectConfig(config, expectedRoot ?? this.rootPath)
       this.projectConfig = config
       this.projectConfigStatus = 'loaded'
       this.projectConfigError = null
