@@ -5,9 +5,9 @@ import {
   loadEditorSnapshot,
   loadProjectSnapshot,
   loadTerminalSnapshot
-} from '../../src/utils/workbenchState.js'
+} from '../../src/utils/workbenchState'
 
-vi.mock('../../src/utils/workbenchState.js', () => ({
+vi.mock('../../src/utils/workbenchState', () => ({
   loadProjectSnapshot: vi.fn(),
   loadEditorSnapshot: vi.fn(),
   loadTerminalSnapshot: vi.fn(),

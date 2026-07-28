@@ -1,4 +1,6 @@
 import { h } from 'vue'
+import type { VNode } from 'vue'
+import type { FileNode } from '../types'
 
 import folderIcon from 'material-icon-theme/icons/folder.svg?url'
 import folderOpenIcon from 'material-icon-theme/icons/folder-open.svg?url'
@@ -14,19 +16,24 @@ import xmlIcon from 'material-icon-theme/icons/xml.svg?url'
 import vueIcon from 'material-icon-theme/icons/vue.svg?url'
 import javascriptIcon from 'material-icon-theme/icons/javascript.svg?url'
 import typescriptIcon from 'material-icon-theme/icons/typescript.svg?url'
-import settingsIcon from 'material-icon-theme/icons/settings.svg?url'
 import powershellIcon from 'material-icon-theme/icons/powershell.svg?url'
 import consoleIcon from 'material-icon-theme/icons/console.svg?url'
 import zipIcon from 'material-icon-theme/icons/zip.svg?url'
 
-function getExt(node) {
+/**
+ * 图标只依赖这三个字段。用结构化子集而不是完整 FileNode，
+ * 是因为文件树里传进来的可能是 naive-ui 的 TreeOption 包装体。
+ */
+type IconNode = Partial<Pick<FileNode, 'name' | 'is_dir' | 'extension'>>
+
+function getExt(node: IconNode | null | undefined): string {
   if (node?.extension) return String(node.extension).toLowerCase()
   const name = node?.name || ''
   const index = name.lastIndexOf('.')
   return index > 0 ? name.slice(index + 1).toLowerCase() : ''
 }
 
-function resolveIconUrl(node, expanded = false) {
+function resolveIconUrl(node: IconNode | null | undefined, expanded = false): string {
   if (node?.is_dir) {
     return expanded ? folderOpenIcon : folderIcon
   }
@@ -80,7 +87,7 @@ function resolveIconUrl(node, expanded = false) {
   }
 }
 
-function renderIcon(url, size = 18) {
+function renderIcon(url: string, size = 18): VNode {
   return h('img', {
     src: url,
     alt: '',
@@ -95,14 +102,14 @@ function renderIcon(url, size = 18) {
   })
 }
 
-export function getFileIconUrl(node, expanded = false) {
+export function getFileIconUrl(node: IconNode | null | undefined, expanded = false): string {
   return resolveIconUrl(node, expanded)
 }
 
-export function renderFileIcon(node, expanded = false) {
+export function renderFileIcon(node: IconNode | null | undefined, expanded = false): VNode {
   return renderIcon(resolveIconUrl(node, expanded), 18)
 }
 
-export function renderCompactFileIcon(node) {
+export function renderCompactFileIcon(node: IconNode | null | undefined): VNode {
   return renderIcon(resolveIconUrl(node, false), 16)
 }
