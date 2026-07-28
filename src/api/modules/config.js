@@ -46,3 +46,21 @@ export function loadProjectConfig() {
 export function saveProjectConfig(config) {
   return invoke('save_project_config_cmd', { config })
 }
+
+/**
+ * 最近打开的项目，按最近打开时间降序，最多 10 条。
+ * 不会自动剔除失效路径——磁盘临时离线不该让记录消失，由用户决定删不删。
+ * @returns {Promise<Array<{path: string, name: string, lastOpenedAt: number}>>}
+ */
+export function listRecentProjects() {
+  return invoke('list_recent_projects')
+}
+
+/** 移除一条最近项目，返回移除后的列表 */
+export function removeRecentProject(path) {
+  return invoke('remove_recent_project', { path })
+}
+
+export function clearRecentProjects() {
+  return invoke('clear_recent_projects')
+}

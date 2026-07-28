@@ -23,7 +23,6 @@
 
 <script setup>
 import { computed } from 'vue'
-import { open } from '@tauri-apps/plugin-dialog'
 import { NDropdown, useMessage, useDialog } from 'naive-ui'
 import { useEditorStore } from '../../stores/editor'
 import { useProjectStore } from '../../stores/project'
@@ -34,6 +33,7 @@ import { useToolchainSettingsStore } from '../../stores/toolchainSettings'
 import { useWorkbenchReportsStore } from '../../stores/workbenchReports'
 import { dispatchEditorAction } from '../../composables/useEditorActionBridge'
 import { useFileOperations } from '../../composables/useFileOperations'
+import { useProjectActions } from '../../composables/useProjectActions'
 import { useToolchainActions } from '../../composables/useToolchainActions'
 import { generateAiAssistPack } from '../../api'
 
@@ -48,6 +48,7 @@ const { handleCreate } = useFileOperations()
 const message = useMessage()
 const dialog = useDialog()
 const tcActions = useToolchainActions({ message })
+const projectActions = useProjectActions({ message, dialog })
 
 const hasWorkspace = computed(() => Boolean(projectStore.rootPath))
 const hasActiveTab = computed(() => Boolean(editorStore.activeTab))
@@ -151,11 +152,7 @@ const menus = computed(() => [
 ])
 
 async function openFolder() {
-  const selected = await open({ directory: true })
-  if (selected) {
-    await projectStore.loadProject(selected)
-    message.success(`已打开 ${projectStore.rootName}`)
-  }
+  await projectActions.openProjectFromPicker()
 }
 
 function publishAiPackResult({ success, path, message: text }) {

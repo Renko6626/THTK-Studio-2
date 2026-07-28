@@ -13,7 +13,9 @@ export function useWorkbenchSession({
   editorStore,
   terminalStore,
   workbenchPanelsStore,
-  showReloadNotice
+  showReloadNotice,
+  // 由 WorkbenchRoot 注入 useProjectActions.openProjectPath，恢复走和其他入口同一条流程
+  openProjectPath
 }) {
   let stopProjectSubscription = null
   let stopEditorSubscription = null
@@ -35,15 +37,21 @@ export function useWorkbenchSession({
     const terminalSnapshot = loadTerminalSnapshot()
     const panelSnapshot = window.localStorage.getItem(panelStorageKey)
 
-    projectStore.hydrate(projectSnapshot)
     terminalStore.hydrate(terminalSnapshot)
     workbenchPanelsStore.hydrate(panelSnapshot ? JSON.parse(panelSnapshot) : null)
 
+    let projectRestored = false
     if (projectSnapshot?.rootPath) {
-      await projectStore.loadProject(projectSnapshot.rootPath)
+      // silent：上次的目录可能已被删除或改名，这属于正常情况。失败就停在欢迎页，
+      // 不弹错误、也不重试——最近项目列表仍然留着那条记录供用户处理。
+      projectRestored = await openProjectPath(projectSnapshot.rootPath, { silent: true })
+      if (!projectRestored) {
+        showReloadNotice(`上次的项目已无法打开：${projectSnapshot.rootPath}`)
+      }
     }
 
-    if (editorSnapshot) {
+    // 项目没恢复成功就别再恢复标签页——那些路径都在打不开的目录底下
+    if (editorSnapshot && (projectRestored || !projectSnapshot?.rootPath)) {
       const restoreResult = await editorStore.restoreSession(editorSnapshot)
       if (restoreResult?.droppedDraftCount) {
         showReloadNotice(`有 ${restoreResult.droppedDraftCount} 个草稿因磁盘已变化而未恢复。`)

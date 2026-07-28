@@ -17,11 +17,13 @@ export function getDirChildren(path) {
 }
 
 /**
- * 设置当前项目根目录
+ * 事务式打开项目：目录验证与首层扫描都成功后，后端才提交项目根、切换文件监听、
+ * 注册 MCP 客户端并记录最近项目。任一步失败都会 reject 且不改动当前工作区。
  * @param {string} path
+ * @returns {Promise<{rootPath: string, files: Object[], projectConfig: {status: 'absent'|'loaded'|'invalid', value: Object|null, error: string|null, path: string}}>}
  */
-export function setProjectRoot(path) {
-  return invoke('set_project_root', { path })
+export function openProject(path) {
+  return invoke('open_project', { path })
 }
 
 /**

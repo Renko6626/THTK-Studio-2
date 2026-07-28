@@ -1,3 +1,4 @@
+use crate::common::recent_projects::{self, RecentProject};
 use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -27,6 +28,9 @@ pub struct AppConfig {
     // MCP 服务器首选监听端口；被占用时自动回退到随机端口
     #[serde(default = "default_mcp_port")]
     pub mcp_port: u16,
+    // 最近打开的项目，由专用命令维护，没有设置表单入口
+    #[serde(default)]
+    pub recent_projects: Vec<crate::common::recent_projects::RecentProject>,
 }
 
 impl Default for AppConfig {
@@ -39,6 +43,7 @@ impl Default for AppConfig {
             default_game_version: "20".to_string(),
             theme: "dark".to_string(),
             mcp_port: default_mcp_port(),
+            recent_projects: Vec::new(),
         }
     }
 }
@@ -78,7 +83,7 @@ impl ConfigManager {
     }
 
     pub fn save(&self) -> Result<(), String> {
-        let config = self.config.lock().unwrap();
+        let config = self.config.lock().unwrap_or_else(|e| e.into_inner());
         let json = serde_json::to_string_pretty(&*config).map_err(|e| e.to_string())?;
         fs::write(&self.config_path, json).map_err(|e| e.to_string())?;
         Ok(())
@@ -86,15 +91,45 @@ impl ConfigManager {
 
     // 获取当前配置的一个副本
     pub fn get_config(&self) -> AppConfig {
-        self.config.lock().unwrap().clone()
+        self.config.lock().unwrap_or_else(|e| e.into_inner()).clone()
     }
 
     // 更新配置
     pub fn update_config(&self, new_config: AppConfig) -> Result<(), String> {
         {
-            let mut config = self.config.lock().unwrap();
+            let mut config = self.config.lock().unwrap_or_else(|e| e.into_inner());
             *config = new_config;
         } // 锁在这里释放
+        self.save()
+    }
+
+    /// 更新设置表单能改的字段，保留后端自己管理的那些。
+    ///
+    /// `save_settings` 的载荷是整个 `AppConfig`，但设置表单只填其中一部分，
+    /// 缺失字段在反序列化时会取 serde 默认值。若直接整体替换，保存一次工具链设置
+    /// 就会把最近项目清空、把 `mcp_port` 重置回默认端口——这两项都没有表单入口，
+    /// 分别由专用命令和用户手改 settings.json 维护，因此从当前配置继承。
+    pub fn update_user_settings(&self, incoming: AppConfig) -> Result<(), String> {
+        let merged = {
+            let current = self.config.lock().unwrap_or_else(|e| e.into_inner());
+            AppConfig {
+                recent_projects: current.recent_projects.clone(),
+                mcp_port: current.mcp_port,
+                ..incoming
+            }
+        };
+        self.update_config(merged)
+    }
+
+    pub fn recent_projects(&self) -> Vec<RecentProject> {
+        recent_projects::sorted(&self.get_config().recent_projects)
+    }
+
+    pub fn set_recent_projects(&self, list: Vec<RecentProject>) -> Result<(), String> {
+        {
+            let mut config = self.config.lock().unwrap_or_else(|e| e.into_inner());
+            config.recent_projects = list;
+        }
         self.save()
     }
 }

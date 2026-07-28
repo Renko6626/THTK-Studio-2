@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { getFileTree, getDirChildren, setProjectRoot } from '../api'
+import { getFileTree, getDirChildren, openProject } from '../api'
 import { loadProjectConfig, saveProjectConfig } from '../api'
 
 export const useProjectStore = defineStore('project', {
@@ -44,23 +44,34 @@ export const useProjectStore = defineStore('project', {
   },
 
   actions: {
-    hydrate(snapshot) {
-      if (!snapshot?.rootPath) return
-      this.rootPath = snapshot.rootPath
-    },
+    // 没有 hydrate：项目根不能凭快照乐观地设上去。恢复失败时那个值会留成僵尸状态，
+    // 让 UI 显示着一个其实没打开的项目。恢复统一走 loadProject，成功才提交。
 
+    /**
+     * 打开项目。成功之前不改动任何状态——目录不存在或扫描失败时，当前工作区、
+     * 文件树与项目配置都保持原样，错误向上抛给调用方决定怎么提示。
+     *
+     * 后端是事务式的：验证与首层扫描都通过后才提交项目根、切换文件监听、
+     * 注册 MCP 客户端并记录最近项目，所以这里失败不会留下半个状态。
+     */
     async loadProject(path) {
-      this.rootPath = path
       this.isLoading = true
       try {
-        await setProjectRoot(path)
-        this.files = await getFileTree(path)
-        await this.reloadProjectConfig()
-      } catch (err) {
-        console.error('Failed to load project:', err)
+        const result = await openProject(path)
+        this.rootPath = result.rootPath
+        this.files = result.files || []
+        this._applyProjectConfigLoad(result.projectConfig)
+        return result
       } finally {
         this.isLoading = false
       }
+    },
+
+    /** 回到"没有工作区"的状态，供恢复失败或用户关闭项目时使用 */
+    closeProject() {
+      this.rootPath = null
+      this.files = []
+      this._applyProjectConfigLoad({ status: 'absent', value: null, error: null, path: '' })
     },
 
     /** 重新读取 .thtk-project.json 并记录其三态状态 */

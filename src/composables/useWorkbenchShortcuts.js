@@ -1,5 +1,4 @@
 import { onMounted, onBeforeUnmount } from 'vue'
-import { open } from '@tauri-apps/plugin-dialog'
 import { dispatchEditorAction } from './useEditorActionBridge'
 
 function isEditableTarget(target) {
@@ -15,14 +14,11 @@ export function useWorkbenchShortcuts({
   editorStore,
   projectStore,
   workbenchPanelsStore,
-  showReloadNotice
+  showReloadNotice,
+  // 由 WorkbenchRoot 注入 useProjectActions 的打开动作。快捷键自己再实现一遍的话，
+  // Ctrl+O 会绕过脏标签保护和统一的错误提示。
+  openFolder
 }) {
-  async function openFolder() {
-    const selected = await open({ directory: true })
-    if (selected) {
-      await projectStore.loadProject(selected)
-    }
-  }
 
   function handleGlobalKeydown(event) {
     const key = event.key.toLowerCase()

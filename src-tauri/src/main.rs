@@ -12,6 +12,7 @@ use app_state::AppState;
 use common::file_watcher;
 use common::fs_utils;
 use common::project_config;
+use common::recent_projects;
 use common::toolchain;
 use common::system_clipboard;
 use config::AppConfig;
@@ -38,7 +39,7 @@ fn get_settings(state: State<AppState>) -> AppConfig {
 
 #[tauri::command]
 fn save_settings(state: State<AppState>, config: AppConfig) -> Result<(), String> {
-    state.config_manager.update_config(config)
+    state.config_manager.update_user_settings(config)
 }
 
 /// 取当前项目根，供 toolchain::effective_config 应用项目级覆盖。
@@ -102,51 +103,136 @@ fn save_file(
 // Project / Workspace Commands
 // ----------------------------------------------------------------
 
-// 设置当前项目根目录，并启动文件变更监听
-#[tauri::command]
-fn set_project_root(state: State<AppState>, path: String, app_handle: tauri::AppHandle) {
-    let mut root = state.current_project_root.lock().unwrap_or_else(|e| e.into_inner());
-    *root = Some(path.clone());
-    drop(root);
+/// 打开项目的返回值。一次调用把前端需要的三件事一起给出，
+/// 避免"设根目录 → 取文件树 → 读配置"三步中途失败留下半个状态。
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ProjectOpenResult {
+    root_path: String,
+    files: Vec<fs_utils::FileNode>,
+    project_config: project_config::ProjectConfigLoad,
+}
 
-    match file_watcher::start_watching(&state.file_watcher, &app_handle, &path) {
-        Ok(()) => {}
-        Err(error) => {
-            use tauri::Emitter;
-            let _ = app_handle.emit(
-                "mcp://report",
-                serde_json::json!({
-                    "title": "文件监听不可用",
-                    "body": format!("文件系统监听器启动失败,外部文件变更不会自动反映到 IDE。可通过文件树刷新按钮手动同步。\n\n错误:{error}"),
-                    "level": "error",
-                    "path": null,
-                }),
-            );
-        }
+fn report_card(app_handle: &tauri::AppHandle, title: &str, body: String, level: &str) {
+    use tauri::Emitter;
+    let _ = app_handle.emit(
+        "mcp://report",
+        serde_json::json!({
+            "title": title,
+            "body": body,
+            "level": level,
+            "path": null,
+        }),
+    );
+}
+
+fn start_project_watcher(state: &State<AppState>, app_handle: &tauri::AppHandle, path: &str) {
+    if let Err(error) = file_watcher::start_watching(&state.file_watcher, app_handle, path) {
+        report_card(
+            app_handle,
+            "文件监听不可用",
+            format!("文件系统监听器启动失败,外部文件变更不会自动反映到 IDE。可通过文件树刷新按钮手动同步。\n\n错误:{error}"),
+            "error",
+        );
     }
+}
 
+fn register_project_mcp_clients(
+    state: &State<AppState>,
+    app_handle: &tauri::AppHandle,
+    path: &str,
+) {
     // 取出端口/token 后立即放锁,避免持锁做文件 IO(pty_create 等会争用这把锁)
     let endpoint = {
         let mcp = state.mcp_server.lock().unwrap_or_else(|e| e.into_inner());
         mcp.as_ref().map(|info| (info.port, info.token.clone()))
     };
 
-    if let Some((port, token)) = endpoint {
-        // 项目根就绪后,把 MCP server 接入信息写进各客户端配置(非破坏性)。
-        let cards = common::mcp_config::register_clients(&path, port, &token);
-        use tauri::Emitter;
-        for card in cards {
-            let _ = app_handle.emit(
-                "mcp://report",
-                serde_json::json!({
-                    "title": card.title,
-                    "body": card.body,
-                    "level": card.level,
-                    "path": null,
-                }),
-            );
-        }
+    let Some((port, token)) = endpoint else {
+        return;
+    };
+
+    // 项目根就绪后,把 MCP server 接入信息写进各客户端配置(非破坏性)。
+    for card in common::mcp_config::register_clients(path, port, &token) {
+        report_card(app_handle, &card.title, card.body, &card.level);
     }
+}
+
+/// 事务式打开项目。
+///
+/// 目录验证与首层扫描都成功之后，才提交项目根、切换 watcher、注册 MCP 客户端
+/// 并记录最近项目；任何一步失败都不会动到当前工作区、监听器或最近项目列表。
+/// 配置文件损坏**不**阻止打开——用户仍然要能看到项目内容再决定怎么修，
+/// 因此以 invalid 状态返回，由前端在覆盖前二次确认。
+#[tauri::command]
+fn open_project(
+    state: State<AppState>,
+    path: String,
+    app_handle: tauri::AppHandle,
+) -> Result<ProjectOpenResult, String> {
+    let root_path = fs_utils::validate_project_dir(&path)?;
+    let files = fs_utils::get_file_tree(&root_path).map_err(|e| e.to_string())?;
+
+    {
+        let mut root = state
+            .current_project_root
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        *root = Some(root_path.clone());
+    }
+
+    start_project_watcher(&state, &app_handle, &root_path);
+    register_project_mcp_clients(&state, &app_handle, &root_path);
+
+    // 记录失败只是最近项目列表没更新，不该让整个打开动作失败，但要让用户知道
+    let updated = recent_projects::record(
+        &state.config_manager.get_config().recent_projects,
+        &root_path,
+        recent_projects::now_millis(),
+    );
+    if let Err(error) = state.config_manager.set_recent_projects(updated) {
+        report_card(
+            &app_handle,
+            "最近项目未能保存",
+            format!("项目已打开，但最近项目列表写入失败，重启后可能看不到这一条。\n\n错误:{error}"),
+            "warning",
+        );
+    }
+
+    let project_config = project_config::load_project_config_detailed(&root_path);
+
+    Ok(ProjectOpenResult {
+        root_path,
+        files,
+        project_config,
+    })
+}
+
+// ----------------------------------------------------------------
+// Recent Projects Commands
+// ----------------------------------------------------------------
+
+#[tauri::command]
+fn list_recent_projects(state: State<AppState>) -> Vec<recent_projects::RecentProjectView> {
+    recent_projects::to_views(&state.config_manager.recent_projects())
+}
+
+#[tauri::command]
+fn remove_recent_project(
+    state: State<AppState>,
+    path: String,
+) -> Result<Vec<recent_projects::RecentProjectView>, String> {
+    let updated =
+        recent_projects::remove(&state.config_manager.get_config().recent_projects, &path);
+    state.config_manager.set_recent_projects(updated)?;
+    Ok(recent_projects::to_views(
+        &state.config_manager.recent_projects(),
+    ))
+}
+
+#[tauri::command]
+fn clear_recent_projects(state: State<AppState>) -> Result<(), String> {
+    state.config_manager.set_recent_projects(Vec::new())
 }
 
 // ----------------------------------------------------------------
@@ -221,7 +307,10 @@ fn main() {
             get_toolchain_statuses,
             read_file,
             save_file,
-            set_project_root,
+            open_project,
+            list_recent_projects,
+            remove_recent_project,
+            clear_recent_projects,
             load_project_config,
             save_project_config_cmd,
             get_file_tree,

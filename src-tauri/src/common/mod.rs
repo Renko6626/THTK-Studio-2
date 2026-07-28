@@ -4,6 +4,7 @@ pub mod cmd_runner;
 pub mod file_watcher;
 pub mod fs_utils;
 pub mod project_config;
+pub mod recent_projects;
 pub mod fs_ops;
 pub mod system_clipboard;
 pub mod toolchain;

@@ -35,6 +35,31 @@ pub enum FileCategory {
     Unknown,         // 其他
 }
 
+/// 校验一个路径能否作为项目根，并规范化为绝对路径。
+///
+/// 用 `std::path::absolute` 而不是 `canonicalize`：后者在 Windows 上会返回
+/// `\\?\C:\...` 扩展长度前缀，那个形态会渗进文件树、终端 cwd、MCP 配置和会话快照，
+/// 和历史上存下来的普通路径对不上。这里只需要"绝对且可比较"，不需要解析符号链接。
+pub fn validate_project_dir(path: &str) -> Result<String, String> {
+    let trimmed = path.trim();
+    if trimmed.is_empty() {
+        return Err("项目路径为空".to_string());
+    }
+
+    let candidate = Path::new(trimmed);
+    if !candidate.exists() {
+        return Err(format!("目录不存在: {trimmed}"));
+    }
+    if !candidate.is_dir() {
+        return Err(format!("不是目录: {trimmed}"));
+    }
+
+    let absolute =
+        std::path::absolute(candidate).map_err(|e| format!("无法解析为绝对路径: {e}"))?;
+
+    Ok(absolute.to_string_lossy().to_string())
+}
+
 /// 扫描目录并返回一层文件树（目录节点的 children 为 None，前端按需加载）
 pub fn get_file_tree<P: AsRef<Path>>(root_path: P) -> Result<Vec<FileNode>> {
     list_dir_shallow(root_path.as_ref())
@@ -210,5 +235,39 @@ mod tests {
         let proj = nodes.iter().find(|n| n.name == "proj").expect("proj node");
 
         assert!(!proj.is_leaf, ".claude 子目录可见,父目录应可展开");
+    }
+
+    #[test]
+    fn validate_project_dir_accepts_directory_and_returns_absolute() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let resolved = validate_project_dir(&dir.path().to_string_lossy()).expect("should accept");
+
+        assert!(Path::new(&resolved).is_absolute());
+        assert!(Path::new(&resolved).is_dir());
+        // 不应带上 canonicalize 在 Windows 上会加的扩展长度前缀
+        assert!(!resolved.starts_with(r"\\?\"), "got: {resolved}");
+    }
+
+    #[test]
+    fn validate_project_dir_rejects_missing_file_and_empty() {
+        let dir = tempfile::tempdir().expect("tempdir");
+
+        let missing = dir.path().join("nope");
+        let err = validate_project_dir(&missing.to_string_lossy()).unwrap_err();
+        assert!(err.contains("不存在"), "got: {err}");
+
+        let file = dir.path().join("a.decl");
+        fs::write(&file, "").expect("write");
+        let err = validate_project_dir(&file.to_string_lossy()).unwrap_err();
+        assert!(err.contains("不是目录"), "got: {err}");
+
+        assert!(validate_project_dir("   ").is_err());
+    }
+
+    #[test]
+    fn validate_project_dir_makes_relative_paths_absolute() {
+        // "." 一定存在且是目录，用它验证相对路径会被绝对化
+        let resolved = validate_project_dir(".").expect("should accept cwd");
+        assert!(Path::new(&resolved).is_absolute(), "got: {resolved}");
     }
 }

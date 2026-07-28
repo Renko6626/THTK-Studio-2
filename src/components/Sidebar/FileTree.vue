@@ -99,7 +99,6 @@
 <script setup>
 import { computed, ref, h, nextTick, watch, onBeforeUnmount } from 'vue'
 import { NTree, NSpin, NButton, NIcon, NDropdown, NInput, useDialog, useMessage } from 'naive-ui'
-import { open } from '@tauri-apps/plugin-dialog'
 import { useProjectStore } from '../../stores/project'
 import { useEditorStore } from '../../stores/editor'
 import { useExplorerClipboardStore } from '../../stores/explorerClipboard'
@@ -113,6 +112,7 @@ import { useContextMenu } from '../../composables/useContextMenu'
 import { useFileOperations, remapExpandedKeys } from '../../composables/useFileOperations'
 import { useFileTreeActions } from '../../composables/useFileTreeActions'
 import { useFileTreeDnD } from '../../composables/useFileTreeDnD'
+import { useProjectActions } from '../../composables/useProjectActions'
 import { renderFileIcon } from '../../utils/renderFileIcon'
 import { renameEntry } from '../../api'
 
@@ -122,6 +122,7 @@ const explorerClipboardStore = useExplorerClipboardStore()
 const explorerViewStore = useExplorerViewStore()
 const dialog = useDialog()
 const message = useMessage()
+const projectActions = useProjectActions({ message, dialog })
 
 // ---- Composables ----
 
@@ -508,11 +509,10 @@ function quickCreate(type) {
 }
 
 async function openFolder() {
-  const selected = await open({ directory: true })
-  if (selected) {
+  const opened = await projectActions.openProjectFromPicker()
+  if (opened) {
+    // 树的本地选中态不归 explorerViewStore 管，切换成功后自己清一下
     selectedKeys.value = []
-    explorerViewStore.clearSelection()
-    await projectStore.loadProject(selected)
   }
 }
 
