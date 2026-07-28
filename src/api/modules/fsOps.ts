@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
+import type { EntryStat } from '../../types'
 
 /**
  * 保存文件
@@ -6,7 +7,7 @@ import { invoke } from '@tauri-apps/api/core'
  * @param {string} content - 内容
  * @param {boolean} isSource - true=保存为UTF8, false=保存为ShiftJIS
  */
-export function saveFile(path, content, isSource = true) {
+export function saveFile(path: string, content: string, isSource = true): Promise<void> {
   return invoke('save_file', { path, content, isSource })
 }
 
@@ -14,7 +15,7 @@ export function saveFile(path, content, isSource = true) {
  * 创建文件夹
  * @param {string} path 
  */
-export function createDir(path) {
+export function createDir(path: string): Promise<void> {
   return invoke('create_directory', { path })
 }
 
@@ -22,7 +23,7 @@ export function createDir(path) {
  * 创建空文件
  * @param {string} path 
  */
-export function createFile(path) {
+export function createFile(path: string): Promise<void> {
   return invoke('create_file', { path })
 }
 
@@ -31,7 +32,7 @@ export function createFile(path) {
  * @param {string} oldPath 
  * @param {string} newPath 
  */
-export function renameEntry(oldPath, newPath) {
+export function renameEntry(oldPath: string, newPath: string): Promise<void> {
   return invoke('rename_entry', { oldPath, newPath })
 }
 
@@ -40,7 +41,7 @@ export function renameEntry(oldPath, newPath) {
  * @param {string} sourcePath
  * @param {string} destinationPath
  */
-export function copyEntry(sourcePath, destinationPath) {
+export function copyEntry(sourcePath: string, destinationPath: string): Promise<void> {
   return invoke('copy_entry', { sourcePath, destinationPath })
 }
 
@@ -48,14 +49,14 @@ export function copyEntry(sourcePath, destinationPath) {
  * 写入系统文件剪贴板
  * @param {string[]} paths
  */
-export function setFileClipboard(paths) {
+export function setFileClipboard(paths: string[]): Promise<void> {
   return invoke('set_file_clipboard', { paths })
 }
 
 /**
  * 读取系统文件剪贴板
  */
-export function getFileClipboard() {
+export function getFileClipboard(): Promise<string[]> {
   return invoke('get_file_clipboard')
 }
 
@@ -63,7 +64,7 @@ export function getFileClipboard() {
  * 删除文件/文件夹
  * @param {string} path
  */
-export function deleteEntry(path) {
+export function deleteEntry(path: string): Promise<void> {
   return invoke('delete_entry', { path })
 }
 
@@ -72,6 +73,6 @@ export function deleteEntry(path) {
  * @param {string} path
  * @returns {Promise<{ exists: boolean, isDir: boolean, size: number }>}
  */
-export function statEntry(path) {
+export function statEntry(path: string): Promise<EntryStat> {
   return invoke('stat_entry', { path })
 }

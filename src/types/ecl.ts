@@ -73,3 +73,14 @@ export interface NormalizedEclSemanticData {
   instructions: EclInstructionSpec[]
   builtins: string[]
 }
+
+/** 对应 `modules/ecl/ai_pack.rs` 的 `AiPackResult`（`rename_all = "camelCase"`） */
+export interface AiPackResult {
+  skillPath: string
+  /** SKILL.md 这次是否被写入（已存在且未 force 时为 false） */
+  skillWritten: boolean
+  skillExisted: boolean
+  /** 每次都会重新生成的 references 文件列表 */
+  referenceFiles: string[]
+  version: string
+}

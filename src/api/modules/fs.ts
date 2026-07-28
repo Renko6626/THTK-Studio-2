@@ -1,10 +1,11 @@
 import { invoke } from '@tauri-apps/api/core'
+import type { FileNode, ProjectOpenResult } from '../../types'
 
 /**
  * 获取文件树（浅层，只读一层目录）
  * @param {string} path - 根目录路径
  */
-export function getFileTree(path) {
+export function getFileTree(path: string): Promise<FileNode[]> {
   return invoke('get_file_tree', { path })
 }
 
@@ -12,7 +13,7 @@ export function getFileTree(path) {
  * 按需加载目录的子节点
  * @param {string} path - 目录路径
  */
-export function getDirChildren(path) {
+export function getDirChildren(path: string): Promise<FileNode[]> {
   return invoke('get_dir_children', { path })
 }
 
@@ -22,7 +23,7 @@ export function getDirChildren(path) {
  * @param {string} path
  * @returns {Promise<{rootPath: string, files: Object[], projectConfig: {status: 'absent'|'loaded'|'invalid', value: Object|null, error: string|null, path: string}}>}
  */
-export function openProject(path) {
+export function openProject(path: string): Promise<ProjectOpenResult> {
   return invoke('open_project', { path })
 }
 
@@ -30,6 +31,6 @@ export function openProject(path) {
  * 读取文件内容
  * @param {string} path - 文件路径
  */
-export function readFile(path) {
+export function readFile(path: string): Promise<string> {
   return invoke('read_file', { path })
 }

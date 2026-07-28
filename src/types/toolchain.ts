@@ -95,3 +95,32 @@ export interface EclResult {
   diagnostics: Diagnostic[]
   outputPath: string | null
 }
+
+/**
+ * MSG 与 STD 的结果结构与 `EclResult` 完全一致（都 `rename_all = "camelCase"`）。
+ * 两者的 `diagnostics` 在 Rust 侧注明「始终为空」——复用 ECL 的 Diagnostic 只是
+ * 为了让前端的问题面板能同一套代码处理，别指望能从里面拿到 thmsg/thstd 的报错。
+ */
+export type MsgResult = EclResult
+export type StdResult = EclResult
+
+/** 对应 `modules/thdat/compiler.rs` 的 `ThdatResult`（`rename_all = "camelCase"`） */
+export interface ThdatResult {
+  success: boolean
+  tool: string
+  /** "extract" | "pack" */
+  mode: string
+  archivePath: string
+  targetDir: string
+  message: string
+  /** 同样始终为空，仅为复用问题面板 */
+  diagnostics: Diagnostic[]
+  fileCount: number | null
+}
+
+/** 对应 `common/fs_ops.rs` 的 `EntryStat`（`rename_all = "camelCase"`） */
+export interface EntryStat {
+  exists: boolean
+  isDir: boolean
+  size: number
+}
