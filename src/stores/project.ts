@@ -188,14 +188,14 @@ export const useProjectStore = defineStore('project', {
     /** 收集所有已加载了 children 的目录路径 */
     _collectLoadedDirs(nodes: FileNode[], result: Set<string>) {
       for (const node of nodes) {
-        if (node.is_dir && node.children !== undefined) {
+        // 后端浅层扫描对**未展开**的目录发的是 children: null（Rust Option<Vec>
+        // 的 None），只有前端 loadChildren 过的才是数组。这里要判的是"已加载"，
+        // 所以必须同时排除 null 和 undefined。
+        if (node.is_dir && node.children != null) {
           result.add(node.path)
           // 仅当有子时才递归;空数组不需要进
-          // ⚠️ 这里的 ! 刻意保留了既有的空值 bug：后端对未展开目录发的是
-          // children: null，而上面的判断只排除了 undefined，于是这行会抛。
-          // 按迁移纪律本次提交不改行为，下一个提交单独修并配测试。
-          if (node.children!.length) {
-            this._collectLoadedDirs(node.children!, result)
+          if (node.children.length) {
+            this._collectLoadedDirs(node.children, result)
           }
         }
       }
