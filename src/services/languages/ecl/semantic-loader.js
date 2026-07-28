@@ -69,53 +69,66 @@ export async function loadDefaultEclSemanticData({ projectRoot, projectConfig } 
     .filter(Boolean)
 
   const globalMapPath = String(settings?.eclmap_path || '').trim()
-  const explicitPaths = projectMapPaths.length ? projectMapPaths : [globalMapPath].filter(Boolean)
 
   // 按 thtk 目录推导 thXX.eclm 的候选位置。这里是"依次尝试"，和后端
   // toolchain::effective_config 的"项目值直接顶掉全局值"不是同一套语义——
   // 后端只需要挑一个 exe 目录，这里多试几个位置能少让用户手配一次。
   const roots = [projectRoot, projectConfig?.toolchain?.thtkDir, settings?.thtk_dir]
 
-  // 显式配置的路径全部失败时，继续走目录推导；否则项目里一条过期的 map 路径
-  // 会把整个 ECL 语言服务打哑，哪怕全局配置本来是好的。
-  const candidates = [...explicitPaths, ...createCandidatePaths(version, roots)]
-
-  const merged = { instructions: [], builtins: [] }
-  const resolvedPaths = []
   let lastError = null
-  let base = null
 
-  for (const candidate of candidates) {
-    try {
-      const semantics = await getEclMapSemantics(candidate)
-      base = base || semantics
-      resolvedPaths.push(candidate)
-      merged.instructions.push(...(semantics?.instructions || []))
-      merged.builtins.push(...(semantics?.builtins || []))
-
-      // 显式配置的多条 map 要合并；目录推导出的候选只取第一个命中的
-      if (!explicitPaths.includes(candidate)) break
-    } catch (error) {
-      lastError = error
+  /** 全部加载并合并（项目声明的多份 map 是并列关系，都要进词表） */
+  async function loadAll(paths) {
+    const loaded = []
+    for (const path of paths) {
+      try {
+        loaded.push({ path, semantics: await getEclMapSemantics(path) })
+      } catch (error) {
+        lastError = error
+      }
     }
+    return loaded
   }
 
-  if (resolvedPaths.length) {
+  /** 取第一个能加载的（推导出的候选是同一份 map 的不同可能位置，不是并列关系） */
+  async function loadFirst(paths) {
+    for (const path of paths) {
+      try {
+        return [{ path, semantics: await getEclMapSemantics(path) }]
+      } catch (error) {
+        lastError = error
+      }
+    }
+    return []
+  }
+
+  // 三级回落。每一级整体失败才降级——项目里一条过期的 map 路径不该把整个
+  // ECL 语言服务打哑，哪怕用户的全局 eclmap 本来是好的。
+  let loaded = await loadAll(projectMapPaths)
+  if (!loaded.length && globalMapPath) {
+    loaded = await loadFirst([globalMapPath])
+  }
+  if (!loaded.length) {
+    loaded = await loadFirst(createCandidatePaths(version, roots))
+  }
+
+  if (!loaded.length) {
     return {
-      ...base,
-      instructions: dedupeByName(merged.instructions),
-      builtins: dedupeByName(merged.builtins),
-      resolvedPath: resolvedPaths.join(' + '),
-      version: base?.version || version
+      version,
+      sourcePath: '',
+      resolvedPath: '',
+      instructions: [],
+      builtins: [],
+      error: lastError ? String(lastError) : ''
     }
   }
 
+  const base = loaded[0].semantics
   return {
-    version,
-    sourcePath: '',
-    resolvedPath: '',
-    instructions: [],
-    builtins: [],
-    error: lastError ? String(lastError) : ''
+    ...base,
+    instructions: dedupeByName(loaded.flatMap(item => item.semantics?.instructions || [])),
+    builtins: dedupeByName(loaded.flatMap(item => item.semantics?.builtins || [])),
+    resolvedPath: loaded.map(item => item.path).join(' + '),
+    version: base?.version || version
   }
 }

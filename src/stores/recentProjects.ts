@@ -1,5 +1,12 @@
 import { defineStore } from 'pinia'
 import { clearRecentProjects, listRecentProjects, removeRecentProject } from '../api'
+import type { RecentProjectView } from '../types/project'
+
+interface RecentProjectsState {
+  items: RecentProjectView[]
+  isLoading: boolean
+  error: string | null
+}
 
 /**
  * 最近打开的项目。列表由 Rust 侧维护（去重、置顶、10 项上限），
@@ -9,7 +16,7 @@ import { clearRecentProjects, listRecentProjects, removeRecentProject } from '..
  * 由用户决定移除——磁盘临时离线不该让记录消失。
  */
 export const useRecentProjectsStore = defineStore('recentProjects', {
-  state: () => ({
+  state: (): RecentProjectsState => ({
     items: [],
     isLoading: false,
     error: null
@@ -33,7 +40,7 @@ export const useRecentProjectsStore = defineStore('recentProjects', {
       }
     },
 
-    async remove(path) {
+    async remove(path: string) {
       this.items = await removeRecentProject(path)
       this.error = null
     },

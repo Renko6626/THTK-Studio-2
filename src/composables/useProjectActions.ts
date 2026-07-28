@@ -1,6 +1,7 @@
 import { h } from 'vue'
 import { open } from '@tauri-apps/plugin-dialog'
 import { NButton } from 'naive-ui'
+import type { DialogApi, MessageApi } from 'naive-ui'
 import { useEditorStore } from '../stores/editor'
 import { useExplorerClipboardStore } from '../stores/explorerClipboard'
 import { useExplorerViewStore } from '../stores/explorerView'
@@ -8,20 +9,35 @@ import { useProjectStore } from '../stores/project'
 import { useRecentProjectsStore } from '../stores/recentProjects'
 import { pathsEqual } from '../utils/pathNormalize'
 
+/** 用户在"有未保存修改"确认框里的选择 */
+type DirtySwitchChoice = 'save' | 'discard' | 'cancel'
+
+/**
+ * 本文件依赖的标签字段。editor store 还是 JS，它的 `tabs: []` 会被推断成
+ * `never[]`；这里只声明真正用到的那两个字段，而不是假装把整个 store 类型化。
+ * editor store 迁到 TS 之后这个类型应该删掉。
+ */
+interface EditorTabLike {
+  path: string
+  isDirty: boolean
+}
+
+interface ProjectActionsDeps {
+  message: MessageApi
+  dialog: DialogApi
+}
+
+interface OpenOptions {
+  /** 会话恢复用：失败时不弹错误提示，由调用方决定怎么呈现 */
+  silent?: boolean
+}
+
 /** 与 editorStore.closeTabsUnderPath 同口径：判断某个文件是否属于该项目根 */
-function isUnderRoot(filePath, root) {
+function isUnderRoot(filePath: string, root: string): boolean {
   if (!filePath || !root) return false
   return filePath === root || filePath.startsWith(`${root}\\`) || filePath.startsWith(`${root}/`)
 }
 
-/**
- * 项目打开 / 切换的唯一入口。
- *
- * 菜单、快捷键、文件树和欢迎页原本各写一套加载逻辑，错误提示、脏标签保护和
- * 切换后的清理各不相同。所有入口统一走这里，行为才可能一致。
- *
- * 调用方需要传入 naive-ui 的 message / dialog 实例（它们只能在 setup 里取）。
- */
 /**
  * 正在进行中的打开操作。必须是模块级：四个组件各自调用 useProjectActions()，
  * 闭包互不共享，放在闭包里等于没有保护。
@@ -33,7 +49,15 @@ function isUnderRoot(filePath, root) {
  */
 let openInFlight = false
 
-export function useProjectActions({ message, dialog }) {
+/**
+ * 项目打开 / 切换的唯一入口。
+ *
+ * 菜单、快捷键、文件树和欢迎页原本各写一套加载逻辑，错误提示、脏标签保护和
+ * 切换后的清理各不相同。所有入口统一走这里，行为才可能一致。
+ *
+ * 调用方需要传入 naive-ui 的 message / dialog 实例（它们只能在 setup 里取）。
+ */
+export function useProjectActions({ message, dialog }: ProjectActionsDeps) {
   const editorStore = useEditorStore()
   const explorerClipboardStore = useExplorerClipboardStore()
   const explorerViewStore = useExplorerViewStore()
@@ -44,16 +68,16 @@ export function useProjectActions({ message, dialog }) {
    * 有未保存修改时的三向选择。用 Promise 包一层，避免把后续流程拆进回调。
    * settled 兜底：不依赖 naive-ui 各回调的触发顺序，谁先到算谁。
    */
-  function confirmDirtySwitch(dirtyCount) {
-    return new Promise((resolve) => {
+  function confirmDirtySwitch(dirtyCount: number): Promise<DirtySwitchChoice> {
+    return new Promise<DirtySwitchChoice>((resolve) => {
       let settled = false
-      let instance = null
-      const finish = (choice) => {
+      let instance: ReturnType<DialogApi['warning']> | null = null
+      const finish = (choice: DirtySwitchChoice) => {
         if (settled) return
         settled = true
         resolve(choice)
       }
-      const choose = (choice) => {
+      const choose = (choice: DirtySwitchChoice) => {
         finish(choice)
         instance?.destroy()
       }
@@ -82,14 +106,10 @@ export function useProjectActions({ message, dialog }) {
   }
 
   /**
-   * 打开指定路径的项目。
-   *
-   * @param {string} path
-   * @param {{ silent?: boolean }} [options] silent 用于会话恢复：失败时不弹错误提示，
-   *   由调用方决定怎么呈现（恢复失败应该落到欢迎页，而不是一开机就糊一个红条）。
-   * @returns {Promise<boolean>} 是否真的完成了打开 / 切换
+   * 打开指定路径的项目。返回是否真的完成了打开 / 切换。
+   * silent 用于会话恢复：恢复失败应该落到欢迎页，而不是一开机就糊一个红条。
    */
-  async function openProjectPath(path, { silent = false } = {}) {
+  async function openProjectPath(path: string, { silent = false }: OpenOptions = {}): Promise<boolean> {
     if (!path) return false
     if (openInFlight) return false
 
@@ -101,15 +121,16 @@ export function useProjectActions({ message, dialog }) {
     }
   }
 
-  async function runOpen(path, silent) {
+  async function runOpen(path: string, silent: boolean): Promise<boolean> {
     const previousRoot = projectStore.rootPath
     const isSwitching = Boolean(previousRoot) && !pathsEqual(previousRoot, path)
 
     // 只有真正切换项目才会关掉旧标签，重开同一个项目不会丢东西，不必打扰用户。
     // 只数将被关掉的那些——项目外打开的文件不会被关，拿它们凑数会让用户在
     // 其实没有风险的时候看到确认框。
-    const atRiskCount = isSwitching
-      ? editorStore.tabs.filter(tab => tab.isDirty && isUnderRoot(tab.path, previousRoot)).length
+    const atRiskCount = isSwitching && previousRoot
+      ? (editorStore.tabs as EditorTabLike[])
+          .filter(tab => tab.isDirty && isUnderRoot(tab.path, previousRoot)).length
       : 0
 
     if (atRiskCount > 0) {
@@ -157,7 +178,7 @@ export function useProjectActions({ message, dialog }) {
   }
 
   /** 弹原生目录选择器，再走统一的打开流程 */
-  async function openProjectFromPicker() {
+  async function openProjectFromPicker(): Promise<boolean> {
     // 选择器本身也要占住重入锁：否则连按两次 Ctrl+O 会开出两个系统对话框
     if (openInFlight) return false
 
@@ -174,7 +195,7 @@ export function useProjectActions({ message, dialog }) {
   }
 
   /** 从最近项目列表移除一条，并提示结果 */
-  async function removeRecentProject(path) {
+  async function removeRecentProject(path: string): Promise<void> {
     try {
       await recentProjectsStore.remove(path)
     } catch (error) {

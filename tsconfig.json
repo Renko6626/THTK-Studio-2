@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    // 允许 TS 文件 import 现有的 .js，但不去检查那些 .js 本身——
+    // 全量迁移不在本轮范围内，checkJs 打开会淹没在既有代码的报错里。
+    "allowJs": true,
+    "checkJs": false,
+    "types": ["vite/client"]
+  },
+  // 只检查已经迁移到 TS 的边界。新增领域边界写 .ts，就会自动进门禁。
+  "include": ["src/**/*.ts", "tests/**/*.ts"]
+}
