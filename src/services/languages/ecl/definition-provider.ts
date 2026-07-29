@@ -1,6 +1,7 @@
+import type * as monaco from 'monaco-editor'
 import { findEclDocumentDefinition } from './document-symbols'
 
-export function createEclDefinitionProvider() {
+export function createEclDefinitionProvider(): monaco.languages.DefinitionProvider {
   return {
     provideDefinition(model, position) {
       const wordInfo = model.getWordAtPosition(position)

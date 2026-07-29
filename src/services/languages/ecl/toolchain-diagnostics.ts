@@ -1,15 +1,20 @@
 import * as monaco from 'monaco-editor'
+import type { ProblemEntry } from '../../../stores/workbenchReports'
+
 
 const markerOwner = 'thtk-ecl-toolchain'
 
-function toMarkerSeverity(severity) {
+function toMarkerSeverity(severity: string): monaco.MarkerSeverity {
   if (severity === 'error') return monaco.MarkerSeverity.Error
   if (severity === 'warning') return monaco.MarkerSeverity.Warning
   if (severity === 'info') return monaco.MarkerSeverity.Info
   return monaco.MarkerSeverity.Hint
 }
 
-function createMarker(problem, model) {
+function createMarker(
+  problem: ProblemEntry,
+  model: monaco.editor.ITextModel
+): monaco.editor.IMarkerData {
   const line = Math.max(1, Number(problem.line || 1))
   const column = Math.max(1, Number(problem.column || 1))
 
@@ -37,12 +42,15 @@ function createMarker(problem, model) {
   }
 }
 
-function normalizePath(path) {
+function normalizePath(path: string | null | undefined): string {
   return String(path || '').replace(/\//g, '\\').toLowerCase()
 }
 
-export function syncToolchainDiagnosticsToModels(models, problemEntries) {
-  const markersByPath = new Map()
+export function syncToolchainDiagnosticsToModels(
+  models: monaco.editor.ITextModel[],
+  problemEntries: ProblemEntry[]
+): void {
+  const markersByPath = new Map<string, ProblemEntry[]>()
 
   for (const problem of problemEntries || []) {
     if (problem?.source !== 'thecl' || !problem?.path) continue
@@ -62,7 +70,7 @@ export function syncToolchainDiagnosticsToModels(models, problemEntries) {
   })
 }
 
-export function clearToolchainDiagnostics(model) {
+export function clearToolchainDiagnostics(model: monaco.editor.ITextModel | null): void {
   if (!model) return
   monaco.editor.setModelMarkers(model, markerOwner, [])
 }

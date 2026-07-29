@@ -1,6 +1,8 @@
+import type * as monaco from 'monaco-editor'
+
 export const eclThemeName = 'thtk-vscode-dark'
 
-export const eclThemeRules = [
+export const eclThemeRules: monaco.editor.ITokenThemeRule[] = [
   { token: 'keyword.directive', foreground: '4FC1FF' },
   { token: 'keyword.difficulty', foreground: 'C586C0', fontStyle: 'bold' },
   { token: 'preprocessor', foreground: 'C586C0' },
@@ -12,7 +14,7 @@ export const eclThemeRules = [
   { token: 'meta.stack', foreground: 'CE9178' }
 ]
 
-export const eclThemeDefinition = {
+export const eclThemeDefinition: monaco.editor.IStandaloneThemeData = {
   base: 'vs-dark',
   inherit: true,
   rules: eclThemeRules,

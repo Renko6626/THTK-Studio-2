@@ -1,5 +1,38 @@
-function uniqueByName(entries) {
-  const seen = new Set()
+/** 文档符号的种类 */
+export type EclSymbolKind = 'subroutine' | 'global' | 'label'
+
+export interface EclSymbolEntry {
+  kind: EclSymbolKind
+  name: string
+  /** 1-based，与 Monaco 一致 */
+  line: number
+  /** 1-based */
+  column: number
+  detail: string
+}
+
+/** 引用条目不带 detail */
+export type EclReferenceEntry = Omit<EclSymbolEntry, 'detail'>
+
+export interface EclSymbolEntries {
+  subroutines: EclSymbolEntry[]
+  globals: EclSymbolEntry[]
+  labels: EclSymbolEntry[]
+}
+
+export interface EclSymbolNames {
+  subroutines: string[]
+  globals: string[]
+  labels: string[]
+}
+
+/** 只用到 getValue 的 Monaco model 子集 */
+interface TextModelLike {
+  getValue: () => string
+}
+
+function uniqueByName(entries: EclSymbolEntry[]): EclSymbolEntry[] {
+  const seen = new Set<string>()
   return entries.filter((entry) => {
     const key = `${entry.kind}:${entry.name}`
     if (seen.has(key)) return false
@@ -8,7 +41,13 @@ function uniqueByName(entries) {
   })
 }
 
-function createSymbolEntry(kind, name, line, column, detail = '') {
+function createSymbolEntry(
+  kind: EclSymbolKind,
+  name: string,
+  line: number,
+  column: number,
+  detail = ''
+): EclSymbolEntry {
   return {
     kind,
     name,
@@ -18,7 +57,12 @@ function createSymbolEntry(kind, name, line, column, detail = '') {
   }
 }
 
-function createReferenceEntry(kind, name, line, column) {
+function createReferenceEntry(
+  kind: EclSymbolKind,
+  name: string,
+  line: number,
+  column: number
+): EclReferenceEntry {
   return {
     kind,
     name,
@@ -27,7 +71,7 @@ function createReferenceEntry(kind, name, line, column) {
   }
 }
 
-export function collectEclDocumentSymbolEntriesFromText(text) {
+export function collectEclDocumentSymbolEntriesFromText(text: string): EclSymbolEntries {
   const entries = collectAllEclDocumentSymbolEntriesFromText(text)
   return {
     subroutines: uniqueByName(entries.subroutines),
@@ -36,10 +80,10 @@ export function collectEclDocumentSymbolEntriesFromText(text) {
   }
 }
 
-export function collectAllEclDocumentSymbolEntriesFromText(text) {
-  const subroutines = []
-  const globals = []
-  const labels = []
+export function collectAllEclDocumentSymbolEntriesFromText(text: string): EclSymbolEntries {
+  const subroutines: EclSymbolEntry[] = []
+  const globals: EclSymbolEntry[] = []
+  const labels: EclSymbolEntry[] = []
   const lines = String(text || '').split(/\r?\n/)
 
   for (let index = 0; index < lines.length; index += 1) {
@@ -81,7 +125,7 @@ export function collectAllEclDocumentSymbolEntriesFromText(text) {
   return { subroutines, globals, labels }
 }
 
-export function collectEclDocumentSymbolsFromText(text) {
+export function collectEclDocumentSymbolsFromText(text: string): EclSymbolNames {
   const entries = collectEclDocumentSymbolEntriesFromText(text)
   return {
     subroutines: entries.subroutines.map((entry) => entry.name),
@@ -90,26 +134,29 @@ export function collectEclDocumentSymbolsFromText(text) {
   }
 }
 
-export function collectEclDocumentSymbols(model) {
+export function collectEclDocumentSymbols(model: TextModelLike): EclSymbolNames {
   return collectEclDocumentSymbolsFromText(model.getValue())
 }
 
-export function collectEclDocumentSymbolEntries(model) {
+export function collectEclDocumentSymbolEntries(model: TextModelLike): EclSymbolEntries {
   return collectEclDocumentSymbolEntriesFromText(model.getValue())
 }
 
-export function findEclDocumentDefinitionFromText(text, word) {
+export function findEclDocumentDefinitionFromText(
+  text: string,
+  word: string
+): EclSymbolEntry | null {
   const entries = collectEclDocumentSymbolEntriesFromText(text)
   const allEntries = [...entries.subroutines, ...entries.globals, ...entries.labels]
   return allEntries.find((entry) => entry.name === word) || null
 }
 
-export function findEclDocumentDefinition(model, word) {
+export function findEclDocumentDefinition(model: TextModelLike, word: string): EclSymbolEntry | null {
   return findEclDocumentDefinitionFromText(model.getValue(), word)
 }
 
-function collectSubroutineReferencesFromText(text, targetName) {
-  const references = []
+function collectSubroutineReferencesFromText(text: string, targetName: string): EclReferenceEntry[] {
+  const references: EclReferenceEntry[] = []
   const escapedName = targetName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const lines = String(text || '').split(/\r?\n/)
   const definitionRegex = new RegExp(`^\\s*(?:void|int|float|var)\\s+(${escapedName})\\s*\\(`)
@@ -142,8 +189,8 @@ function collectSubroutineReferencesFromText(text, targetName) {
   return references
 }
 
-function collectLabelReferencesFromText(text, targetName) {
-  const references = []
+function collectLabelReferencesFromText(text: string, targetName: string): EclReferenceEntry[] {
+  const references: EclReferenceEntry[] = []
   const escapedName = targetName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const lines = String(text || '').split(/\r?\n/)
   const definitionRegex = new RegExp(`^\\s*(${escapedName}):`)
@@ -176,8 +223,8 @@ function collectLabelReferencesFromText(text, targetName) {
   return references
 }
 
-function collectGlobalReferencesFromText(text, targetName) {
-  const references = []
+function collectGlobalReferencesFromText(text: string, targetName: string): EclReferenceEntry[] {
+  const references: EclReferenceEntry[] = []
   const escapedName = targetName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const lines = String(text || '').split(/\r?\n/)
   const wordRegex = new RegExp(`\\b${escapedName}\\b`, 'g')
@@ -199,7 +246,7 @@ function collectGlobalReferencesFromText(text, targetName) {
   return references
 }
 
-export function findEclDocumentReferencesFromText(text, word) {
+export function findEclDocumentReferencesFromText(text: string, word: string): EclReferenceEntry[] {
   if (!word) return []
 
   const definition = findEclDocumentDefinitionFromText(text, word)
@@ -220,6 +267,6 @@ export function findEclDocumentReferencesFromText(text, word) {
   return []
 }
 
-export function findEclDocumentReferences(model, word) {
+export function findEclDocumentReferences(model: TextModelLike, word: string): EclReferenceEntry[] {
   return findEclDocumentReferencesFromText(model.getValue(), word)
 }

@@ -4,13 +4,26 @@ import {
   buildInstructionParameterLabel,
   buildInstructionSignature
 } from './instruction-display'
+import type * as monaco from 'monaco-editor'
+import type { SemanticDataGetter } from './semantic-state'
+import type { EclInstructionSpec, NormalizedEclSemanticData } from '../../../types'
 
-function findInstruction(semanticData, name) {
+/** 光标所在的调用上下文：函数名 + 当前是第几个参数 */
+interface CallContext {
+  functionName: string
+  activeParameter: number
+}
+
+
+function findInstruction(
+  semanticData: NormalizedEclSemanticData,
+  name: string | null | undefined
+): EclInstructionSpec | null {
   if (!name) return null
   return semanticData.instructions.find((item) => item.name === name) || null
 }
 
-function getCallContext(linePrefix) {
+function getCallContext(linePrefix: string): CallContext | null {
   let depth = 0
 
   for (let index = linePrefix.length - 1; index >= 0; index -= 1) {
@@ -55,7 +68,9 @@ function getCallContext(linePrefix) {
   return null
 }
 
-export function createEclSignatureHelpProvider(getSemanticData) {
+export function createEclSignatureHelpProvider(
+  getSemanticData: SemanticDataGetter
+): monaco.languages.SignatureHelpProvider {
   return {
     signatureHelpTriggerCharacters: ['(', ','],
     signatureHelpRetriggerCharacters: [','],

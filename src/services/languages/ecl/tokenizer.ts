@@ -1,3 +1,4 @@
+import type * as monaco from 'monaco-editor'
 import {
   eclHeaderKeywords,
   eclKeywords,
@@ -10,8 +11,13 @@ const preprocessorPattern = new RegExp(
   `^\\s*#(?:${eclPreprocessorKeywords.join('|')})\\b`
 )
 
-export function buildEclTokenizer(semanticData = createEmptyEclSemanticData()) {
-  const normalized = normalizeEclSemanticData(semanticData)
+export function buildEclTokenizer(
+  semanticData: unknown = createEmptyEclSemanticData()
+): monaco.languages.IMonarchLanguage['tokenizer'] {
+  // 语法高亮规则是纯静态的，不依赖词表内容——动态部分走
+  // buildEclLanguageDefinition 的 instructionKeywords / builtinIdentifiers。
+  // 这里原本算了一次 normalizeEclSemanticData 却从未使用，已删。
+  void semanticData
 
   return {
     root: [

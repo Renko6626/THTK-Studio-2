@@ -1,26 +1,43 @@
 import { getSettings, getEclMapSemantics } from '../../../api'
+import type {
+  EclInstructionSpec,
+  EclMapSemanticData,
+  LoadedEclSemanticData,
+  ProjectConfig
+} from '../../../types'
 
-function normalizeVersion(version) {
+export interface LoadSemanticDataOptions {
+  projectRoot?: string | null
+  projectConfig?: ProjectConfig | null
+}
+
+/** 一次成功加载的结果：路径 + 该路径解析出的词表 */
+interface LoadedMap {
+  path: string
+  semantics: EclMapSemanticData
+}
+
+function normalizeVersion(version: string | null | undefined): string {
   return String(version || '')
     .trim()
     .toLowerCase()
     .replace(/^th/, '')
 }
 
-function joinPath(basePath, relativePath) {
+function joinPath(basePath: string | null | undefined, relativePath: string): string {
   if (!basePath) return relativePath
   const separator = basePath.includes('\\') ? '\\' : '/'
   return `${basePath.replace(/[\\/]+$/, '')}${separator}${relativePath}`
 }
 
 /** 同时认 POSIX 的 /path 和 Windows 的 C:\path、\\share */
-function isAbsolutePath(path) {
+function isAbsolutePath(path: string): boolean {
   return /^([a-zA-Z]:[\\/]|[\\/])/.test(path)
 }
 
 /** 多份 eclmap 合并时按名字去重，靠后的 map 覆盖靠前的（与 thecl 的加载顺序一致） */
-function dedupeByName(entries) {
-  const byName = new Map()
+function dedupeByName(entries: EclInstructionSpec[]): EclInstructionSpec[] {
+  const byName = new Map<string | number, EclInstructionSpec>()
   for (const entry of entries) {
     const key = entry?.name ?? entry?.opcode
     if (key === undefined || key === null) continue
@@ -30,16 +47,19 @@ function dedupeByName(entries) {
 }
 
 /** 项目配置里的 map 路径允许写相对路径，按项目根解析（与 Rust 侧 resolve_map_paths 同义） */
-function resolveAgainstRoot(path, projectRoot) {
+function resolveAgainstRoot(
+  path: string | null | undefined,
+  projectRoot: string | null | undefined
+): string {
   const trimmed = String(path || '').trim()
   if (!trimmed) return ''
   return isAbsolutePath(trimmed) ? trimmed : joinPath(projectRoot, trimmed)
 }
 
-function createCandidatePaths(version, roots = []) {
+function createCandidatePaths(version: string, roots: (string | null | undefined)[] = []): string[] {
   if (!version) return []
 
-  const candidates = []
+  const candidates: string[] = []
   for (const root of roots.filter(Boolean)) {
     candidates.push(joinPath(root, `th${version}.eclm`))
     candidates.push(joinPath(root, `${version}.eclm`))
@@ -57,7 +77,10 @@ function createCandidatePaths(version, roots = []) {
  * 否则一个项目里高亮出来的指令和编译器接受的指令会对不上。工具链调用侧
  * （useTheclActions、Rust 的 effective_toolchain_config）已经是项目优先，这里跟上。
  */
-export async function loadDefaultEclSemanticData({ projectRoot, projectConfig } = {}) {
+export async function loadDefaultEclSemanticData({
+  projectRoot,
+  projectConfig
+}: LoadSemanticDataOptions = {}): Promise<LoadedEclSemanticData> {
   const settings = await getSettings()
   const version = normalizeVersion(projectConfig?.gameVersion || settings?.default_game_version)
 
@@ -75,11 +98,11 @@ export async function loadDefaultEclSemanticData({ projectRoot, projectConfig } 
   // 后端只需要挑一个 exe 目录，这里多试几个位置能少让用户手配一次。
   const roots = [projectRoot, projectConfig?.toolchain?.thtkDir, settings?.thtk_dir]
 
-  let lastError = null
+  let lastError: unknown = null
 
   /** 全部加载并合并（项目声明的多份 map 是并列关系，都要进词表） */
-  async function loadAll(paths) {
-    const loaded = []
+  async function loadAll(paths: string[]): Promise<LoadedMap[]> {
+    const loaded: LoadedMap[] = []
     for (const path of paths) {
       try {
         loaded.push({ path, semantics: await getEclMapSemantics(path) })
@@ -91,7 +114,7 @@ export async function loadDefaultEclSemanticData({ projectRoot, projectConfig } 
   }
 
   /** 取第一个能加载的（推导出的候选是同一份 map 的不同可能位置，不是并列关系） */
-  async function loadFirst(paths) {
+  async function loadFirst(paths: string[]): Promise<LoadedMap[]> {
     for (const path of paths) {
       try {
         return [{ path, semantics: await getEclMapSemantics(path) }]
@@ -127,7 +150,12 @@ export async function loadDefaultEclSemanticData({ projectRoot, projectConfig } 
   return {
     ...base,
     instructions: dedupeByName(loaded.flatMap(item => item.semantics?.instructions || [])),
-    builtins: dedupeByName(loaded.flatMap(item => item.semantics?.builtins || [])),
+    // ⚠️ builtins 是 string[]，喂给按 name 去重的 dedupeByName 会被整个清空。
+    // 这是既有 bug（本次迁移由类型检查发现），按纪律不在迁移提交里改行为，
+    // 下一个提交单独修并配测试。此处的断言仅为让它编过。
+    builtins: dedupeByName(
+      loaded.flatMap(item => item.semantics?.builtins || []) as unknown as EclInstructionSpec[]
+    ) as unknown as string[],
     resolvedPath: loaded.map(item => item.path).join(' + '),
     version: base?.version || version
   }

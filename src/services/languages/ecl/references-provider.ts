@@ -1,6 +1,7 @@
+import type * as monaco from 'monaco-editor'
 import { findEclDocumentReferences } from './document-symbols'
 
-export function createEclReferencesProvider() {
+export function createEclReferencesProvider(): monaco.languages.ReferenceProvider {
   return {
     provideReferences(model, position) {
       const wordInfo = model.getWordAtPosition(position)

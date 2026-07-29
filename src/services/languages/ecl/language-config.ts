@@ -1,6 +1,8 @@
+import type * as monaco from 'monaco-editor'
+
 export const eclLanguageId = 'ecl'
 
-export const eclLanguageConfiguration = {
+export const eclLanguageConfiguration: monaco.languages.LanguageConfiguration = {
   comments: {
     lineComment: '//',
     blockComment: ['/*', '*/']

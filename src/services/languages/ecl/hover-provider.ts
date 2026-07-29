@@ -1,12 +1,20 @@
+import type * as monaco from 'monaco-editor'
 import { normalizeEclSemanticData } from './dynamic-vocabulary'
 import { buildInstructionDocumentation } from './instruction-display'
+import type { SemanticDataGetter } from './semantic-state'
+import type { EclInstructionSpec, NormalizedEclSemanticData } from '../../../types'
 
-function findInstruction(semanticData, word) {
+function findInstruction(
+  semanticData: NormalizedEclSemanticData,
+  word: string | null | undefined
+): EclInstructionSpec | null {
   if (!word) return null
   return semanticData.instructions.find((item) => item.name === word) || null
 }
 
-export function createEclHoverProvider(getSemanticData) {
+export function createEclHoverProvider(
+  getSemanticData: SemanticDataGetter
+): monaco.languages.HoverProvider {
   return {
     provideHover(model, position) {
       const wordInfo = model.getWordAtPosition(position)

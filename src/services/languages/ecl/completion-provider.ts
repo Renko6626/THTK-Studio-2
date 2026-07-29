@@ -14,6 +14,13 @@ import {
   eclPreprocessorKeywords,
   eclTypes
 } from './vocabulary'
+import type { SemanticDataGetter } from './semantic-state'
+import type { NormalizedEclSemanticData } from '../../../types'
+
+type CompletionItem = monaco.languages.CompletionItem
+/** Monaco 允许 range 为 { insert, replace } 两段式，本文件用的就是这种 */
+type CompletionRange = monaco.languages.CompletionItemRanges
+
 
 const difficultyLabels = ['!E', '!N', '!H', '!L', '!*']
 
@@ -75,7 +82,10 @@ const keywordSnippets = [
   }
 ]
 
-function createCompletionRange(model, position) {
+function createCompletionRange(
+  model: monaco.editor.ITextModel,
+  position: monaco.Position
+): CompletionRange {
   const word = model.getWordUntilPosition(position)
   return {
     insert: {
@@ -93,7 +103,12 @@ function createCompletionRange(model, position) {
   }
 }
 
-function createSimpleCompletion(label, kind, range, overrides = {}) {
+function createSimpleCompletion(
+  label: string,
+  kind: monaco.languages.CompletionItemKind,
+  range: CompletionRange,
+  overrides: Partial<CompletionItem> = {}
+): CompletionItem {
   return {
     label,
     kind,
@@ -103,7 +118,7 @@ function createSimpleCompletion(label, kind, range, overrides = {}) {
   }
 }
 
-function buildStaticCompletions(range) {
+function buildStaticCompletions(range: CompletionRange): CompletionItem[] {
   const items = []
 
   for (const keyword of eclKeywords) {
@@ -175,7 +190,10 @@ function buildStaticCompletions(range) {
   return items
 }
 
-function buildSemanticCompletions(semanticData, range) {
+function buildSemanticCompletions(
+  semanticData: NormalizedEclSemanticData,
+  range: CompletionRange
+): CompletionItem[] {
   return semanticData.instructions.map((instruction) => createSimpleCompletion(
     instruction.name,
     monaco.languages.CompletionItemKind.Function,
@@ -192,7 +210,10 @@ function buildSemanticCompletions(semanticData, range) {
   ))
 }
 
-function buildModelSymbolCompletions(model, range) {
+function buildModelSymbolCompletions(
+  model: monaco.editor.ITextModel,
+  range: CompletionRange
+): CompletionItem[] {
   const { subroutines, globals, labels } = collectEclDocumentSymbols(model)
   const items = []
 
@@ -226,7 +247,9 @@ function buildModelSymbolCompletions(model, range) {
   return items
 }
 
-export function createEclCompletionProvider(getSemanticData = () => createEmptyEclSemanticData()) {
+export function createEclCompletionProvider(
+  getSemanticData: SemanticDataGetter = () => createEmptyEclSemanticData()
+): monaco.languages.CompletionItemProvider {
   return {
     triggerCharacters: ['@', '#', '$', '%', '!', '.'],
     provideCompletionItems(model, position) {

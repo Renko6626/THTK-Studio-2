@@ -4,12 +4,27 @@ import {
   collectEclDocumentSymbolEntriesFromText
 } from './document-symbols'
 import { eclLanguageId } from './language-config'
+import type { EclSymbolEntries, EclSymbolEntry } from './document-symbols'
+
+/**
+ * 本文件内部的引用条目：与 document-symbols 的 EclReferenceEntry 不同，
+ * 这里直接存 Monaco marker 需要的列区间而不是单个 column。
+ */
+interface CallSiteRef {
+  name: string
+  line: number
+  startColumn: number
+  endColumn: number
+}
+import type { ProblemInput } from '../../../stores/workbenchReports'
+
+type MarkerData = monaco.editor.IMarkerData
 
 const markerOwner = 'thtk-ecl-static'
 const staticProblemOwnerPrefix = 'ecl-static:analysis:'
 
-function createIndex(entries) {
-  const map = new Map()
+function createIndex(entries: EclSymbolEntry[]): Map<string, EclSymbolEntry[]> {
+  const map = new Map<string, EclSymbolEntry[]>()
   entries.forEach((entry) => {
     const group = map.get(entry.name) || []
     group.push(entry)
@@ -18,7 +33,13 @@ function createIndex(entries) {
   return map
 }
 
-function createMarker(lineNumber, startColumn, endColumn, message, severity) {
+function createMarker(
+  lineNumber: number,
+  startColumn: number,
+  endColumn: number,
+  message: string,
+  severity: monaco.MarkerSeverity
+): MarkerData {
   return {
     startLineNumber: lineNumber,
     endLineNumber: lineNumber,
@@ -29,8 +50,8 @@ function createMarker(lineNumber, startColumn, endColumn, message, severity) {
   }
 }
 
-function collectSubroutineCalls(text) {
-  const references = []
+function collectSubroutineCalls(text: string): CallSiteRef[] {
+  const references: CallSiteRef[] = []
   const lines = String(text || '').split(/\r?\n/)
 
   lines.forEach((line, index) => {
@@ -53,8 +74,8 @@ function collectSubroutineCalls(text) {
   return references
 }
 
-function collectGotoTargets(text) {
-  const references = []
+function collectGotoTargets(text: string): CallSiteRef[] {
+  const references: CallSiteRef[] = []
   const lines = String(text || '').split(/\r?\n/)
 
   lines.forEach((line, index) => {
@@ -77,8 +98,8 @@ function collectGotoTargets(text) {
   return references
 }
 
-function collectDuplicateMarkers(entries, kindLabel) {
-  const markers = []
+function collectDuplicateMarkers(entries: EclSymbolEntry[], kindLabel: string): MarkerData[] {
+  const markers: MarkerData[] = []
   const entryIndex = createIndex(entries)
 
   entryIndex.forEach((group, name) => {
@@ -97,8 +118,11 @@ function collectDuplicateMarkers(entries, kindLabel) {
   return markers
 }
 
-function collectMissingSubroutineMarkers(text, symbolEntries) {
-  const markers = []
+function collectMissingSubroutineMarkers(
+  text: string,
+  symbolEntries: EclSymbolEntries
+): MarkerData[] {
+  const markers: MarkerData[] = []
   const subroutineIndex = createIndex(symbolEntries.subroutines)
 
   collectSubroutineCalls(text).forEach((reference) => {
@@ -115,8 +139,11 @@ function collectMissingSubroutineMarkers(text, symbolEntries) {
   return markers
 }
 
-function collectMissingLabelMarkers(text, symbolEntries) {
-  const markers = []
+function collectMissingLabelMarkers(
+  text: string,
+  symbolEntries: EclSymbolEntries
+): MarkerData[] {
+  const markers: MarkerData[] = []
   const labelIndex = createIndex(symbolEntries.labels)
 
   collectGotoTargets(text).forEach((reference) => {
@@ -133,7 +160,7 @@ function collectMissingLabelMarkers(text, symbolEntries) {
   return markers
 }
 
-export function collectEclStaticMarkersFromText(text) {
+export function collectEclStaticMarkersFromText(text: string): MarkerData[] {
   const allSymbolEntries = collectAllEclDocumentSymbolEntriesFromText(text)
   const symbolEntries = collectEclDocumentSymbolEntriesFromText(text)
 
@@ -146,7 +173,10 @@ export function collectEclStaticMarkersFromText(text) {
   ]
 }
 
-export function createEclStaticProblemEntries(path, text) {
+export function createEclStaticProblemEntries(
+  path: string | null,
+  text: string
+): ProblemInput[] {
   return collectEclStaticMarkersFromText(text).map((marker) => ({
     source: 'ecl-static',
     operation: 'analysis',
@@ -159,11 +189,11 @@ export function createEclStaticProblemEntries(path, text) {
   }))
 }
 
-export function getEclStaticProblemOwnerKey(path) {
+export function getEclStaticProblemOwnerKey(path: string | null | undefined): string {
   return `${staticProblemOwnerPrefix}${path || 'workspace'}`
 }
 
-export function updateEclStaticDiagnostics(model) {
+export function updateEclStaticDiagnostics(model: monaco.editor.ITextModel | null): void {
   if (!model) return
   if (model.getLanguageId() !== eclLanguageId) {
     monaco.editor.setModelMarkers(model, markerOwner, [])
@@ -173,12 +203,12 @@ export function updateEclStaticDiagnostics(model) {
   monaco.editor.setModelMarkers(model, markerOwner, markers)
 }
 
-export function clearEclStaticDiagnostics(model) {
+export function clearEclStaticDiagnostics(model: monaco.editor.ITextModel | null): void {
   if (!model) return
   monaco.editor.setModelMarkers(model, markerOwner, [])
 }
 
-function normalizeMarkerSeverity(severity) {
+function normalizeMarkerSeverity(severity: monaco.MarkerSeverity): string {
   if (severity === monaco.MarkerSeverity.Error) return 'error'
   if (severity === monaco.MarkerSeverity.Warning) return 'warning'
   if (severity === monaco.MarkerSeverity.Info) return 'info'

@@ -16,9 +16,26 @@ import {
 import { buildEclMonarchLanguage } from './tokenizer'
 import { eclThemeDefinition, eclThemeName } from './theme'
 
-const registryStateKey = '__THTK_ECL_LANGUAGE_REGISTRY__'
+/**
+ * Monaco 的 provider 注册是全局的，而 Vite 的 HMR 会重复执行本模块。
+ * 把注册状态挂在 globalThis 上，重载时能先 dispose 掉上一批，避免补全项翻倍。
+ */
+interface EclLanguageRegistryState {
+  registered: boolean
+  completionProviderDisposable: monaco.IDisposable | null
+  definitionProviderDisposable: monaco.IDisposable | null
+  referencesProviderDisposable: monaco.IDisposable | null
+  hoverProviderDisposable: monaco.IDisposable | null
+  signatureHelpProviderDisposable: monaco.IDisposable | null
+}
 
-function createRegistryState() {
+declare global {
+  // eslint-disable-next-line no-var
+  var __THTK_ECL_LANGUAGE_REGISTRY__: EclLanguageRegistryState | undefined
+}
+
+
+function createRegistryState(): EclLanguageRegistryState {
   return {
     registered: false,
     completionProviderDisposable: null,
@@ -29,21 +46,20 @@ function createRegistryState() {
   }
 }
 
-function getRegistryState() {
-  const globalScope = globalThis
-  if (!globalScope[registryStateKey]) {
-    globalScope[registryStateKey] = createRegistryState()
+function getRegistryState(): EclLanguageRegistryState {
+  if (!globalThis.__THTK_ECL_LANGUAGE_REGISTRY__) {
+    globalThis.__THTK_ECL_LANGUAGE_REGISTRY__ = createRegistryState()
   }
-  return globalScope[registryStateKey]
+  return globalThis.__THTK_ECL_LANGUAGE_REGISTRY__
 }
 
-function disposeProvider(providerDisposable) {
+function disposeProvider(providerDisposable: monaco.IDisposable | null): void {
   if (providerDisposable && typeof providerDisposable.dispose === 'function') {
     providerDisposable.dispose()
   }
 }
 
-function disposeRegisteredProviders(state) {
+function disposeRegisteredProviders(state: EclLanguageRegistryState): void {
   disposeProvider(state.completionProviderDisposable)
   disposeProvider(state.definitionProviderDisposable)
   disposeProvider(state.referencesProviderDisposable)
@@ -95,7 +111,10 @@ export function ensureEclLanguageRegistered() {
 
 export { eclThemeName }
 
-export function updateEclSemanticVocabulary(scopeKey, semanticData) {
+export function updateEclSemanticVocabulary(
+  scopeKey: string | null | undefined,
+  semanticData: unknown
+): void {
   updateScopedEclSemanticData(scopeKey, semanticData)
   setActiveEclSemanticScope(scopeKey)
   if (!getRegistryState().registered) return
@@ -106,7 +125,7 @@ export function updateEclSemanticVocabulary(scopeKey, semanticData) {
   )
 }
 
-export function clearEclSemanticVocabulary(scopeKey = '__global__') {
+export function clearEclSemanticVocabulary(scopeKey: string = '__global__'): void {
   clearScopedEclSemanticData(scopeKey)
   setActiveEclSemanticScope(scopeKey)
   if (!getRegistryState().registered) return
@@ -117,7 +136,9 @@ export function clearEclSemanticVocabulary(scopeKey = '__global__') {
   )
 }
 
-export function inferMonacoLanguageId(tab) {
+export function inferMonacoLanguageId(
+  tab: { path?: string | null; language?: string | null } | null | undefined
+): string {
   const path = String(tab?.path || '').toLowerCase()
   const language = String(tab?.language || '').toLowerCase()
 
