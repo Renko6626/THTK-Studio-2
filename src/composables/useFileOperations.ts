@@ -91,14 +91,14 @@ export function useFileOperations() {
     inputState.defaultValue = ''
   }
 
-  function handleRename(node: FileNode) {
+  function handleRename(node: Partial<FileNode> & Pick<FileNode, 'path'>) {
     if (node.lossy) {
       message.error('该文件名含非 UTF-8 字符，IDE 暂不支持对其操作。请用系统文件管理器处理。')
       return
     }
     inputState.type = 'rename'
     inputState.targetPath = node.path
-    inputState.defaultValue = node.name
+    inputState.defaultValue = node.name ?? ''
   }
 
   function handleDelete(node: FileNode, dialog: DialogApi) {

@@ -23,20 +23,20 @@
   </div>
 </template>
 
-<script setup>
-import { computed } from 'vue'
+<script setup lang="ts">
 import { useWorkbenchPanelsStore } from '../../stores/workbenchPanels'
+import type { RightPanelKey } from '../../stores/workbenchPanels'
 import EclOutlinePanel from './EclOutlinePanel.vue'
 import EclReferencesPanel from './EclReferencesPanel.vue'
 
 const workbenchPanelsStore = useWorkbenchPanelsStore()
 
-const panels = [
+const panels: { key: RightPanelKey; label: string }[] = [
   { key: 'references', label: '引用' },
   { key: 'outline', label: '大纲' }
 ]
 
-function panelClasses(key) {
+function panelClasses(key: RightPanelKey) {
   return key === workbenchPanelsStore.activeRightPanel
     ? 'text-gray-100 border-[#3b82f6]'
     : 'text-gray-500 hover:text-gray-200 hover:border-[#3b82f6]/55'

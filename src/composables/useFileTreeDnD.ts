@@ -1,14 +1,19 @@
 import { ref } from 'vue'
 import type { Ref } from 'vue'
-import type { MessageApi } from 'naive-ui'
+import type { MessageApi, TreeDragInfo, TreeDropInfo, TreeOption } from 'naive-ui'
 import { remapExpandedKeys } from './useFileOperations'
 import type { FileNode } from '../types'
 import type { useEditorStore } from '../stores/editor'
 import type { useExplorerViewStore } from '../stores/explorerView'
 import type { useProjectStore } from '../stores/project'
 
-/** naive-ui NTree 的拖放位置 */
-type DropPosition = 'before' | 'inside' | 'after'
+/**
+ * naive-ui 给回调传的是 TreeOption（带索引签名的松散结构），不是我们的 FileNode。
+ * 树的数据源确实是 FileNode，所以这里在使用处收窄。
+ */
+function asFileNode(option: TreeOption | null | undefined): FileNode | null {
+  return (option as unknown as FileNode) || null
+}
 
 /**
  * FileTree.vue 注入的依赖。那几个 helper 目前定义在 FileTree.vue 里，
@@ -53,9 +58,9 @@ export function useFileTreeDnD({
   const draggingNode = ref<FileNode | null>(null)
   const rootDropActive = ref(false)
 
-  function handleTreeDragStart({ node, event }: { node: FileNode; event: DragEvent }) {
-    draggingNode.value = node
-    event?.dataTransfer?.setData('text/plain', node?.path || '')
+  function handleTreeDragStart({ node, event }: TreeDragInfo) {
+    draggingNode.value = asFileNode(node)
+    event?.dataTransfer?.setData('text/plain', String(node?.path ?? ''))
     if (event?.dataTransfer) {
       event.dataTransfer.effectAllowed = 'move'
     }
@@ -68,31 +73,32 @@ export function useFileTreeDnD({
     rootDropActive.value = false
   }
 
-  function allowDrop({ node, dropPosition }: { node: FileNode; dropPosition: DropPosition }) {
+  function allowDrop({
+    node,
+    dropPosition
+  }: {
+    node: TreeOption
+    dropPosition: 'before' | 'inside' | 'after'
+  }): boolean {
+    const target = asFileNode(node)
     return (
       dropPosition === 'inside' &&
-      !!node?.is_dir &&
+      !!target?.is_dir &&
       !!draggingNode.value?.path &&
       !!draggingNode.value?.name &&
-      canMoveEntryIntoDir(draggingNode.value, node.path)
+      canMoveEntryIntoDir(draggingNode.value, target.path)
     )
   }
 
-  async function handleTreeDrop({
-    node,
-    dragNode,
-    dropPosition
-  }: {
-    node: FileNode
-    dragNode: FileNode
-    dropPosition: DropPosition
-  }) {
-    if (dropPosition !== 'inside' || !node?.is_dir || !dragNode?.path) {
+  async function handleTreeDrop({ node, dragNode: rawDragNode, dropPosition }: TreeDropInfo) {
+    const target = asFileNode(node)
+    const dragNode = asFileNode(rawDragNode)
+    if (dropPosition !== 'inside' || !target?.is_dir || !dragNode?.path) {
       draggingNode.value = null
       return
     }
 
-    const destinationDir = node.path
+    const destinationDir = target.path
     if (!canMoveEntryIntoDir(dragNode, destinationDir)) {
       draggingNode.value = null
       return

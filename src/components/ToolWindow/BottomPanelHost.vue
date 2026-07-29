@@ -49,16 +49,17 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
 import TerminalPanel from './TerminalPanel.vue'
 import OutputPanel from './OutputPanel.vue'
 import ProblemsPanel from './ProblemsPanel.vue'
 import { useWorkbenchPanelsStore } from '../../stores/workbenchPanels'
+import type { BottomPanelKey } from '../../stores/workbenchPanels'
 
 const workbenchPanelsStore = useWorkbenchPanelsStore()
 
-const panels = [
+const panels: { key: BottomPanelKey; label: string }[] = [
   { key: 'terminal', label: '终端' },
   { key: 'output', label: '输出' },
   { key: 'problems', label: '问题' }
@@ -68,7 +69,7 @@ const currentPanelLabel = computed(() => {
   return panels.find(panel => panel.key === workbenchPanelsStore.activeBottomPanel)?.label || '未知'
 })
 
-function panelClasses(key) {
+function panelClasses(key: BottomPanelKey) {
   return key === workbenchPanelsStore.activeBottomPanel
     ? 'text-gray-100 border-[#3b82f6] bg-transparent'
     : 'text-gray-400 hover:text-gray-200 hover:border-[#3b82f6]/55'

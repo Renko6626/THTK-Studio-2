@@ -23,7 +23,8 @@ import type { FileNode } from '../types'
  * **没有任何地方设置过这个字段**，所以那一半恒为 false，实际生效的只有
  * path === rootPath 的比较。保留它是为了不改行为；真要收拾应该单独提交。
  */
-export type ContextMenuNode = FileNode & { isRoot?: boolean }
+export type ContextMenuNode = Partial<FileNode> &
+  Pick<FileNode, 'path' | 'is_dir'> & { isRoot?: boolean }
 
 export interface ContextMenuOptions {
   selectedKeys?: Ref<string[]>

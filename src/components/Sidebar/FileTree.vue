@@ -96,9 +96,10 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, ref, h, nextTick, watch, onBeforeUnmount } from 'vue'
 import { NTree, NSpin, NButton, NIcon, NDropdown, NInput, useDialog, useMessage } from 'naive-ui'
+import type { TreeOption } from 'naive-ui'
 import { useProjectStore } from '../../stores/project'
 import { useEditorStore } from '../../stores/editor'
 import { useExplorerClipboardStore } from '../../stores/explorerClipboard'
@@ -109,12 +110,46 @@ import {
   Folder24Regular
 } from '@vicons/fluent'
 import { useContextMenu } from '../../composables/useContextMenu'
+import type { ContextMenuNode } from '../../composables/useContextMenu'
 import { useFileOperations, remapExpandedKeys } from '../../composables/useFileOperations'
 import { useFileTreeActions } from '../../composables/useFileTreeActions'
 import { useFileTreeDnD } from '../../composables/useFileTreeDnD'
 import { useProjectActions } from '../../composables/useProjectActions'
 import { renderFileIcon } from '../../utils/renderFileIcon'
 import { renameEntry } from '../../api'
+import type { FileCategory, FileNode } from '../../types'
+
+/**
+ * 喂给 n-tree 的节点。除真实 FileNode 外，还会插入一个**临时节点**用于内联
+ * 新建 / 重命名的输入框——它只有 path / name / is_dir / isLeaf，没有磁盘元信息。
+ */
+/**
+ * 把后端的 FileNode 树转成 n-tree 能吃的形状。
+ * 唯一的实质差别是 children：后端未展开目录发的是 null（Rust Option<Vec>），
+ * 而 naive-ui 的 TreeOption.children 只接受数组或 undefined。
+ */
+function toTreeNodes(nodes: FileNode[]): TreeNode[] {
+  return nodes.map((node) => ({
+    ...node,
+    children: node.children ? toTreeNodes(node.children) : undefined
+  }))
+}
+
+interface TreeNode {
+  path: string
+  name: string
+  is_dir: boolean
+  size?: number | null
+  extension?: string | null
+  category?: FileCategory
+  lossy?: boolean
+  isLeaf?: boolean
+  children?: TreeNode[]
+  /** 内联输入框用的临时节点，不对应磁盘上的文件 */
+  isTemp?: boolean
+  /** naive-ui 的 TreeOption 需要索引签名 */
+  [key: string]: unknown
+}
 
 const projectStore = useProjectStore()
 const editorStore = useEditorStore()
@@ -128,7 +163,7 @@ const projectActions = useProjectActions({ message, dialog })
 
 const { inputState, handleCreate, handleRename, submitInput, cancelInput } = useFileOperations()
 
-const selectedKeys = ref([])
+const selectedKeys = ref<string[]>([])
 
 const { showMenu, menuX, menuY, targetNode, menuOptions, handleContextMenu, handleClickOutside } = useContextMenu({ selectedKeys })
 
@@ -145,12 +180,12 @@ const fileTreeActions = useFileTreeActions({
 // ---- 展开状态管理 + 持久化 ----
 
 const EXPANDED_STORAGE_KEY = 'thtk-studio:explorer-expanded'
-const expandedKeys = ref([])
-let expandSaveTimer = null
+const expandedKeys = ref<string[]>([])
+let expandSaveTimer: number | null = null
 
 // 记录最近一次完成恢复时对应的 rootPath，避免重复对同一项目恢复
-const lastRestoredFor = ref(null)
-let restoringPromise = null
+const lastRestoredFor = ref<string | null>(null)
+let restoringPromise: Promise<void> | null = null
 
 function persistExpandedKeys() {
   if (expandSaveTimer) window.clearTimeout(expandSaveTimer)
@@ -212,12 +247,12 @@ async function restoreExpandedKeys() {
   return restoringPromise
 }
 
-function handleExpand(keys) {
+function handleExpand(keys: string[]) {
   expandedKeys.value = keys
   persistExpandedKeys()
 }
 
-function handleSelectKeys(keys) {
+function handleSelectKeys(keys: string[]) {
   selectedKeys.value = keys
   explorerViewStore.setSelectedPaths(keys)
 }
@@ -247,14 +282,14 @@ watch(
     }
 
     if (!expandedKeys.value.length || !projectStore.files.length) return
-    const allPaths = new Set()
-    function collectPaths(nodes) {
+    const allPaths = new Set<string>()
+    function collectPaths(nodes: TreeNode[]) {
       for (const node of nodes) {
         allPaths.add(node.path)
         if (node.children) collectPaths(node.children)
       }
     }
-    collectPaths(projectStore.files)
+    collectPaths(toTreeNodes(projectStore.files))
     const filtered = expandedKeys.value.filter(key => allPaths.has(key))
     if (filtered.length !== expandedKeys.value.length) {
       expandedKeys.value = filtered
@@ -267,7 +302,6 @@ watch(
 // ---- DnD ----
 
 const {
-  draggingNode,
   rootDropActive,
   handleTreeDragStart,
   handleTreeDragOver,
@@ -295,9 +329,10 @@ const {
 
 // ---- 懒加载 ----
 
-async function handleLazyLoad(node) {
-  if (!node.is_dir) return
-  await projectStore.loadChildren(node.path)
+async function handleLazyLoad(node: TreeOption): Promise<unknown> {
+  const dir = node as unknown as TreeNode
+  if (!dir.is_dir) return
+  return projectStore.loadChildren(dir.path)
 }
 
 // ---- 临时节点注入（新建文件时） ----
@@ -323,12 +358,12 @@ watch(() => inputState.type, async (newType) => {
   }
 })
 
-function injectTempNode(nodes) {
+function injectTempNode(nodes: TreeNode[]): TreeNode[] {
   return nodes.map(node => {
-    const newNode = { ...node }
+    const newNode: TreeNode = { ...node }
 
     if (inputState.type === 'create' && node.path === inputState.targetPath) {
-      const tempNode = {
+      const tempNode: TreeNode = {
         path: tempKey.value,
         name: '',
         is_dir: inputState.fileType === 'dir',
@@ -337,7 +372,7 @@ function injectTempNode(nodes) {
         isLeaf: true,
       }
       newNode.children = newNode.children ? [tempNode, ...newNode.children] : [tempNode]
-      newNode.children = newNode.children.map(child => {
+      newNode.children = newNode.children.map((child: TreeNode) => {
         if (child.path === tempKey.value) return transformNode(child)
         return transformNode(injectTempNode([child])[0])
       })
@@ -350,15 +385,15 @@ function injectTempNode(nodes) {
 }
 
 const displayTreeData = computed(() => {
-  let rawData = projectStore.files
+  let rawData: TreeNode[] = toTreeNodes(projectStore.files)
 
   if (inputState.type === 'create' && inputState.targetPath === projectStore.rootPath) {
-    const tempNode = {
+    const tempNode: TreeNode = {
       path: tempKey.value,
       name: '',
       is_dir: inputState.fileType === 'dir',
       isTemp: true,
-      isLeaf: true,
+      isLeaf: true
     }
     rawData = [tempNode, ...rawData]
   }
@@ -368,10 +403,10 @@ const displayTreeData = computed(() => {
 
 // ---- 节点渲染 ----
 
-function transformNode(node) {
+function transformNode(node: TreeNode): TreeNode {
   return {
     ...node,
-    prefix: (ctx) => renderFileIcon(node, ctx?.expanded ?? false)
+    prefix: (ctx?: { expanded?: boolean }) => renderFileIcon(node, ctx?.expanded ?? false)
   }
 }
 
@@ -390,7 +425,7 @@ watch(
 // 重命名成功后，把本地的选中/展开状态从旧路径迁移到新路径，
 // 避免 n-tree 因键已变而把节点视为未选中 / 无法保留子树展开。
 const submitExtras = {
-  onRenamed: (oldPath, newPath) => {
+  onRenamed: (oldPath: string, newPath: string) => {
     if (!oldPath || !newPath || oldPath === newPath) return
 
     selectedKeys.value = [newPath]
@@ -411,9 +446,10 @@ const submitExtras = {
   }
 }
 
-const renderLabel = ({ option }) => {
-  const isCreating = option.isTemp
-  const isRenaming = inputState.type === 'rename' && option.path === inputState.targetPath
+const renderLabel = ({ option }: { option: TreeOption }) => {
+  const node = option as unknown as TreeNode
+  const isCreating = node.isTemp
+  const isRenaming = inputState.type === 'rename' && node.path === inputState.targetPath
 
   if (isCreating || isRenaming) {
     return h(NInput, {
@@ -450,40 +486,48 @@ const renderLabel = ({ option }) => {
 
 // ---- 节点交互 ----
 
-const nodeProps = ({ option }) => ({
-  onClick(e) {
-    const isMultiSelect = e?.ctrlKey || e?.metaKey || e?.shiftKey
-    if (!isMultiSelect) {
-      selectedKeys.value = [option.path]
-      explorerViewStore.setSelectedPaths([option.path])
-    }
-    if (!option.is_dir && !option.isTemp && !isMultiSelect) editorStore.openFile(option)
-  },
-  onContextmenu(e) {
-    if (!selectedKeys.value.includes(option.path)) {
-      selectedKeys.value = [option.path]
-      explorerViewStore.setSelectedPaths([option.path])
-    }
-    handleContextMenu(e, option)
-  },
-  onDragover(event) {
-    if (option.is_dir) {
-      event?.preventDefault?.()
-      if (event?.dataTransfer) event.dataTransfer.dropEffect = 'move'
+const nodeProps = ({ option }: { option: TreeOption }) => {
+  // TreeOption 带索引签名，属性都是 unknown；树的数据源就是 TreeNode，
+  // 在这里收窄一次，后面的处理器直接用具体类型。
+  const node = option as unknown as TreeNode
+  return {
+    onClick(e: MouseEvent) {
+      const isMultiSelect = e?.ctrlKey || e?.metaKey || e?.shiftKey
+      if (!isMultiSelect) {
+        selectedKeys.value = [node.path]
+        explorerViewStore.setSelectedPaths([node.path])
+      }
+      // TreeNode 的索引签名让它与具名类型不兼容，但字段是超集
+      if (!node.is_dir && !node.isTemp && !isMultiSelect) {
+        void editorStore.openFile(node as unknown as FileNode)
+      }
+    },
+    onContextmenu(e: MouseEvent) {
+      if (!selectedKeys.value.includes(node.path)) {
+        selectedKeys.value = [node.path]
+        explorerViewStore.setSelectedPaths([node.path])
+      }
+      handleContextMenu(e, node as unknown as ContextMenuNode)
+    },
+    onDragover(event: DragEvent) {
+      if (node.is_dir) {
+        event?.preventDefault?.()
+        if (event?.dataTransfer) event.dataTransfer.dropEffect = 'move'
+      }
     }
   }
-})
+}
 
 // ---- 右键菜单处理 ----
 
-function onEmptyAreaRightClick(e) {
+function onEmptyAreaRightClick(e: MouseEvent) {
   if (!projectStore.rootPath) return
   selectedKeys.value = []
   explorerViewStore.clearSelection()
   handleContextMenu(e, { path: projectStore.rootPath, is_dir: true, name: 'root' })
 }
 
-function handleMenuSelect(key) {
+function handleMenuSelect(key: string) {
   handleClickOutside()
   const node = targetNode.value
   if (!node) return
@@ -504,7 +548,7 @@ function handleMenuSelect(key) {
   }
 }
 
-function quickCreate(type) {
+function quickCreate(type: 'file' | 'dir') {
   if (projectStore.rootPath) handleCreate(projectStore.rootPath, type)
 }
 

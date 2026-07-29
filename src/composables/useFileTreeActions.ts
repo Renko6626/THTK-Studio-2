@@ -17,6 +17,12 @@ import type { useProjectStore } from '../stores/project'
  */
 export type PasteEntry = Pick<FileNode, 'path' | 'name' | 'is_dir'>
 
+/**
+ * 右键菜单和空白区右键传进来的可能是部分节点（只有 path / is_dir），
+ * 这些函数也只用到这几个字段。
+ */
+export type TargetNode = Partial<FileNode> & Pick<FileNode, 'path' | 'is_dir'>
+
 export interface FileTreeActionsDeps {
   selectedKeys: Ref<string[]>
   projectStore: ReturnType<typeof useProjectStore>
@@ -82,18 +88,21 @@ export function useFileTreeActions({
     return new Set((destinationNode?.children || []).map(child => child.name.toLowerCase()))
   }
 
-  function getActionEntries(target?: FileNode | null): FileNode[] {
+  function getActionEntries(target?: TargetNode | null): FileNode[] {
     const selectedEntries = selectedKeys.value
       .map(path => findNodeByPath(projectStore.files, path))
       // 选中项可能指向已被删除的节点，findNodeByPath 返回 null
       .filter((entry): entry is FileNode => entry !== null)
 
-    if (!selectedEntries.length) return target ? [target] : []
+    // target 可能是部分节点；作为兜底条目时按 FileNode 使用（消费方只读
+    // path / name / is_dir / lossy，这几个字段右键节点都有）
+    const fallback = target ? [target as FileNode] : []
+    if (!selectedEntries.length) return fallback
     if (target?.path && selectedEntries.some(entry => entry.path === target.path)) return selectedEntries
-    return target ? [target] : selectedEntries
+    return fallback.length ? fallback : selectedEntries
   }
 
-  function resolveDestinationDir(targetNode: FileNode): string {
+  function resolveDestinationDir(targetNode: TargetNode): string {
     if (targetNode.is_dir) return targetNode.path
     return getParentPath(targetNode.path)
   }
@@ -231,7 +240,7 @@ export function useFileTreeActions({
     })
   }
 
-  async function pasteIntoTarget(targetNode: FileNode) {
+  async function pasteIntoTarget(targetNode: TargetNode) {
     const reportsStore = useWorkbenchReportsStore()
     const isCut = explorerClipboardStore.isCut
     const failed = []

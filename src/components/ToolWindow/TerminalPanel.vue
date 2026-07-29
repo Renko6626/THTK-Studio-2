@@ -67,7 +67,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { NDropdown } from 'naive-ui'
 import { useTerminalStore } from '../../stores/terminal'
@@ -77,7 +77,7 @@ import { mountAllSessions, showSession, fitSession } from '../../services/termin
 const terminalStore = useTerminalStore()
 const workbenchPanelsStore = useWorkbenchPanelsStore()
 const hostRef = ref(null)
-let resizeObserver = null
+let resizeObserver: ResizeObserver | null = null
 
 // 按平台列出常用 shell;key 即传给后端的可执行名(PATH 解析),
 // 启动失败时 store 会回退默认探测并提示。
@@ -96,7 +96,7 @@ const shellOptions = isWindows
       { label: 'fish', key: 'fish' }
     ]
 
-function openWithShell(key) {
+function openWithShell(key: string) {
   if (key === '__default__') {
     terminalStore.openSession()
     return
@@ -133,6 +133,7 @@ watch(isTerminalVisible, (visible) => {
 
 onMounted(() => {
   // 重新挂载模块级容器（面板可能被 v-if 重建）
+  if (!hostRef.value) return
   mountAllSessions(hostRef.value)
   ensureVisibleSession()
 

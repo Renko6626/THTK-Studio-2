@@ -82,15 +82,18 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useEditorStore } from '../../stores/editor'
+import type { EclSymbolEntry } from '../../services/languages/ecl/document-symbols'
 import { collectEclDocumentSymbolEntriesFromText } from '../../services/languages/ecl/document-symbols'
 import { dispatchEditorRevealLocation } from '../../composables/useEditorActionBridge'
 
 const editorStore = useEditorStore()
-const searchInput = ref(null)
-const collapsedSections = reactive({
+const searchInput = ref<{ focus: () => void } | null>(null)
+type OutlineSectionKey = 'subroutines' | 'globals' | 'labels'
+
+const collapsedSections = reactive<Record<OutlineSectionKey, boolean>>({
   subroutines: false,
   globals: false,
   labels: false
@@ -115,7 +118,7 @@ const symbols = computed(() => {
   return collectEclDocumentSymbolEntriesFromText(activeTab.value?.content || '')
 })
 
-function matchesSearch(item, query) {
+function matchesSearch(item: EclSymbolEntry, query: string) {
   const normalizedQuery = query.trim().toLowerCase()
   if (!normalizedQuery) return true
 
@@ -124,7 +127,7 @@ function matchesSearch(item, query) {
     .some((value) => String(value).toLowerCase().includes(normalizedQuery))
 }
 
-const sections = computed(() => ([
+const sections = computed<{ key: OutlineSectionKey; label: string; items: EclSymbolEntry[] }[]>(() => ([
   {
     key: 'subroutines',
     label: '函数 / 子程序',
@@ -172,18 +175,19 @@ watch(isEclTab, async (value) => {
   searchInput.value?.focus()
 }, { immediate: true })
 
-function handleCursorPosition(event) {
-  const detail = event.detail || {}
+function handleCursorPosition(event: Event) {
+  const detail =
+    (event as CustomEvent<{ path?: string; line?: number; column?: number }>).detail || {}
   cursorPosition.path = String(detail.path || '')
   cursorPosition.line = Math.max(1, Number(detail.line || 1))
   cursorPosition.column = Math.max(1, Number(detail.column || 1))
 }
 
-function isCollapsed(key) {
+function isCollapsed(key: OutlineSectionKey) {
   return Boolean(collapsedSections[key])
 }
 
-function toggleSection(key) {
+function toggleSection(key: OutlineSectionKey) {
   collapsedSections[key] = !collapsedSections[key]
 }
 
@@ -194,13 +198,13 @@ function toggleAllSections() {
   })
 }
 
-function itemClasses(item) {
+function itemClasses(item: EclSymbolEntry) {
   return activeSymbol.value?.name === item.name && activeSymbol.value?.line === item.line
     ? 'border-[#3b82f6] bg-transparent'
     : ''
 }
 
-function highlightSegments(text) {
+function highlightSegments(text: string) {
   const query = searchQuery.value.trim()
   if (!query) return [{ text, match: false }]
 
@@ -232,7 +236,7 @@ function highlightSegments(text) {
   return segments.filter((segment) => segment.text.length > 0)
 }
 
-function revealSymbol(symbol) {
+function revealSymbol(symbol: EclSymbolEntry) {
   if (!activeTab.value?.path) return
   dispatchEditorRevealLocation({
     path: activeTab.value.path,

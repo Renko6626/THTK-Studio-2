@@ -58,9 +58,10 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive } from 'vue'
 import { useEditorStore } from '../../stores/editor'
+import type { EclReferenceEntry } from '../../services/languages/ecl/document-symbols'
 import {
   findEclDocumentDefinitionFromText,
   findEclDocumentReferencesFromText
@@ -119,39 +120,40 @@ const symbolSummary = computed(() => {
   return `${kindLabel(definition.value.kind)} · ${references.value.length} 项`
 })
 
-function handleCursorPosition(event) {
-  const detail = event.detail || {}
+function handleCursorPosition(event: Event) {
+  const detail =
+    (event as CustomEvent<{ path?: string; line?: number; column?: number }>).detail || {}
   cursorPosition.path = String(detail.path || '')
   cursorPosition.line = Math.max(1, Number(detail.line || 1))
   cursorPosition.column = Math.max(1, Number(detail.column || 1))
 }
 
-function kindLabel(kind) {
+function kindLabel(kind: string) {
   if (kind === 'subroutine') return '子程序'
   if (kind === 'label') return '标签'
   if (kind === 'global') return '全局'
   return '符号'
 }
 
-function kindClass(kind) {
+function kindClass(kind: string) {
   if (kind === 'subroutine') return 'border-[#3b82f6]/45 text-[#9ecbff]'
   if (kind === 'label') return 'border-[#dcdcaa]/35 text-[#dcdcaa]'
   if (kind === 'global') return 'border-[#6a9955]/45 text-[#b5cea8]'
   return 'border-white/10 text-gray-300'
 }
 
-function referenceClasses(reference) {
+function referenceClasses(reference: EclReferenceEntry) {
   return reference.line === definition.value?.line && reference.column === definition.value?.column
     ? 'border-[#3b82f6] bg-transparent'
     : ''
 }
 
-function buildReferencePreview(reference) {
+function buildReferencePreview(reference: EclReferenceEntry) {
   const lines = String(activeTab.value?.content || '').split(/\r?\n/)
   return (lines[reference.line - 1] || '').trim()
 }
 
-function revealReference(reference) {
+function revealReference(reference: EclReferenceEntry) {
   if (!activeTab.value?.path) return
   dispatchEditorRevealLocation({
     path: activeTab.value.path,

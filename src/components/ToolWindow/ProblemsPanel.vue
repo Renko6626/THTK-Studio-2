@@ -47,17 +47,18 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, nextTick } from 'vue'
 import { useEditorStore } from '../../stores/editor'
 import { useWorkbenchReportsStore } from '../../stores/workbenchReports'
+import type { ProblemEntry } from '../../stores/workbenchReports'
 import { dispatchEditorRevealLocation } from '../../composables/useEditorActionBridge'
 
 const editorStore = useEditorStore()
 const reportsStore = useWorkbenchReportsStore()
 
 const sortedProblems = computed(() => {
-  const severityRank = { error: 0, warning: 1, info: 2 }
+  const severityRank: Record<string, number> = { error: 0, warning: 1, info: 2 }
   return [...reportsStore.problemEntries].sort((a, b) => {
     return (
       (severityRank[a.severity] ?? 99) - (severityRank[b.severity] ?? 99) ||
@@ -68,25 +69,25 @@ const sortedProblems = computed(() => {
   })
 })
 
-function severityClass(severity) {
+function severityClass(severity: string) {
   if (severity === 'error') return 'bg-[#5a1d1d] text-[#f48771]'
   if (severity === 'warning') return 'bg-[#4a3f14] text-[#dcdcaa]'
   return 'bg-white/10 text-gray-300'
 }
 
-function sourceLabel(source) {
+function sourceLabel(source: string) {
   if (source === 'thecl') return 'THECL'
   if (source === 'ecl-static') return 'STATIC'
   return String(source || 'system').toUpperCase()
 }
 
-function sourceClass(source) {
+function sourceClass(source: string) {
   if (source === 'thecl') return 'border border-[#3b82f6]/45 text-[#9ecbff] bg-transparent'
   if (source === 'ecl-static') return 'border border-[#6a9955]/45 text-[#b5cea8] bg-transparent'
   return 'border border-white/10 text-gray-300 bg-transparent'
 }
 
-function sourceDetail(problem) {
+function sourceDetail(problem: ProblemEntry) {
   if (problem.source === 'ecl-static') {
     return '本地静态检查'
   }
@@ -98,7 +99,7 @@ function sourceDetail(problem) {
   return `${problem.source}/${problem.operation}`
 }
 
-async function openProblem(problem) {
+async function openProblem(problem: ProblemEntry) {
   if (!problem.path) return
 
   await editorStore.openFile({

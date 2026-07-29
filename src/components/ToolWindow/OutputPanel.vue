@@ -48,19 +48,19 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { useWorkbenchReportsStore } from '../../stores/workbenchReports'
 
 const reportsStore = useWorkbenchReportsStore()
 
-function lineClass(level) {
+function lineClass(level: string) {
   if (level === 'error') return 'text-[#f48771]'
   if (level === 'warning') return 'text-[#dcdcaa]'
   if (level === 'success') return 'text-[#89d185]'
   return 'text-gray-200'
 }
 
-function formatTimestamp(timestamp) {
+function formatTimestamp(timestamp: number) {
   return new Date(timestamp).toLocaleTimeString([], {
     hour: '2-digit',
     minute: '2-digit',
