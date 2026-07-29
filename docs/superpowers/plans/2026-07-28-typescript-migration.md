@@ -54,6 +54,17 @@ Rust 侧三种命名风格并存，类型定义必须逐个核对 `src-tauri/src
 - 隐式 `any` 的函数参数 — 补形参类型。若类型来自尚未迁移的模块，写局部 `interface XxxLike` 只声明真正用到的字段，并注释「等 X 迁完删掉」。
 - 第三方类型 — naive-ui、monaco-editor、`@tauri-apps/api` 都自带类型，直接 `import type` 即可，不要另装 `@types/*`。
 
+### `.vue` 在 Task 10 之前解析为 `any`（实测确认）
+
+`tsconfig.json` 的 `include` 目前只有 `src/**/*.ts`，所以 `.ts` 文件 import 的
+`.vue` 组件**完全不做检查**——用探针验证过：访问一个根本不存在的属性
+（`MonacoEditor.__definitelyNotAProp`）typecheck 照样通过。
+
+影响：`services/workbench/editorViews.ts`、`services/toolchains/registry.ts` 里
+对组件的引用现在是零保护，组件的 props 契约也无从校验。这不是可以绕过的问题，
+而是 Task 13 把 `src/**/*.vue` 加进 `include` 之后才会真正生效。在那之前不要
+以为「typecheck 通过」意味着组件用法正确。
+
 ---
 
 ## Task 1：共享类型基座

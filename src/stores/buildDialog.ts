@@ -10,7 +10,7 @@ interface BuildDialogState {
 export const useBuildDialogStore = defineStore('buildDialog', {
   state: (): BuildDialogState => ({
     visible: false,
-    payload: createDefaultBuildPayload() as BuildDialogPayload
+    payload: createDefaultBuildPayload()
   }),
 
   actions: {
@@ -18,8 +18,8 @@ export const useBuildDialogStore = defineStore('buildDialog', {
       const tool = payload.tool || 'thecl'
       // mapPaths 对非 thecl 的载荷其实是多余字段，但现有行为如此，
       // 迁移不改行为——等这些工具真正接上构建对话框时再收拾。
-      // as 断言的原因：createDefaultBuildPayload 还在 registry.js 里（Task 5 迁），
-      // 拿不到返回类型。registry 迁完后可以去掉。
+      // 这里的断言无法去掉：展开合并的结果对 TS 而言是宽对象，而 BuildDialogPayload
+      // 是判别联合，编译器无法从运行时的 tool 值推出该选哪一支。
       this.payload = {
         ...createDefaultBuildPayload(tool),
         ...payload,
