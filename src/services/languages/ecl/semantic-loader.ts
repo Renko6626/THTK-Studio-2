@@ -150,12 +150,8 @@ export async function loadDefaultEclSemanticData({
   return {
     ...base,
     instructions: dedupeByName(loaded.flatMap(item => item.semantics?.instructions || [])),
-    // ⚠️ builtins 是 string[]，喂给按 name 去重的 dedupeByName 会被整个清空。
-    // 这是既有 bug（本次迁移由类型检查发现），按纪律不在迁移提交里改行为，
-    // 下一个提交单独修并配测试。此处的断言仅为让它编过。
-    builtins: dedupeByName(
-      loaded.flatMap(item => item.semantics?.builtins || []) as unknown as EclInstructionSpec[]
-    ) as unknown as string[],
+    // builtins 是字符串数组，按值去重（dedupeByName 是给指令对象用的）
+    builtins: [...new Set(loaded.flatMap(item => item.semantics?.builtins || []))],
     resolvedPath: loaded.map(item => item.path).join(' + '),
     version: base?.version || version
   }

@@ -102,6 +102,39 @@ describe('ECL 词表加载', () => {
     expect(result.error).toContain('nope')
   })
 
+  it('合并多份 map 时保留 builtins', () => {
+    // 回归防线：builtins 是 string[]，曾被喂给按 name 去重的 dedupeByName，
+    // 每个字符串取 .name 都是 undefined，结果整个数组被清空——
+    // 内置函数（sin/cos 等）在补全与高亮里全部消失。
+    getEclMapSemantics.mockImplementation(async (path) => {
+      if (path === '/proj/a.eclm') {
+        return { ...semanticsWith(['ins_a']), builtins: ['sin', 'cos'] }
+      }
+      return { ...semanticsWith(['ins_b']), builtins: ['cos', 'tan'] }
+    })
+
+    return loadDefaultEclSemanticData({
+      projectRoot: '/proj',
+      projectConfig: { mapPaths: ['a.eclm', 'b.eclm'] }
+    }).then((result) => {
+      expect([...result.builtins].sort()).toEqual(['cos', 'sin', 'tan'])
+    })
+  })
+
+  it('单份 map 的 builtins 也要保留', async () => {
+    getEclMapSemantics.mockResolvedValue({
+      ...semanticsWith(['ins_a']),
+      builtins: ['sin']
+    })
+
+    const result = await loadDefaultEclSemanticData({
+      projectRoot: '/proj',
+      projectConfig: { mapPaths: ['a.eclm'] }
+    })
+
+    expect(result.builtins).toEqual(['sin'])
+  })
+
   it('同名指令后加载的覆盖先加载的', async () => {
     getEclMapSemantics.mockImplementation(async (path) => {
       if (path === '/proj/a.eclm') return { instructions: [{ name: 'dup', opcode: 1 }], builtins: [] }
