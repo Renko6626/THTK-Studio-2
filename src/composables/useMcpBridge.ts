@@ -1,16 +1,25 @@
-// src/composables/useMcpBridge.js
+// src/composables/useMcpBridge.ts
 // 监听 Rust MCP server 转发的 agent 报告,落入输出/问题面板。
 import { onBeforeUnmount } from 'vue'
 import { listen } from '@tauri-apps/api/event'
 import { useWorkbenchReportsStore } from '../stores/workbenchReports'
 import { useWorkbenchPanelsStore } from '../stores/workbenchPanels'
+import type { UnlistenFn } from '@tauri-apps/api/event'
+
+/** Rust 侧 mcp://report 事件的负载，见 main.rs 的 report_card */
+interface McpReportPayload {
+  title?: string
+  body?: string
+  level?: string
+  path?: string | null
+}
 
 export function useMcpBridge() {
   const reportsStore = useWorkbenchReportsStore()
   const workbenchPanelsStore = useWorkbenchPanelsStore()
-  let unlisten = null
+  let unlisten: UnlistenFn | null = null
 
-  listen('mcp://report', ({ payload }) => {
+  listen<McpReportPayload>('mcp://report', ({ payload }) => {
     if (!payload) return
     reportsStore.publishToolResult({
       ownerKey: `agent:${payload.title || 'report'}:${Date.now()}`,

@@ -1,7 +1,12 @@
 import { onMounted, onBeforeUnmount } from 'vue'
 
-export function useBeforeUnloadGuard({ hasDirtyTabs, flushSnapshots }) {
-  function handleBeforeUnload(event) {
+export interface BeforeUnloadGuardDeps {
+  hasDirtyTabs: () => boolean
+  flushSnapshots: () => void
+}
+
+export function useBeforeUnloadGuard({ hasDirtyTabs, flushSnapshots }: BeforeUnloadGuardDeps) {
+  function handleBeforeUnload(event: BeforeUnloadEvent) {
     flushSnapshots()
 
     if (!hasDirtyTabs()) return

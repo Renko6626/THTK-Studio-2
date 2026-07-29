@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { withSetup, createFakeStore } from '../helpers/withSetup.js'
-import { useWorkbenchSession } from '../../src/composables/useWorkbenchSession.js'
+import { useWorkbenchSession } from '../../src/composables/useWorkbenchSession'
 import {
   loadEditorSnapshot,
   loadProjectSnapshot,

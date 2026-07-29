@@ -7,6 +7,20 @@ import {
   scheduleSnapshotSave,
   snapshotStorageKeys
 } from '../utils/workbenchState'
+import type { useEditorStore } from '../stores/editor'
+import type { useProjectStore } from '../stores/project'
+import type { useTerminalStore } from '../stores/terminal'
+import type { useWorkbenchPanelsStore } from '../stores/workbenchPanels'
+
+export interface WorkbenchSessionDeps {
+  projectStore: ReturnType<typeof useProjectStore>
+  editorStore: ReturnType<typeof useEditorStore>
+  terminalStore: ReturnType<typeof useTerminalStore>
+  workbenchPanelsStore: ReturnType<typeof useWorkbenchPanelsStore>
+  showReloadNotice: (text: string) => void
+  /** 由 WorkbenchRoot 注入 useProjectActions.openProjectPath，恢复走和其他入口同一条流程 */
+  openProjectPath: (path: string, options?: { silent?: boolean }) => Promise<boolean>
+}
 
 export function useWorkbenchSession({
   projectStore,
@@ -14,13 +28,13 @@ export function useWorkbenchSession({
   terminalStore,
   workbenchPanelsStore,
   showReloadNotice,
-  // 由 WorkbenchRoot 注入 useProjectActions.openProjectPath，恢复走和其他入口同一条流程
   openProjectPath
-}) {
-  let stopProjectSubscription = null
-  let stopEditorSubscription = null
-  let stopTerminalSubscription = null
-  let stopWorkbenchPanelsSubscription = null
+}: WorkbenchSessionDeps) {
+  type StopSubscription = () => void
+  let stopProjectSubscription: StopSubscription | null = null
+  let stopEditorSubscription: StopSubscription | null = null
+  let stopTerminalSubscription: StopSubscription | null = null
+  let stopWorkbenchPanelsSubscription: StopSubscription | null = null
   const storageKeys = snapshotStorageKeys()
   const panelStorageKey = 'thtk-studio:workbench-panels'
 

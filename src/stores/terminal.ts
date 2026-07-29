@@ -139,11 +139,13 @@ export const useTerminalStore = defineStore('terminal', {
     },
 
     // ---- 会话快照兼容层（useWorkbenchSession 仍会调用） ----
-    // PTY 会话本质上不可跨刷新恢复，保留空实现。
-    hydrate() {},
-    toSnapshot() {
+    // PTY 会话本质上不可跨刷新恢复，所以这三个是刻意的空实现。
+    // 形参照旧声明出来：调用方确实在传值，签名写成零参会让每个调用点报错，
+    // 而真正该改的是"要不要保留这层兼容"，不是调用点。
+    hydrate(_snapshot?: unknown) {},
+    toSnapshot(): Record<string, never> {
       return {}
     },
-    setWorkingDirectory() {}
+    setWorkingDirectory(_path?: string) {}
   }
 })

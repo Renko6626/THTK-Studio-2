@@ -1,7 +1,9 @@
 import { onMounted, onBeforeUnmount } from 'vue'
 import { dispatchEditorAction } from './useEditorActionBridge'
+import type { useEditorStore } from '../stores/editor'
+import type { useWorkbenchPanelsStore } from '../stores/workbenchPanels'
 
-function isEditableTarget(target) {
+function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
   return (
     target.isContentEditable ||
@@ -10,17 +12,25 @@ function isEditableTarget(target) {
   )
 }
 
+export interface WorkbenchShortcutsDeps {
+  editorStore: ReturnType<typeof useEditorStore>
+  workbenchPanelsStore: ReturnType<typeof useWorkbenchPanelsStore>
+  showReloadNotice: (text: string) => void
+  /**
+   * 由 WorkbenchRoot 注入 useProjectActions 的打开动作。快捷键自己再实现一遍的话，
+   * Ctrl+O 会绕过脏标签保护和统一的错误提示。
+   */
+  openFolder: () => Promise<boolean>
+}
+
 export function useWorkbenchShortcuts({
   editorStore,
-  projectStore,
   workbenchPanelsStore,
   showReloadNotice,
-  // 由 WorkbenchRoot 注入 useProjectActions 的打开动作。快捷键自己再实现一遍的话，
-  // Ctrl+O 会绕过脏标签保护和统一的错误提示。
   openFolder
-}) {
+}: WorkbenchShortcutsDeps) {
 
-  function handleGlobalKeydown(event) {
+  function handleGlobalKeydown(event: KeyboardEvent) {
     const key = event.key.toLowerCase()
     const editingFieldFocused = isEditableTarget(event.target)
 
@@ -69,8 +79,11 @@ export function useWorkbenchShortcuts({
 
     if ((event.ctrlKey || event.metaKey) && key === 'w') {
       event.preventDefault()
-      if (editorStore.activeTab && !editorStore.activeTab.isDirty) {
-        editorStore.closeTab(editorStore.activePath)
+      // 用 activeTab.path 而不是 activePath：两者在此必然相等
+      // （activeTab 就是按 activePath 查出来的），但只有前者 TS 能确定非空
+      const activeTab = editorStore.activeTab
+      if (activeTab && !activeTab.isDirty) {
+        editorStore.closeTab(activeTab.path)
       }
     }
   }

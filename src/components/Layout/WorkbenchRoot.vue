@@ -140,7 +140,6 @@ const { flushSnapshots } = useWorkbenchSession({
 
 useWorkbenchShortcuts({
   editorStore,
-  projectStore,
   workbenchPanelsStore,
   showReloadNotice,
   // Ctrl+O 必须和菜单、文件树、欢迎页走同一条打开流程，否则快捷键会绕过脏标签保护
