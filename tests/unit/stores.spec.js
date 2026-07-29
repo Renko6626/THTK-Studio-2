@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
-import { useProjectStore } from '../../src/stores/project.js'
-import { useRecentProjectsStore } from '../../src/stores/recentProjects.js'
-import { useWorkbenchReportsStore } from '../../src/stores/workbenchReports.js'
+import { useProjectStore } from '../../src/stores/project'
+import { useRecentProjectsStore } from '../../src/stores/recentProjects'
+import { useWorkbenchReportsStore } from '../../src/stores/workbenchReports'
 import {
   listRecentProjects,
   loadProjectConfig,

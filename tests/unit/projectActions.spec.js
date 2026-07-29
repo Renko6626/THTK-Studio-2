@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useProjectActions } from '../../src/composables/useProjectActions'
-import { useEditorStore } from '../../src/stores/editor.js'
-import { useExplorerClipboardStore } from '../../src/stores/explorerClipboard.js'
-import { useProjectStore } from '../../src/stores/project.js'
+import { useEditorStore } from '../../src/stores/editor'
+import { useExplorerClipboardStore } from '../../src/stores/explorerClipboard'
+import { useProjectStore } from '../../src/stores/project'
 import { openProject } from '../../src/api'
 
 vi.mock('../../src/api', () => ({

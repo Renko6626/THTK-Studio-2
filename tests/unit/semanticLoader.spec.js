@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { loadDefaultEclSemanticData } from '../../src/services/languages/ecl/semantic-loader.js'
+import { loadDefaultEclSemanticData } from '../../src/services/languages/ecl/semantic-loader'
 import { getEclMapSemantics, getSettings } from '../../src/api'
 
 vi.mock('../../src/api', () => ({
