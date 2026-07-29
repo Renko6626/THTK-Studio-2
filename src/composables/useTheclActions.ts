@@ -9,9 +9,25 @@ import {
   executeThecl,
   publishTheclResult
 } from '../services/toolchains/thecl'
+import type { EclResult, TheclMode, TheclRequest } from '../types'
+
+export interface RunTheclOptions {
+  /** 执行前若当前标签是脏的，先保存；保存失败则中止 */
+  requireSave?: boolean
+  successMessage?: string
+  /** 成功后打开产物文件 */
+  openOutput?: boolean
+}
+
+interface RunTheclForActiveOptions extends RunTheclOptions {
+  mode: TheclMode
+}
 
 /** 从项目配置填充 thecl 请求的默认值 */
-function applyProjectDefaults(request, projectStore) {
+function applyProjectDefaults(
+  request: TheclRequest,
+  projectStore: ReturnType<typeof useProjectStore>
+): TheclRequest {
   const pc = projectStore.projectConfig
   if (!pc) return request
 
@@ -23,7 +39,7 @@ function applyProjectDefaults(request, projectStore) {
   }
 }
 
-function getExtension(path) {
+function getExtension(path: string | null | undefined): string {
   return path?.split('.').pop()?.toLowerCase() || ''
 }
 
@@ -39,11 +55,10 @@ export function useTheclActions() {
   const canDecompileActiveBinary = computed(() => activeExtension.value === 'ecl')
   const canGenerateActiveHeader = computed(() => activeExtension.value === 'decl')
 
-  async function runTheclRequest(request, {
-    requireSave = false,
-    successMessage,
-    openOutput = false
-  } = {}) {
+  async function runTheclRequest(
+    request: TheclRequest | null | undefined,
+    { requireSave = false, successMessage, openOutput = false }: RunTheclOptions = {}
+  ): Promise<EclResult | null> {
     const activeTab = editorStore.tabs.find(tab => tab.path === request?.inputPath) || editorStore.activeTab
     if (!request?.inputPath) {
       message.warning('当前没有可处理的脚本文件')
@@ -108,7 +123,7 @@ export function useTheclActions() {
     requireSave = false,
     successMessage,
     openOutput = false
-  }) {
+  }: RunTheclForActiveOptions): Promise<EclResult | null> {
     const activeTab = editorStore.activeTab
     if (!activeTab?.path) {
       message.warning('当前没有可处理的脚本文件')

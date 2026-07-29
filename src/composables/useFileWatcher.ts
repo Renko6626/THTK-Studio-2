@@ -2,6 +2,16 @@ import { onMounted, onBeforeUnmount } from 'vue'
 import { listen } from '@tauri-apps/api/event'
 import { readFile } from '../api'
 import { normalizePath, pathsEqual } from '../utils/pathNormalize'
+import type { UnlistenFn } from '@tauri-apps/api/event'
+import type { FileChangeEvent } from '../types'
+import type { EditorTab, useEditorStore } from '../stores/editor'
+import type { useProjectStore } from '../stores/project'
+
+export interface FileWatcherDeps {
+  editorStore: ReturnType<typeof useEditorStore>
+  projectStore: ReturnType<typeof useProjectStore>
+  showReloadNotice: (text: string) => void
+}
 
 /**
  * 监听 Rust 端发出的文件系统变更事件，
@@ -11,11 +21,15 @@ import { normalizePath, pathsEqual } from '../utils/pathNormalize'
  * - 有未保存修改的文件：提示用户选择
  * - 被删除的文件：通知用户
  */
-export function useFileWatcher({ editorStore, projectStore, showReloadNotice }) {
-  let unlisten = null
-  const pendingPaths = new Set()
+export function useFileWatcher({
+  editorStore,
+  projectStore,
+  showReloadNotice
+}: FileWatcherDeps) {
+  let unlisten: UnlistenFn | null = null
+  const pendingPaths = new Set<string>()
 
-  async function handleFileChanges(event) {
+  async function handleFileChanges(event: { payload: FileChangeEvent[] }) {
     const changes = event.payload
     if (!Array.isArray(changes) || !changes.length) return
 
@@ -69,7 +83,7 @@ export function useFileWatcher({ editorStore, projectStore, showReloadNotice }) 
     }
   }
 
-  async function reloadTab(tab) {
+  async function reloadTab(tab: EditorTab) {
     try {
       const content = await readFile(tab.path)
       tab.content = content
@@ -81,7 +95,7 @@ export function useFileWatcher({ editorStore, projectStore, showReloadNotice }) 
   }
 
   /** 仅当磁盘内容与当前内容不同时才重新加载，返回是否实际发生了重载 */
-  async function reloadIfChanged(tab) {
+  async function reloadIfChanged(tab: EditorTab): Promise<boolean> {
     try {
       const content = await readFile(tab.path)
       if (content === tab.content) return false
@@ -95,7 +109,7 @@ export function useFileWatcher({ editorStore, projectStore, showReloadNotice }) 
   }
 
   async function startListening() {
-    unlisten = await listen('file-system-changed', handleFileChanges)
+    unlisten = await listen<FileChangeEvent[]>('file-system-changed', handleFileChanges)
   }
 
   onMounted(() => {

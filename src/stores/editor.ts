@@ -25,6 +25,12 @@ interface EditorState {
   compiling: boolean
 }
 
+/**
+ * openFile 的入参：只有 path 是必需的，其余字段用于填充标签元信息、
+ * 缺失时都有兜底。工具链产物（只知道输出路径）就是这么调的。
+ */
+export type OpenFileTarget = Pick<FileNode, 'path'> & Partial<Omit<FileNode, 'path'>>
+
 /** createTextTab 的可选覆盖项 */
 type TextTabOverrides = Partial<Omit<EditorTab, 'path' | 'content' | 'language'>>
 
@@ -49,7 +55,7 @@ function getBaseName(path: string): string {
 
 const BINARY_SCRIPT_EXTENSIONS = new Set(['ecl', 'msg', 'std', 'dat', 'anm'])
 
-function isBinaryScript(fileNode: FileNode | null | undefined): boolean {
+function isBinaryScript(fileNode: OpenFileTarget | null | undefined): boolean {
   const extension = String(fileNode?.extension || '').toLowerCase()
   return BINARY_SCRIPT_EXTENSIONS.has(extension)
 }
@@ -75,7 +81,7 @@ function createTextTab(
   }
 }
 
-function createBinaryScriptTab(fileNode: EditorTabSnapshot | FileNode): EditorTab {
+function createBinaryScriptTab(fileNode: EditorTabSnapshot | OpenFileTarget): EditorTab {
   return {
     path: fileNode.path,
     name: fileNode.name || getBaseName(fileNode.path),
@@ -112,7 +118,7 @@ export const useEditorStore = defineStore('editor', {
     },
 
     // 核心：打开文件
-    async openFile(fileNode: FileNode) {
+    async openFile(fileNode: OpenFileTarget) {
       // 1. 如果 Tab 已存在，直接切换过去
       const existingTab = this.tabs.find(t => t.path === fileNode.path)
       if (existingTab) {

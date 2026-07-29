@@ -34,3 +34,15 @@ export interface FileNode {
   /** 文件名含非 UTF-8 字节，IDE 操作可能失败 */
   lossy: boolean
 }
+
+/**
+ * 对应 `common/file_watcher.rs` 的 `FileChangeEvent`（`rename_all = "camelCase"`）。
+ *
+ * `kind` 在 Rust 侧是裸 String，只会产出这两个值：
+ * - `modify` — 处理时路径仍存在（涵盖新建与修改，文件和目录都算）
+ * - `remove` — 处理时路径已不存在
+ */
+export interface FileChangeEvent {
+  path: string
+  kind: 'modify' | 'remove'
+}

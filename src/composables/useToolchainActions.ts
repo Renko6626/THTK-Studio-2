@@ -13,6 +13,16 @@ import {
   extractDatFile,
   packDatFile
 } from '../api'
+import type { MessageApi } from 'naive-ui'
+import type { EditorTab } from '../stores/editor'
+
+export interface ToolchainActionsOptions {
+  /**
+   * naive-ui useMessage 实例，用于 dirty 保存失败等提示。
+   * 不传则相应位置静默（只 console 打印）。
+   */
+  message?: MessageApi
+}
 
 /**
  * 工具链动作合集 —— thecl / thmsg / thstd / thdat 的"快速路径"统一入口。
@@ -20,17 +30,15 @@ import {
  * 每个 run* 内部完整跑完:dirty 保存 → 调 API → publishToolchainResult → auto-open / refresh →
  * catch 异常也走 publishToolchainResult 报失败卡片。MenuBar 与 BinaryScriptView 共用同一份语义。
  *
- * @param {{ message?: import('naive-ui').MessageApiInjection }} [options]
- *   传入 naive-ui useMessage 实例,用于 dirty 保存失败时的提示;不传则仅 console 打印。
  */
-export function useToolchainActions({ message } = {}) {
+export function useToolchainActions({ message }: ToolchainActionsOptions = {}) {
   const editorStore  = useEditorStore()
   const buildDialog  = useBuildDialogStore()
   const projectStore = useProjectStore()
   const { publishToolchainResult } = usePublishToolchainResult()
 
   // 内部:tab dirty 时尝试保存,失败提示用户并取消操作
-  async function ensureSavedIfDirty(tab) {
+  async function ensureSavedIfDirty(tab: EditorTab | null | undefined) {
     if (!tab || !tab.isDirty) return true
     try {
       const saved = await editorStore.saveActiveFile()
@@ -45,7 +53,7 @@ export function useToolchainActions({ message } = {}) {
     }
   }
 
-  async function autoOpen(path) {
+  async function autoOpen(path: string | null | undefined) {
     if (!path) return
     try {
       await editorStore.openFile({ path })
@@ -64,7 +72,7 @@ export function useToolchainActions({ message } = {}) {
 
   // ===== ECL =====
 
-  async function runDecompileEclQuick(path) {
+  async function runDecompileEclQuick(path: string | null | undefined) {
     if (!path) return
     try {
       const result = await decompileEclFile({ sourcePath: path, mapPaths: [] })
@@ -90,7 +98,7 @@ export function useToolchainActions({ message } = {}) {
     }
   }
 
-  function runDecompileEclAdvanced(path) {
+  function runDecompileEclAdvanced(path: string | null | undefined) {
     if (!path) return
     buildDialog.openDialog({
       tool: 'thecl',
@@ -101,7 +109,7 @@ export function useToolchainActions({ message } = {}) {
     })
   }
 
-  async function runCompileEclQuick(tab) {
+  async function runCompileEclQuick(tab: EditorTab | null | undefined) {
     if (!tab?.path) return
     if (!(await ensureSavedIfDirty(tab))) return
     try {
@@ -125,7 +133,7 @@ export function useToolchainActions({ message } = {}) {
     }
   }
 
-  function runCompileEclAdvanced(tab) {
+  function runCompileEclAdvanced(tab: EditorTab | null | undefined) {
     if (!tab?.path) return
     buildDialog.openDialog({
       tool: 'thecl',
@@ -136,7 +144,7 @@ export function useToolchainActions({ message } = {}) {
     })
   }
 
-  function runGenerateEclHeader(tab) {
+  function runGenerateEclHeader(tab: EditorTab | null | undefined) {
     if (!tab?.path) return
     buildDialog.openDialog({
       tool: 'thecl',
@@ -149,7 +157,7 @@ export function useToolchainActions({ message } = {}) {
 
   // ===== MSG =====
 
-  async function runDecompileMsg(path) {
+  async function runDecompileMsg(path: string | null | undefined) {
     if (!path) return
     try {
       const result = await decompileMsgFile({ inputPath: path })
@@ -175,7 +183,7 @@ export function useToolchainActions({ message } = {}) {
     }
   }
 
-  async function runCompileMsg(tab) {
+  async function runCompileMsg(tab: EditorTab | null | undefined) {
     if (!tab?.path) return
     if (!(await ensureSavedIfDirty(tab))) return
     try {
@@ -201,7 +209,7 @@ export function useToolchainActions({ message } = {}) {
 
   // ===== STD =====
 
-  async function runDecompileStd(path) {
+  async function runDecompileStd(path: string | null | undefined) {
     if (!path) return
     try {
       const result = await decompileStdFile({ inputPath: path })
@@ -227,7 +235,7 @@ export function useToolchainActions({ message } = {}) {
     }
   }
 
-  async function runCompileStd(tab) {
+  async function runCompileStd(tab: EditorTab | null | undefined) {
     if (!tab?.path) return
     if (!(await ensureSavedIfDirty(tab))) return
     try {
@@ -254,14 +262,14 @@ export function useToolchainActions({ message } = {}) {
   // ===== DAT =====
 
   // /p/th17.dat → /p/th17 (默认抽取目录:与归档同级的同名兄弟目录)
-  function deriveDefaultExtractDir(archivePath) {
+  function deriveDefaultExtractDir(archivePath: string): string {
     const lastSep = Math.max(archivePath.lastIndexOf('/'), archivePath.lastIndexOf('\\'))
     const dir = archivePath.slice(0, lastSep + 1)
     const stem = archivePath.slice(lastSep + 1).replace(/\.dat$/i, '')
     return dir + stem
   }
 
-  async function runExtractDat(archivePath) {
+  async function runExtractDat(archivePath?: string | null) {
     if (!archivePath) {
       const picked = await openDialog({
         multiple: false,

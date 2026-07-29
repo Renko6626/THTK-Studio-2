@@ -1,8 +1,33 @@
 import { useWorkbenchReportsStore } from '../stores/workbenchReports'
 import { useWorkbenchPanelsStore } from '../stores/workbenchPanels'
+import type { Diagnostic } from '../types'
+
+/** 发布结果时用的工具标识；'ai' 不是 thtk 工具，是 AI 辅助包生成 */
+export type ResultTool = 'thecl' | 'thmsg' | 'thstd' | 'thdat' | 'ai'
+export type ResultOperation =
+  | 'compile'
+  | 'decompile'
+  | 'header'
+  | 'extract'
+  | 'pack'
+  | 'generate'
+
+export interface PublishToolchainResultArgs {
+  tool: ResultTool
+  operation: ResultOperation
+  /** 操作的源路径，决定 ownerKey（同一文件重复操作会覆盖旧卡片） */
+  inputPath?: string | null
+  outputPath?: string | null
+  success: boolean
+  /** stderr / info 文本 */
+  message?: string
+  /** 标题附加内容，如 "(N 个文件)" */
+  extra?: string
+  diagnostics?: Diagnostic[]
+}
 
 // 单一来源:(tool, operation) → 卡片标题动词部分
-const ACTION_LABELS = {
+const ACTION_LABELS: Record<ResultTool, Partial<Record<ResultOperation, string>>> = {
   thecl: { compile: '编译 .ecl', decompile: '反编译 .ecl', header: '生成 ECL 头文件' },
   thmsg: { compile: '编译 .msg', decompile: '反编译 .msg' },
   thstd: { compile: '编译 .std', decompile: '反编译 .std' },
@@ -10,7 +35,7 @@ const ACTION_LABELS = {
   ai:    { generate: '生成 AI 辅助包' }
 }
 
-const SCRIPT_KIND = {
+const SCRIPT_KIND: Record<ResultTool, string> = {
   thecl: 'ecl',
   thmsg: 'msg',
   thstd: 'std',
@@ -26,16 +51,6 @@ export function usePublishToolchainResult() {
    * 发布工具链操作结果到输出面板,使用统一的标题格式。
    * 卡片 ownerKey = `${tool}:${operation}:${inputPath || ''}`,
    * 同一文件的重复操作会覆盖旧卡片,与 publishToolResult 的语义一致。
-   *
-   * @param {object} args
-   * @param {'thecl'|'thmsg'|'thstd'|'thdat'|'ai'} args.tool
-   * @param {'compile'|'decompile'|'header'|'extract'|'pack'|'generate'} args.operation
-   * @param {string} [args.inputPath] 操作的源路径(决定 ownerKey)
-   * @param {string} [args.outputPath] 产物路径(可选)
-   * @param {boolean} args.success
-   * @param {string} [args.message] stderr/info 文本
-   * @param {string} [args.extra] 标题附加内容(如 "(N 个文件)")
-   * @param {Array}  [args.diagnostics] 结构化诊断(默认空)
    */
   function publishToolchainResult({
     tool,
@@ -46,7 +61,7 @@ export function usePublishToolchainResult() {
     message,
     extra,
     diagnostics
-  }) {
+  }: PublishToolchainResultArgs) {
     const action = ACTION_LABELS[tool]?.[operation] || `${tool} ${operation}`
     const suffix = extra ? ` ${extra}` : ''
     const title = `${action} ${success ? '完成' : '失败'}${suffix}`

@@ -4,16 +4,22 @@ import {
   clearEclSemanticVocabulary,
   updateEclSemanticVocabulary
 } from '../services/languages/ecl/register'
+import type { useProjectStore } from '../stores/project'
+
+export interface EclSemanticVocabularyDeps {
+  projectStore: ReturnType<typeof useProjectStore>
+  showReloadNotice?: (text: string) => void
+}
 
 export function useEclSemanticVocabulary({
   projectStore,
   showReloadNotice
-}) {
+}: EclSemanticVocabularyDeps) {
   let disposed = false
   let loadingToken = 0
   let previousScopeKey = '__global__'
 
-  function getScopeKey() {
+  function getScopeKey(): string {
     return projectStore.rootPath || '__global__'
   }
 
