@@ -1,5 +1,37 @@
 import { ref } from 'vue'
+import type { Ref } from 'vue'
+import type { MessageApi } from 'naive-ui'
 import { remapExpandedKeys } from './useFileOperations'
+import type { FileNode } from '../types'
+import type { useEditorStore } from '../stores/editor'
+import type { useExplorerViewStore } from '../stores/explorerView'
+import type { useProjectStore } from '../stores/project'
+
+/** naive-ui NTree 的拖放位置 */
+type DropPosition = 'before' | 'inside' | 'after'
+
+/**
+ * FileTree.vue 注入的依赖。那几个 helper 目前定义在 FileTree.vue 里，
+ * 等 Task 11 迁完组件后可以考虑把它们下沉到本文件或 utils。
+ */
+export interface FileTreeDnDDeps {
+  expandedKeys: Ref<string[]>
+  selectedKeys: Ref<string[]>
+  projectStore: ReturnType<typeof useProjectStore>
+  editorStore: ReturnType<typeof useEditorStore>
+  explorerViewStore: ReturnType<typeof useExplorerViewStore>
+  message: MessageApi
+  persistExpandedKeys: () => void
+  canMoveEntryIntoDir: (entry: FileNode | null, destinationDir: string | null) => boolean
+  getExistingNamesForDir: (destinationDir: string) => Set<string>
+  makeUniqueDestinationName: (
+    name: string,
+    destinationDir: string,
+    existingNames: Set<string>
+  ) => string
+  joinPath: (dir: string, name: string) => string
+  renameEntry: (oldPath: string, newPath: string) => Promise<void>
+}
 
 /**
  * 文件树拖放逻辑
@@ -17,11 +49,11 @@ export function useFileTreeDnD({
   makeUniqueDestinationName,
   joinPath,
   renameEntry
-}) {
-  const draggingNode = ref(null)
+}: FileTreeDnDDeps) {
+  const draggingNode = ref<FileNode | null>(null)
   const rootDropActive = ref(false)
 
-  function handleTreeDragStart({ node, event }) {
+  function handleTreeDragStart({ node, event }: { node: FileNode; event: DragEvent }) {
     draggingNode.value = node
     event?.dataTransfer?.setData('text/plain', node?.path || '')
     if (event?.dataTransfer) {
@@ -36,7 +68,7 @@ export function useFileTreeDnD({
     rootDropActive.value = false
   }
 
-  function allowDrop({ node, dropPosition }) {
+  function allowDrop({ node, dropPosition }: { node: FileNode; dropPosition: DropPosition }) {
     return (
       dropPosition === 'inside' &&
       !!node?.is_dir &&
@@ -46,7 +78,15 @@ export function useFileTreeDnD({
     )
   }
 
-  async function handleTreeDrop({ node, dragNode, dropPosition }) {
+  async function handleTreeDrop({
+    node,
+    dragNode,
+    dropPosition
+  }: {
+    node: FileNode
+    dragNode: FileNode
+    dropPosition: DropPosition
+  }) {
     if (dropPosition !== 'inside' || !node?.is_dir || !dragNode?.path) {
       draggingNode.value = null
       return
@@ -91,12 +131,12 @@ export function useFileTreeDnD({
 
   // 根目录拖放区域
 
-  function handleRootDragEnter(event) {
-    if (event?.dataTransfer?.files?.length > 0 && !draggingNode.value) return
+  function handleRootDragEnter(event: DragEvent) {
+    if ((event?.dataTransfer?.files?.length ?? 0) > 0 && !draggingNode.value) return
     rootDropActive.value = canMoveEntryIntoDir(draggingNode.value, projectStore.rootPath)
   }
 
-  function handleRootDragOver(event) {
+  function handleRootDragOver(event: DragEvent) {
     const allowed = canMoveEntryIntoDir(draggingNode.value, projectStore.rootPath)
     rootDropActive.value = allowed
     if (allowed && event?.dataTransfer) {
@@ -104,13 +144,14 @@ export function useFileTreeDnD({
     }
   }
 
-  function handleRootDragLeave(event) {
-    if (event?.currentTarget?.contains?.(event.relatedTarget)) return
+  function handleRootDragLeave(event: DragEvent) {
+    const currentTarget = event?.currentTarget
+    if (currentTarget instanceof Node && currentTarget.contains(event.relatedTarget as Node | null)) return
     rootDropActive.value = false
   }
 
-  async function handleRootDrop(event) {
-    if (event?.dataTransfer?.files?.length > 0 && !draggingNode.value) {
+  async function handleRootDrop(event: DragEvent) {
+    if ((event?.dataTransfer?.files?.length ?? 0) > 0 && !draggingNode.value) {
       rootDropActive.value = false
       message.info('暂不支持从系统拖入文件，请用顶部"打开文件夹"按钮')
       return

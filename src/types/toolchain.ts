@@ -118,6 +118,11 @@ export interface ThdatResult {
   fileCount: number | null
 }
 
+/** 对应 `common/system_clipboard.rs` 的 `FileClipboardPayload` */
+export interface FileClipboardPayload {
+  paths: string[]
+}
+
 /** 对应 `common/fs_ops.rs` 的 `EntryStat`（`rename_all = "camelCase"`） */
 export interface EntryStat {
   exists: boolean

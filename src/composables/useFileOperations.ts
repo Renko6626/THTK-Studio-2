@@ -4,8 +4,24 @@ import { createDir, createFile, renameEntry, deleteEntry } from '../api'
 import { useProjectStore } from '../stores/project'
 import { useEditorStore } from '../stores/editor'
 import { normalizePath } from '../utils/pathNormalize'
+import type { DialogApi } from 'naive-ui'
+import type { FileNode } from '../types'
 
-const inputState = reactive({
+export type InlineInputType = 'create' | 'rename' | null
+export type CreateFileType = 'file' | 'dir' | null
+
+export interface InlineInputState {
+  type: InlineInputType
+  targetPath: string | null
+  fileType: CreateFileType
+  defaultValue: string
+}
+
+/**
+ * ⚠️ 模块级单例：所有调用 useFileOperations() 的组件共享同一份输入态。
+ * 现有设计如此（文件树里只会有一个内联输入框），迁移不改。
+ */
+const inputState = reactive<InlineInputState>({
   type: null,
   targetPath: null,
   fileType: null,
@@ -19,7 +35,8 @@ const RESERVED_NAMES = new Set(['', '.', '..'])
 /**
  * 校验文件/目录名。成功返回 null；失败返回错误消息字符串。
  */
-export function validateFileName(name) {
+export function validateFileName(name: string): string | null {
+  // 运行时仍可能被传入非字符串（调用方是 .vue，目前不在类型门禁内）
   if (typeof name !== 'string') return '文件名无效'
   const trimmed = name.trim()
   if (trimmed !== name) return '文件名前后不能有空白'
@@ -34,7 +51,11 @@ export function validateFileName(name) {
  *
  * 同时识别 '/' 和 '\\' 两种分隔符，以兼容跨平台路径混用场景。
  */
-export function remapExpandedKeys(keys, oldPath, newPath) {
+export function remapExpandedKeys(
+  keys: string[],
+  oldPath: string | null | undefined,
+  newPath: string | null | undefined
+): string[] {
   if (!Array.isArray(keys) || !oldPath || !newPath || oldPath === newPath) {
     return keys
   }
@@ -50,6 +71,10 @@ export function remapExpandedKeys(keys, oldPath, newPath) {
   })
 }
 
+export interface SubmitInputExtras {
+  onRenamed?: (oldPath: string, newPath: string) => void
+}
+
 export function useFileOperations() {
   const message = useMessage()
   const projectStore = useProjectStore()
@@ -59,14 +84,14 @@ export function useFileOperations() {
   // 新增：防抖锁，防止 Enter 和 Blur 同时触发导致请求发两次
   const isSubmitting = ref(false)
 
-  function handleCreate(parentPath, type) {
+  function handleCreate(parentPath: string, type: Exclude<CreateFileType, null>) {
     inputState.type = 'create'
     inputState.targetPath = parentPath
     inputState.fileType = type
     inputState.defaultValue = ''
   }
 
-  function handleRename(node) {
+  function handleRename(node: FileNode) {
     if (node.lossy) {
       message.error('该文件名含非 UTF-8 字符，IDE 暂不支持对其操作。请用系统文件管理器处理。')
       return
@@ -76,7 +101,7 @@ export function useFileOperations() {
     inputState.defaultValue = node.name
   }
 
-  function handleDelete(node, dialog) {
+  function handleDelete(node: FileNode, dialog: DialogApi) {
     if (node.lossy) {
       message.error('该文件名含非 UTF-8 字符，IDE 暂不支持对其操作。请用系统文件管理器处理。')
       return
@@ -102,13 +127,10 @@ export function useFileOperations() {
   /**
    * 提交内联输入。
    *
-   * @param {string} value 用户输入的名称
-   * @param {object} [extras]
-   * @param {(oldPath: string, newPath: string) => void} [extras.onRenamed]
-   *        重命名成功后回调，参数为旧/新绝对路径。供调用方更新 selectedKeys、
-   *        expandedKeys 等本地状态。
+   * extras.onRenamed 在重命名成功后回调（旧/新绝对路径），
+   * 供调用方更新 selectedKeys、expandedKeys 等本地状态。
    */
-  async function submitInput(value, extras = {}) {
+  async function submitInput(value: string, extras: SubmitInputExtras = {}) {
     if (isSubmitting.value || inputState.type === null) {
       return
     }
@@ -140,12 +162,12 @@ export function useFileOperations() {
 
     try {
       if (inputState.type === 'create') {
-        const newPath = normalizePath(`${inputState.targetPath}${separator}${val}`)
+        const newPath = normalizePath(`${inputState.targetPath ?? ''}${separator}${val}`)
         if (inputState.fileType === 'file') await createFile(newPath)
         else await createDir(newPath)
       }
       else if (inputState.type === 'rename') {
-        const oldPath = inputState.targetPath
+        const oldPath = inputState.targetPath ?? ''
         const parentDir = oldPath.substring(0, oldPath.lastIndexOf(separator))
         const newPath = normalizePath(`${parentDir}${separator}${val}`)
 

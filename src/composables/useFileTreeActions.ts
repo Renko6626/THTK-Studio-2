@@ -1,5 +1,31 @@
 import { copyEntry, renameEntry, deleteEntry, getFileClipboard, setFileClipboard, statEntry } from '../api'
 import { useWorkbenchReportsStore } from '../stores/workbenchReports'
+import type { Ref } from 'vue'
+import type { DialogApi, MessageApi } from 'naive-ui'
+import type { FileNode } from '../types'
+import type { useEditorStore } from '../stores/editor'
+import type { useExplorerClipboardStore } from '../stores/explorerClipboard'
+import type { useExplorerViewStore } from '../stores/explorerView'
+import type { useProjectStore } from '../stores/project'
+
+/**
+ * 粘贴操作作用的条目。
+ *
+ * 来自文件树时是完整的 FileNode；来自**系统剪贴板**时只能拿到 path，
+ * 其余字段由 statEntry 探测补齐（拿不到 size / category / lossy 等），
+ * 所以这里只要求这三个字段。
+ */
+export type PasteEntry = Pick<FileNode, 'path' | 'name' | 'is_dir'>
+
+export interface FileTreeActionsDeps {
+  selectedKeys: Ref<string[]>
+  projectStore: ReturnType<typeof useProjectStore>
+  editorStore: ReturnType<typeof useEditorStore>
+  explorerClipboardStore: ReturnType<typeof useExplorerClipboardStore>
+  explorerViewStore: ReturnType<typeof useExplorerViewStore>
+  dialog: DialogApi
+  message: MessageApi
+}
 
 /**
  * 文件树的剪切/复制/粘贴/删除操作
@@ -12,32 +38,32 @@ export function useFileTreeActions({
   explorerViewStore,
   dialog,
   message
-}) {
+}: FileTreeActionsDeps) {
 
   // ---- 路径工具 ----
 
-  function getParentPath(path) {
+  function getParentPath(path: string): string {
     const normalized = path.replace(/[\\/]+$/, '')
     const lastSlash = Math.max(normalized.lastIndexOf('/'), normalized.lastIndexOf('\\'))
     return lastSlash > 0 ? normalized.slice(0, lastSlash) : normalized
   }
 
-  function isPathWithin(path, root) {
+  function isPathWithin(path: string, root: string): boolean {
     return path === root || path.startsWith(`${root}\\`) || path.startsWith(`${root}/`)
   }
 
-  function joinPath(dir, name) {
+  function joinPath(dir: string, name: string): string {
     const separator = dir.includes('\\') ? '\\' : '/'
     return `${dir.replace(/[\\/]+$/, '')}${separator}${name}`
   }
 
-  function splitName(name) {
+  function splitName(name: string): { stem: string; ext: string } {
     const dotIndex = name.lastIndexOf('.')
     if (dotIndex <= 0) return { stem: name, ext: '' }
     return { stem: name.slice(0, dotIndex), ext: name.slice(dotIndex) }
   }
 
-  function findNodeByPath(nodes, path) {
+  function findNodeByPath(nodes: FileNode[], path: string): FileNode | null {
     for (const node of nodes) {
       if (node.path === path) return node
       if (node.children?.length) {
@@ -48,7 +74,7 @@ export function useFileTreeActions({
     return null
   }
 
-  function getExistingNamesForDir(destinationDir) {
+  function getExistingNamesForDir(destinationDir: string): Set<string> {
     if (destinationDir === projectStore.rootPath) {
       return new Set(projectStore.files.map(child => child.name.toLowerCase()))
     }
@@ -56,36 +82,41 @@ export function useFileTreeActions({
     return new Set((destinationNode?.children || []).map(child => child.name.toLowerCase()))
   }
 
-  function getActionEntries(target) {
+  function getActionEntries(target?: FileNode | null): FileNode[] {
     const selectedEntries = selectedKeys.value
       .map(path => findNodeByPath(projectStore.files, path))
-      .filter(Boolean)
+      // 选中项可能指向已被删除的节点，findNodeByPath 返回 null
+      .filter((entry): entry is FileNode => entry !== null)
 
     if (!selectedEntries.length) return target ? [target] : []
     if (target?.path && selectedEntries.some(entry => entry.path === target.path)) return selectedEntries
     return target ? [target] : selectedEntries
   }
 
-  function resolveDestinationDir(targetNode) {
+  function resolveDestinationDir(targetNode: FileNode): string {
     if (targetNode.is_dir) return targetNode.path
     return getParentPath(targetNode.path)
   }
 
-  function canCopyEntryIntoDir(entry, destinationDir) {
+  function canCopyEntryIntoDir(entry: PasteEntry | null, destinationDir: string | null): boolean {
     if (!entry?.path || !destinationDir) return false
     if (destinationDir === entry.path) return false
     if (entry.is_dir && isPathWithin(destinationDir, entry.path)) return false
     return true
   }
 
-  function canMoveEntryIntoDir(entry, destinationDir) {
+  function canMoveEntryIntoDir(entry: PasteEntry | null, destinationDir: string | null): boolean {
     if (!entry?.path || !destinationDir) return false
     if (destinationDir === entry.path) return false
     if (entry.is_dir && isPathWithin(destinationDir, entry.path)) return false
     return getParentPath(entry.path) !== destinationDir
   }
 
-  function makeUniqueDestinationName(baseName, destinationDir, existingNames = null) {
+  function makeUniqueDestinationName(
+    baseName: string,
+    destinationDir: string,
+    existingNames: Set<string> | null = null
+  ): string {
     const names = existingNames || getExistingNamesForDir(destinationDir)
     if (!names.has(baseName.toLowerCase())) return baseName
 
@@ -100,7 +131,7 @@ export function useFileTreeActions({
 
   // ---- 操作 ----
 
-  async function copyPath(path) {
+  async function copyPath(path: string) {
     try {
       await navigator.clipboard.writeText(path)
       message.success(path.includes('\n') ? '文件路径列表已复制' : '文件路径已复制')
@@ -109,7 +140,7 @@ export function useFileTreeActions({
     }
   }
 
-  async function copyEntries(entries) {
+  async function copyEntries(entries: FileNode[]) {
     if (!entries.length) return
     const lossyEntry = entries.find(e => e.lossy)
     if (lossyEntry) {
@@ -121,7 +152,7 @@ export function useFileTreeActions({
     message.success(entries.length > 1 ? `已复制 ${entries.length} 个项目` : '已复制')
   }
 
-  async function cutEntries(entries) {
+  async function cutEntries(entries: FileNode[]) {
     if (!entries.length) return
     const lossyEntry = entries.find(e => e.lossy)
     if (lossyEntry) {
@@ -133,7 +164,7 @@ export function useFileTreeActions({
     message.success(entries.length > 1 ? `已剪切 ${entries.length} 个项目` : '已剪切')
   }
 
-  async function deleteEntries(entries) {
+  async function deleteEntries(entries: FileNode[]) {
     if (!entries.length) return
     const lossyEntry = entries.find(e => e.lossy)
     if (lossyEntry) {
@@ -200,7 +231,7 @@ export function useFileTreeActions({
     })
   }
 
-  async function pasteIntoTarget(targetNode) {
+  async function pasteIntoTarget(targetNode: FileNode) {
     const reportsStore = useWorkbenchReportsStore()
     const isCut = explorerClipboardStore.isCut
     const failed = []
@@ -213,7 +244,7 @@ export function useFileTreeActions({
       entries = explorerClipboardStore.entries.map(e => ({ ...e }))
     } else {
       // 系统剪贴板：路径来自 OS 文件管理器，is_dir 未知 → 必须 stat 探测
-      let systemPaths = []
+      let systemPaths: string[] = []
       try {
         const systemClipboard = await getFileClipboard()
         systemPaths = systemClipboard?.paths || []
@@ -222,7 +253,7 @@ export function useFileTreeActions({
       }
 
       for (const path of systemPaths) {
-        const name = path.split(/[\\/]/).pop()
+        const name = path.split(/[\\/]/).pop() || path
         try {
           const stat = await statEntry(path)
           if (!stat?.exists) {

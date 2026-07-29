@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
-import type { EntryStat } from '../../types'
+import type { EntryStat, FileClipboardPayload } from '../../types'
 
 /**
  * 保存文件
@@ -56,7 +56,7 @@ export function setFileClipboard(paths: string[]): Promise<void> {
 /**
  * 读取系统文件剪贴板
  */
-export function getFileClipboard(): Promise<string[]> {
+export function getFileClipboard(): Promise<FileClipboardPayload> {
   return invoke('get_file_clipboard')
 }
 

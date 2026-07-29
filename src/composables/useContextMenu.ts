@@ -1,4 +1,4 @@
-// src/composables/useContextMenu.js
+// src/composables/useContextMenu.ts
 import { ref, computed, nextTick, h } from 'vue'
 import { NIcon } from 'naive-ui'
 import {
@@ -10,26 +10,42 @@ import {
   Cut24Regular,
   ClipboardPaste24Regular
 } from '@vicons/fluent'
+import type { Ref } from 'vue'
+import type { DropdownOption } from 'naive-ui'
 import { useProjectStore } from '../stores/project'
 import { useExplorerClipboardStore } from '../stores/explorerClipboard'
+import type { FileNode } from '../types'
 
-function getParentPath(path) {
+/**
+ * 右键菜单作用的节点。
+ *
+ * `isRoot` 是可选的：现有代码里写了 `!!node.isRoot ||` 作为"双保险"，但全仓
+ * **没有任何地方设置过这个字段**，所以那一半恒为 false，实际生效的只有
+ * path === rootPath 的比较。保留它是为了不改行为；真要收拾应该单独提交。
+ */
+export type ContextMenuNode = FileNode & { isRoot?: boolean }
+
+export interface ContextMenuOptions {
+  selectedKeys?: Ref<string[]>
+}
+
+function getParentPath(path: string): string {
   const normalized = path.replace(/[\\/]+$/, '')
   const lastSlash = Math.max(normalized.lastIndexOf('/'), normalized.lastIndexOf('\\'))
   return lastSlash > 0 ? normalized.slice(0, lastSlash) : normalized
 }
 
-export function useContextMenu({ selectedKeys } = {}) {
+export function useContextMenu({ selectedKeys }: ContextMenuOptions = {}) {
   const projectStore = useProjectStore()
   const explorerClipboardStore = useExplorerClipboardStore()
 
   const showMenu = ref(false)
   const menuX = ref(0)
   const menuY = ref(0)
-  const targetNode = ref(null)
+  const targetNode = ref<ContextMenuNode | null>(null)
 
   // 触发右键菜单
-  const handleContextMenu = (e, nodeOption) => {
+  const handleContextMenu = (e: MouseEvent, nodeOption: ContextMenuNode) => {
     e.preventDefault()
     e.stopPropagation?.()
 
@@ -48,7 +64,7 @@ export function useContextMenu({ selectedKeys } = {}) {
   }
 
   // 生成菜单选项
-  const menuOptions = computed(() => {
+  const menuOptions = computed<DropdownOption[]>(() => {
     const node = targetNode.value
     if (!node) return []
 
