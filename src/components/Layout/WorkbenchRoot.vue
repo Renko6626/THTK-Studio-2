@@ -55,7 +55,7 @@
   <ProjectSettingsDialog />
 </template>
 
-<script setup>
+<script setup lang="ts">
 /**
  * 工作台根组件。
  *
@@ -102,7 +102,7 @@ const projectActions = useProjectActions({ message, dialog })
 
 const cursorStats = reactive({ line: 1, col: 1 })
 const reloadNotice = ref('')
-let reloadNoticeTimer = null
+let reloadNoticeTimer: number | null = null
 
 const activeEditorModeLabel = computed(() => {
   const activeTab = editorStore.activeTab
@@ -110,12 +110,12 @@ const activeEditorModeLabel = computed(() => {
   return resolveEditorView(activeTab.viewType)?.statusLabel?.(activeTab) || 'TXT'
 })
 
-function updateCursorStats({ line, col }) {
+function updateCursorStats({ line, col }: { line: number; col: number }) {
   cursorStats.line = line
   cursorStats.col = col
 }
 
-function showReloadNotice(text) {
+function showReloadNotice(text: string) {
   reloadNotice.value = text
   if (reloadNoticeTimer) {
     window.clearTimeout(reloadNoticeTimer)

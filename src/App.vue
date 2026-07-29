@@ -8,7 +8,7 @@
   </n-config-provider>
 </template>
 
-<script setup>
+<script setup lang="ts">
 // 这里只搭 naive-ui 的 provider。工作台本身在 WorkbenchRoot 里——
 // useMessage / useDialog 必须在 provider 的后代中调用，放在本组件的 setup 取不到。
 import { darkTheme, NConfigProvider, NDialogProvider, NMessageProvider } from 'naive-ui'

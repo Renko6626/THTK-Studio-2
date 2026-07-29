@@ -68,27 +68,25 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
 import { useWorkbenchPanelsStore } from '../../stores/workbenchPanels'
 import { useResizable } from '../../composables/useResizable'
 
 // 尺寸由 panels store 直接驱动(持久化在 store 的 snapshot 机制里);
 // 可见性仍走 props,由 App.vue 决定。
-defineProps({
-  showLeftSidebar: {
-    type: Boolean,
-    default: true
-  },
-  showRightSidebar: {
-    type: Boolean,
-    default: false
-  },
-  showBottomPanel: {
-    type: Boolean,
-    default: false
+withDefaults(
+  defineProps<{
+    showLeftSidebar?: boolean
+    showRightSidebar?: boolean
+    showBottomPanel?: boolean
+  }>(),
+  {
+    showLeftSidebar: true,
+    showRightSidebar: false,
+    showBottomPanel: false
   }
-})
+)
 
 const panels = useWorkbenchPanelsStore()
 const bottomFullscreen = computed(() => panels.bottomMaximized)

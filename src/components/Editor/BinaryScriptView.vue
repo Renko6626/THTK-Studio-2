@@ -73,10 +73,11 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
 import { NButton } from 'naive-ui'
 import { useEditorStore } from '../../stores/editor'
+import type { EditorTab } from '../../stores/editor'
 import { useMessage } from 'naive-ui'
 import { useToolchainActions } from '../../composables/useToolchainActions'
 
@@ -97,7 +98,20 @@ const formattedSize = computed(() => {
   return `${(size / (1024 * 1024)).toFixed(2)} MB`
 })
 
-const TOOL_DESCRIPTORS = {
+interface ToolDescriptor {
+  typeLabel: string
+  description: string
+  suggestion: string
+  actionLabel: string
+  actionNote: string
+  /** true 表示该工具链尚未实现（anm），此时 action 为 null */
+  disabled: boolean
+  action: ((tab: EditorTab) => void | Promise<void>) | null
+  advancedAction?: (tab: EditorTab) => void
+  advancedLabel?: string
+}
+
+const TOOL_DESCRIPTORS: Record<string, ToolDescriptor> = {
   ecl: {
     typeLabel: 'Touhou ECL 二进制',
     description: 'ECL 控制原作敌机行为与弹幕逻辑。',
@@ -149,7 +163,7 @@ const TOOL_DESCRIPTORS = {
 
 const descriptor = computed(() => {
   const ext = activeTab.value?.extension?.toLowerCase()
-  return TOOL_DESCRIPTORS[ext] || TOOL_DESCRIPTORS.ecl
+  return (ext ? TOOL_DESCRIPTORS[ext] : null) || TOOL_DESCRIPTORS.ecl
 })
 
 function handleAction() {

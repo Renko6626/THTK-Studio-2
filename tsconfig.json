@@ -10,12 +10,13 @@
     "noUnusedParameters": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    // 允许 TS 文件 import 现有的 .js，但不去检查那些 .js 本身——
-    // 全量迁移不在本轮范围内，checkJs 打开会淹没在既有代码的报错里。
+    // 迁移期间保留：src/ 下还剩 main.js，Task 13 收口时关掉。
+    // checkJs 始终为 false —— 未标 lang="ts" 的 SFC 也走这条路径，
+    // 它们要逐个加 lang="ts" 才真正进入门禁。
     "allowJs": true,
     "checkJs": false,
     "types": ["vite/client"]
   },
-  // 只检查已经迁移到 TS 的边界。新增领域边界写 .ts，就会自动进门禁。
-  "include": ["src/**/*.ts", "tests/**/*.ts"]
+  // .vue 已纳入，但只有标了 lang="ts" 的 SFC 才会被真正检查。
+  "include": ["src/**/*.ts", "src/**/*.vue", "tests/**/*.ts"]
 }

@@ -12,7 +12,7 @@
   <EmptyEditorState v-else />
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
 import { useEditorStore } from '../../stores/editor'
 import { useProjectStore } from '../../stores/project'
@@ -20,7 +20,9 @@ import { resolveEditorView } from '../../services/workbench/editorViews'
 import EmptyEditorState from './EmptyEditorState.vue'
 import WelcomeView from '../Welcome/WelcomeView.vue'
 
-defineEmits(['update-cursor'])
+defineEmits<{
+  'update-cursor': [stats: { line: number; col: number }]
+}>()
 
 const editorStore = useEditorStore()
 const projectStore = useProjectStore()

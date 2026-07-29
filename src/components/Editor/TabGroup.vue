@@ -2,7 +2,8 @@
   <div class="h-9 bg-[#1e1e1e] flex items-center overflow-hidden border-b border-white/6 select-none relative z-10">
     <n-tabs
       v-if="editorStore.tabs.length > 0"
-      v-model:value="editorStore.activePath"
+      :value="editorStore.activePath ?? undefined"
+      @update:value="handleTabChange"
       type="card"
       closable
       size="small"
@@ -33,7 +34,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { NTabs, NTabPane, useDialog } from 'naive-ui'
 import { useEditorStore } from '../../stores/editor'
 import { getFileIconUrl } from '../../utils/renderFileIcon'
@@ -41,7 +42,11 @@ import { getFileIconUrl } from '../../utils/renderFileIcon'
 const editorStore = useEditorStore()
 const dialog = useDialog()
 
-function handleClose(path) {
+function handleTabChange(path: string) {
+  editorStore.activePath = path
+}
+
+function handleClose(path: string) {
   const tab = editorStore.tabs.find(item => item.path === path)
   if (!tab) return
 

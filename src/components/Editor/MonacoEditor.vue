@@ -2,7 +2,7 @@
   <div ref="container" class="w-full h-full overflow-hidden"></div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch, shallowRef } from 'vue'
 import * as monaco from 'monaco-editor'
 import { useEditorStore } from '../../stores/editor'
@@ -18,15 +18,17 @@ import {
 } from '../../services/languages/ecl/static-diagnostics'
 import { clearToolchainDiagnostics, syncToolchainDiagnosticsToModels } from '../../services/languages/ecl/toolchain-diagnostics'
 
-const emit = defineEmits(['update-cursor'])
+const emit = defineEmits<{
+  'update-cursor': [stats: { line: number; col: number }]
+}>()
 const editorStore = useEditorStore()
 const workbenchPanelsStore = useWorkbenchPanelsStore()
 const reportsStore = useWorkbenchReportsStore()
 const message = useMessage()
-const container = ref(null)
+const container = ref<HTMLElement | null>(null)
 
 // 使用 shallowRef 避免 Vue 深度代理 Monaco 对象导致性能问题
-const editorInstance = shallowRef(null)
+const editorInstance = shallowRef<monaco.editor.IStandaloneCodeEditor | null>(null)
 const editorActionMap = {
   undo: 'undo',
   redo: 'redo',
@@ -35,14 +37,16 @@ const editorActionMap = {
   findNext: 'editor.action.nextMatchFindAction',
   findPrevious: 'editor.action.previousMatchFindAction',
   selectAll: 'editor.action.selectAll'
-}
+} as const
+
+type EditorActionKey = keyof typeof editorActionMap
 
 // 模型缓存 Map: Map<path, ITextModel>
 // 这样切换 Tab 时不会丢失 Undo/Redo 历史
-const models = new Map()
-const diagnosticTimers = new Map()
+const models = new Map<string, monaco.editor.ITextModel>()
+const diagnosticTimers = new Map<string, number>()
 
-function scheduleModelDiagnostics(model) {
+function scheduleModelDiagnostics(model: monaco.editor.ITextModel | null | undefined) {
   if (!model) return
   const uriKey = model.uri.toString()
   if (diagnosticTimers.has(uriKey)) {
@@ -58,7 +62,7 @@ function scheduleModelDiagnostics(model) {
   diagnosticTimers.set(uriKey, timer)
 }
 
-function syncStaticProblemsForModel(model) {
+function syncStaticProblemsForModel(model: monaco.editor.ITextModel | null | undefined) {
   if (!model) return
   const ownerKey = getEclStaticProblemOwnerKey(model.uri?.fsPath)
   if (model.getLanguageId() !== 'ecl') {
@@ -72,35 +76,42 @@ function syncStaticProblemsForModel(model) {
   )
 }
 
-function clearStaticProblemsForModel(model) {
+function clearStaticProblemsForModel(model: monaco.editor.ITextModel | null | undefined) {
   if (!model) return
   reportsStore.replaceProblems(getEclStaticProblemOwnerKey(model.uri?.fsPath), [])
 }
 
-function handleEditorAction(event) {
-  if (!editorInstance.value) return
-  const action = editorActionMap[event.detail?.action]
+function runEditorAction(actionKey: EditorActionKey | string | undefined) {
+  const editor = editorInstance.value
+  if (!editor) return
+  const action = actionKey ? editorActionMap[actionKey as EditorActionKey] : undefined
   if (!action) return
-  editorInstance.value.focus()
-  const editorAction = editorInstance.value.getAction?.(action)
+  editor.focus()
+  const editorAction = editor.getAction?.(action)
   if (editorAction?.run) {
     void editorAction.run()
     return
   }
-  editorInstance.value.trigger('menu-bar', action, null)
+  editor.trigger('menu-bar', action, null)
 }
 
-function handleRevealLocation(event) {
-  const detail = event.detail || {}
-  if (!editorInstance.value || !detail.path) return
+function handleEditorAction(event: Event) {
+  const detail = (event as CustomEvent<{ action?: string }>).detail
+  runEditorAction(detail?.action)
+}
+
+function handleRevealLocation(event: Event) {
+  const editor = editorInstance.value
+  const detail = (event as CustomEvent<{ path?: string; line?: number; column?: number }>).detail
+  if (!editor || !detail?.path) return
   if (editorStore.activePath !== detail.path) return
 
   const lineNumber = Math.max(1, Number(detail.line || 1))
   const column = Math.max(1, Number(detail.column || 1))
 
-  editorInstance.value.focus()
-  editorInstance.value.revealPositionInCenter({ lineNumber, column })
-  editorInstance.value.setPosition({ lineNumber, column })
+  editor.focus()
+  editor.revealPositionInCenter({ lineNumber, column })
+  editor.setPosition({ lineNumber, column })
 }
 
 onMounted(() => {
@@ -171,7 +182,7 @@ onMounted(() => {
   // 3. 绑定事件：内容修改
   editorInstance.value.onDidChangeModelContent(() => {
     if (editorStore.activePath) {
-      const model = editorInstance.value.getModel()
+      const model = editorInstance.value?.getModel()
       if (model) {
         editorStore.updateContent(editorStore.activePath, model.getValue())
         scheduleModelDiagnostics(model)
@@ -192,19 +203,19 @@ onMounted(() => {
   })
 
   editorInstance.value.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyF, () => {
-    handleEditorAction({ detail: { action: 'find' } })
+    runEditorAction('find')
   })
 
   editorInstance.value.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyH, () => {
-    handleEditorAction({ detail: { action: 'replace' } })
+    runEditorAction('replace')
   })
 
   editorInstance.value.addCommand(monaco.KeyCode.F3, () => {
-    handleEditorAction({ detail: { action: 'findNext' } })
+    runEditorAction('findNext')
   })
 
   editorInstance.value.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.F3, () => {
-    handleEditorAction({ detail: { action: 'findPrevious' } })
+    runEditorAction('findPrevious')
   })
 
   // 初始加载
@@ -216,7 +227,7 @@ onMounted(() => {
 // 监听 Tab 切换
 watch(
   () => editorStore.activeTab,
-  (newTab) => {
+  () => {
     updateEditorModel()
   },
   { deep: false } // 不需要深度监听
@@ -225,7 +236,7 @@ watch(
 watch(
   () => reportsStore.problemEntries,
   (entries) => {
-    syncToolchainDiagnosticsToModels(models, entries)
+    syncToolchainDiagnosticsToModels([...models.values()], entries)
   },
   { deep: true }
 )
@@ -276,7 +287,7 @@ function updateEditorModel() {
     )
     
     models.set(tab.path, model)
-    syncToolchainDiagnosticsToModels(models, reportsStore.problemEntries)
+    syncToolchainDiagnosticsToModels([...models.values()], reportsStore.problemEntries)
   } else {
     const nextLanguageId = inferMonacoLanguageId(tab)
     if (model.getLanguageId() !== nextLanguageId) {
