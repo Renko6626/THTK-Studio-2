@@ -42,7 +42,10 @@ Do not optimize for flashy UI at the cost of architecture.
 
 ## Frontend rules
 
-- Use Vue 3 + TypeScript.
+- Use Vue 3 + TypeScript. The migration is complete: `allowJs` is off, so a new
+  `.js` file under `src/` or `tests/` will fail `npm run typecheck`.
+  Cross-boundary types belong in `src/types/`, written against the Rust structs
+  and pinned by `src-tauri/src/wire_format_tests.rs`.
 - Prefer composition API.
 - Keep components focused and not overly large.
 - UI state and domain state should be separated.

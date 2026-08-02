@@ -4,12 +4,20 @@ import { useProjectStore } from '../../src/stores/project'
 import { useRecentProjectsStore } from '../../src/stores/recentProjects'
 import { useWorkbenchReportsStore } from '../../src/stores/workbenchReports'
 import {
-  listRecentProjects,
-  loadProjectConfig,
-  openProject,
-  removeRecentProject,
-  saveProjectConfig
+  listRecentProjects as rawListRecent,
+  loadProjectConfig as rawLoadConfig,
+  openProject as rawOpenProject,
+  removeRecentProject as rawRemoveRecent,
+  saveProjectConfig as rawSaveConfig
 } from '../../src/api'
+
+const listRecentProjects = vi.mocked(rawListRecent)
+const loadProjectConfig = vi.mocked(rawLoadConfig)
+const openProject = vi.mocked(rawOpenProject)
+const removeRecentProject = vi.mocked(rawRemoveRecent)
+const saveProjectConfig = vi.mocked(rawSaveConfig)
+
+import { makeFileNode, makeProjectConfig } from '../helpers/fixtures'
 
 vi.mock('../../src/api', () => ({
   openProject: vi.fn(),
@@ -30,7 +38,7 @@ describe('project store 的配置三态', () => {
   it('loadProject 一次性提交 rootPath / files / 配置状态', async () => {
     openProject.mockResolvedValue({
       rootPath: '/proj',
-      files: [{ name: 'a.decl', path: '/proj/a.decl' }],
+      files: [makeFileNode({ path: '/proj/a.decl' })],
       projectConfig: {
         status: 'loaded',
         value: { gameVersion: '18', encoding: 'utf-8', mapPaths: [], toolchain: { thtkDir: '' } },
@@ -90,9 +98,10 @@ describe('project store 的配置三态', () => {
     const store = useProjectStore()
     store.rootPath = '/proj/current'
 
-    await store.saveConfig({ gameVersion: '18' }, '/proj/editing')
+    const config = makeProjectConfig({ gameVersion: '18' })
+    await store.saveConfig(config, '/proj/editing')
 
-    expect(saveProjectConfig).toHaveBeenCalledWith({ gameVersion: '18' }, '/proj/editing')
+    expect(saveProjectConfig).toHaveBeenCalledWith(config, '/proj/editing')
     expect(store.projectConfigStatus).toBe('loaded')
   })
 
@@ -164,7 +173,7 @@ describe('workbenchReports 容量上限', () => {
 
     expect(store.outputEntries.length).toBeLessThanOrEqual(5000)
     // 保留的是最新的那一批
-    expect(store.outputEntries.at(-1).text).toBe('line-5199')
+    expect(store.outputEntries.at(-1)?.text).toBe('line-5199')
     expect(store.outputEntries.some(entry => entry.text === 'line-0')).toBe(false)
   })
 

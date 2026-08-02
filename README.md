@@ -21,7 +21,7 @@ THTK-Studio 是一个面向东方 Project 脚本与资源魔改工作流的桌�
 
 ## 当前开发进度
 
-第一阶段 MVP 工程闭环的功能项已经做完：ECL 完整工作流闭环，MSG / STD / DAT 具备基础编译、反编译或容器操作流程，PTY 终端、进程内 MCP Agent 通道、项目配置对话框、欢迎页与最近项目、事务式项目打开与切换保护均已落地。剩余缺口是前端测试 / 类型检查门禁、Windows 实机验收，以及尚未实现的 ANM 工具链。
+第一阶段 MVP 工程闭环的功能项已经做完：ECL 完整工作流闭环，MSG / STD / DAT 具备基础编译、反编译或容器操作流程，PTY 终端、进程内 MCP Agent 通道、项目配置对话框、欢迎页与最近项目、事务式项目打开与切换保护均已落地。前端已全量迁至 TypeScript 并建立测试 / 类型检查门禁。剩余缺口是 Windows 实机验收，以及尚未实现的 ANM 工具链。
 
 ### 已完成
 
@@ -55,6 +55,8 @@ THTK-Studio 是一个面向东方 Project 脚本与资源魔改工作流的桌�
 - 欢迎页与最近项目（10 项、去重置顶、失效标记与移除）
 - 项目切换保护：脏标签三向确认、切换后只清理旧项目的标签、恢复失败落回欢迎页
 - 文件系统安全加固：项目路径守卫、文件名校验、符号链接 / reparse point 防护与严格 CSP
+- 前端全量 TypeScript：`allowJs` 已关闭，跨 Rust 边界的类型由 `wire_format_tests` 钉住
+- 前端测试与类型检查门禁：45 个单元测试覆盖 store / composable / service 层
 
 ### 已有但尚未闭环
 
@@ -63,19 +65,17 @@ THTK-Studio 是一个面向东方 Project 脚本与资源魔改工作流的桌�
 
 ### 尚未完成
 
-- 既有 `.vue` / `.js` 的 TypeScript 迁移（新增边界已用 TS，门禁只覆盖这部分）
 - 组件层与端到端测试（需要真实 Tauri 窗口，目前靠 Windows 手动验收）
 - ANM 工具链、文本编辑层与 sprite / 动画预览
 - MSG / STD 语言服务与结构化诊断
 - 全局搜索、索引、资源引用分析
 - 时间线 / MSG 等领域预览
-- 前端 TypeScript 迁移、测试与类型检查门禁
 
 ## 阶段进度
 
 按 `project.md` 的阶段划分：
 
-1. **第一阶段 MVP 工程闭环**：功能项已完成（ECL / MSG / STD / DAT 基础工作流、文件管理、PTY、项目配置、项目入口与切换保护）；测试门禁与实机验收待补
+1. **第一阶段 MVP 工程闭环**：已完成（ECL / MSG / STD / DAT 基础工作流、文件管理、PTY、项目配置、项目入口与切换保护、TypeScript 与测试门禁）；仅剩 Windows 实机验收
 2. 第二阶段 语言服务 MVP：ECL 基础语言服务已有，MSG / STD / ANM 待实现
 3. 第三阶段 可视化预览：未开始
 4. 第四阶段 高级工程能力：未开始
@@ -105,10 +105,10 @@ src-tauri/src/
 1. 在 Windows 上跑一遍项目工作流的手动验收清单（见收尾计划文档）
 2. 实现 ANM 文本工具链，再单独设计 sprite / 动画预览
 3. 为 MSG / STD 补结构化诊断与基础语言服务
-4. 把既有 store / composable 逐步迁到 TypeScript
-5. 全局搜索与资源引用分析
+4. 全局搜索与资源引用分析
 
-本轮 MVP 收尾计划见 [docs/superpowers/plans/2026-07-13-mvp-project-workflow-closure.md](./docs/superpowers/plans/2026-07-13-mvp-project-workflow-closure.md)。
+本轮 MVP 收尾计划见 [docs/superpowers/plans/2026-07-13-mvp-project-workflow-closure.md](./docs/superpowers/plans/2026-07-13-mvp-project-workflow-closure.md)，
+TypeScript 迁移计划见 [docs/superpowers/plans/2026-07-28-typescript-migration.md](./docs/superpowers/plans/2026-07-28-typescript-migration.md)。
 
 ## 开发
 
@@ -118,7 +118,7 @@ npm run tauri dev    # 完整桌面应用
 npm run dev          # 前端单独开发
 npm run build        # 前端构建
 npm test             # 前端单元测试（store / composable / service 层）
-npm run typecheck    # 对已迁移到 .ts 的边界做类型检查
+npm run typecheck    # 全量类型检查（含 .vue）
 ```
 
 ## Linux 服务器开发

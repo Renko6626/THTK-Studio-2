@@ -10,13 +10,11 @@
     "noUnusedParameters": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    // 迁移期间保留：src/ 下还剩 main.js，Task 13 收口时关掉。
-    // checkJs 始终为 false —— 未标 lang="ts" 的 SFC 也走这条路径，
-    // 它们要逐个加 lang="ts" 才真正进入门禁。
-    "allowJs": true,
-    "checkJs": false,
+    // 迁移已完成：src/ 与 tests/ 下不再有 .js。关掉 allowJs 后，
+    // 任何新增的 .js 都会以"找不到模块"的形式立刻暴露。
+    "allowJs": false,
     "types": ["vite/client"]
   },
-  // .vue 已纳入，但只有标了 lang="ts" 的 SFC 才会被真正检查。
+  // 全部纳入。SFC 需标 lang="ts" 才会被检查（EmptyEditorState.vue 是纯模板、无 script）。
   "include": ["src/**/*.ts", "src/**/*.vue", "tests/**/*.ts"]
 }

@@ -1,11 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { withSetup, createFakeStore } from '../helpers/withSetup.js'
+import { withSetup, createFakeStore } from '../helpers/withSetup'
 import { useWorkbenchSession } from '../../src/composables/useWorkbenchSession'
 import {
-  loadEditorSnapshot,
-  loadProjectSnapshot,
-  loadTerminalSnapshot
+  loadEditorSnapshot as rawLoadEditor,
+  loadProjectSnapshot as rawLoadProject,
+  loadTerminalSnapshot as rawLoadTerminal
 } from '../../src/utils/workbenchState'
+
+const loadEditorSnapshot = vi.mocked(rawLoadEditor)
+const loadProjectSnapshot = vi.mocked(rawLoadProject)
+const loadTerminalSnapshot = vi.mocked(rawLoadTerminal)
+
+import type { EditorSnapshot } from '../../src/utils/workbenchState'
 
 vi.mock('../../src/utils/workbenchState', () => ({
   loadProjectSnapshot: vi.fn(),
@@ -20,12 +26,18 @@ vi.mock('../../src/utils/workbenchState', () => ({
   })
 }))
 
-const DIRTY_SNAPSHOT = {
+const DIRTY_SNAPSHOT: EditorSnapshot = {
   activePath: '/share/proj/a.decl',
   tabs: [
     {
       path: '/share/proj/a.decl',
+      name: 'a.decl',
       isDirty: true,
+      language: 'cpp',
+      viewType: 'text',
+      size: null,
+      extension: 'decl',
+      category: 'sourceScript',
       content: '改了一半没保存',
       originalContent: '原始内容'
     }

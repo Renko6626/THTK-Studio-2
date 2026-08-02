@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 THTK-Studio is a **domain-specific desktop IDE for Touhou Project script/asset modding** (ECL / ANM / MSG / STD formats) — not a generic text editor. Architecture, correctness of the modding workflow, and clean frontend/backend separation are prioritized over UI flash. See `project.md` for the long-term roadmap and `AGENTS.md` for behavioral rules.
 
-Stack: Tauri v2 (Rust host) + Vue 3 frontend (currently mostly `.js`, despite the docs' TS goal) + Monaco Editor + Naive UI + Pinia + UnoCSS + Vite.
+Stack: Tauri v2 (Rust host) + Vue 3 + TypeScript frontend + Monaco Editor + Naive UI + Pinia + UnoCSS + Vite.
 
 ## Commands
 
@@ -23,19 +23,23 @@ cargo clean --manifest-path src-tauri/Cargo.toml   # reclaim the large target/ d
 Frontend gates (added 2026-07-28):
 
 ```bash
-npm test          # vitest run — 35 unit tests over stores / composables / services
-npm run typecheck # vue-tsc over .ts files only
+npm test          # vitest run — 45 unit tests over stores / composables / services
+npm run typecheck # vue-tsc over all .ts and lang="ts" SFCs
 ```
 
 Scope is deliberate: `vitest.config.js` covers **domain logic**, not component rendering — component tests would need either the full naive-ui provider chain or a real Tauri host, and no Playwright/e2e exists because driving the Tauri window needs a display this dev box doesn't have. UI behaviour is verified by the Windows manual checklist in the MVP closure plan.
 
-`tsconfig.json` only `include`s `.ts` files with `checkJs: false`; the existing `.vue`/`.js` are outside the gate. **New domain boundaries should be written in `.ts`** — that is what puts them under typecheck. `typescript` must stay pinned to 5.x (7.x dropped the `./lib/tsc` export `vue-tsc` needs). There is no linter.
+**The frontend is fully TypeScript** — `allowJs: false`, and `src/` plus `tests/` contain zero `.js`. Every SFC carries `lang="ts"` (except `EmptyEditorState.vue`, which is template-only). Adding a `.js` file will fail typecheck with "cannot find module", which is the intended guard rail.
+
+Cross-boundary types live in `src/types/` and are written field-by-field against the Rust structs. **The backend's serde naming is not uniform** — `ProjectConfig`/`RecentProject` are camelCase, `AppConfig` is snake_case, `FileNode` is mixed (`is_dir` but `isLeaf`), and `EclMapInstructionParameter.type_name` is renamed to `type`. `src-tauri/src/wire_format_tests.rs` pins the serialized key sets so a Rust struct change fails there instead of silently breaking the frontend at runtime.
+
+`typescript` must stay pinned to 5.x (7.x dropped the `./lib/tsc` export `vue-tsc` needs). There is no linter.
 
 Rust unit tests exist and run with:
 ```bash
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
-123 unit tests cover: mcp_config (20), project_config (12), fs_ops (12), msg/translator (9), thstd/translator (9), recent_projects (8), msg/compiler (7), thdat/compiler (6), fs_utils (6), mcp/tools (5), thstd/compiler (4), pty (4), config (3), toolchain (3), ecl/map_parser (3), ecl/ai_pack (3), mcp/server (3), msg/map_parser (3), thstd/map_parser (3). On Linux the GTK/WebKit dev headers must be visible to compile the Tauri crate — install them via apt, or without sudo use the conda `tauri-dev` environment (exports `PKG_CONFIG_PATH` / `LD_LIBRARY_PATH`); both paths are documented in README "Linux 服务器开发".
+132 unit tests cover: mcp_config (20), project_config (12), fs_ops (12), wire_format (9), msg/translator (9), thstd/translator (9), recent_projects (8), msg/compiler (7), thdat/compiler (6), fs_utils (6), mcp/tools (5), thstd/compiler (4), pty (4), config (3), toolchain (3), ecl/map_parser (3), ecl/ai_pack (3), mcp/server (3), msg/map_parser (3), thstd/map_parser (3). On Linux the GTK/WebKit dev headers must be visible to compile the Tauri crate — install them via apt, or without sudo use the conda `tauri-dev` environment (exports `PKG_CONFIG_PATH` / `LD_LIBRARY_PATH`); both paths are documented in README "Linux 服务器开发".
 
 `src-tauri/target/` is a Rust debug build cache and grows to several GB (the `windows` crate + incremental cache dominate); it and `node_modules/`, `dist/` are gitignored and regenerated locally.
 

@@ -7,7 +7,7 @@ import {
   updateScopedEclSemanticData
 } from '../../src/services/languages/ecl/semantic-state'
 
-const dataFor = (version) => ({
+const dataFor = (version: string) => ({
   version,
   sourcePath: `/maps/th${version}.eclm`,
   instructions: [{ opcode: 1, name: `ins_${version}` }],
@@ -15,7 +15,7 @@ const dataFor = (version) => ({
 })
 
 /** 伪造 Monaco model：作用域匹配只看 uri.fsPath / uri.path */
-const modelAt = (fsPath) => ({ uri: { fsPath } })
+const modelAt = (fsPath: string) => ({ uri: { fsPath } })
 
 describe('ECL 词表作用域', () => {
   beforeEach(() => {

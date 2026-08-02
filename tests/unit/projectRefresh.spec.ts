@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useProjectStore } from '../../src/stores/project'
-import { getDirChildren, getFileTree } from '../../src/api'
+import { getDirChildren as rawGetDirChildren, getFileTree as rawGetFileTree } from '../../src/api'
+
+const getDirChildren = vi.mocked(rawGetDirChildren)
+const getFileTree = vi.mocked(rawGetFileTree)
+
+import { makeFileNode } from '../helpers/fixtures'
 
 vi.mock('../../src/api', () => ({
   openProject: vi.fn(),
@@ -12,16 +17,16 @@ vi.mock('../../src/api', () => ({
 }))
 
 /** 后端浅层扫描对**所有**目录都发 children: null（Rust 的 Option<Vec> 是 None） */
-function unexpandedDir(path) {
-  return { name: path.split('/').pop(), path, is_dir: true, children: null, isLeaf: false }
+function unexpandedDir(path: string) {
+  return makeFileNode({ path, is_dir: true, isLeaf: false })
 }
 
-function file(path) {
-  return { name: path.split('/').pop(), path, is_dir: false, children: null, isLeaf: true }
+function file(path: string) {
+  return makeFileNode({ path })
 }
 
 describe('projectStore.refresh', () => {
-  let store
+  let store: ReturnType<typeof useProjectStore>
 
   beforeEach(() => {
     // 模块 mock 的调用记录不会自动跨用例清空

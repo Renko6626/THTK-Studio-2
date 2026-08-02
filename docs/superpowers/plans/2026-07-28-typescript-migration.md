@@ -11,6 +11,51 @@
 
 ---
 
+## 实施状态（2026-07-28 完成）
+
+13 个任务全部完成。`src/` 与 `tests/` 下 `.js` 清零，`allowJs: false`，
+23 个 `.vue` 中 22 个标了 `lang="ts"`（`EmptyEditorState.vue` 是纯模板、无 script）。
+
+最终门禁：`npm run typecheck` / `npm test`（45）/ `npm run build` / `cargo test`（132）全绿，
+并用 Vite dev server 实测确认 `index.html` → `/src/main.ts` 能正常解析。
+
+### 与计划的偏差
+
+- **`sessionRuntime` 从 Task 5 提前到 Task 4。** terminal store 依赖它，而计划把
+  services 排在 stores 之后——这是原计划的排序错误。
+- **测试文件也一并迁移并纳入门禁**（计划只提到 Task 13 顺带做）。收益不小：
+  `vi.mock` 的替身此前完全不受检查，迁移后暴露出多处 fixture 缺字段。为此新增
+  `tests/helpers/naive.ts`（naive-ui API 替身）与 `tests/helpers/fixtures.ts`
+  （数据构造器）——测试通常只关心一两个字段，但类型要求完整结构。
+- **新增 `src-tauri/src/wire_format_tests.rs`**（计划中没有）。前端类型与 Rust
+  结构体之间没有自动同步机制，而本项目的 serde 命名风格并不统一。这 9 个测试
+  钉住序列化后的字段名，改结构体时会失败并提醒同步更新 `src/types/`。
+
+### 迁移期间发现并修复的真实 bug
+
+两个都由类型检查暴露、经测试实证后单独提交（迁移提交只做类型）：
+
+1. **文件树刷新在有未展开目录时必崩**（`4073c49`）。`_collectLoadedDirs` 用
+   `children !== undefined` 判断"已加载"，但后端对未展开目录发的是 `null`
+   （Rust `Option<Vec>`），于是 `null.length` 抛 TypeError。任何带子目录的项目
+   刷新都是坏的，而异常是未捕获的 Promise rejection，表现为"刷新没反应"。
+2. **多份 eclmap 合并时 builtins 被清空**（`0f96ec6`）。`builtins` 是 `string[]`，
+   却被喂给按 `name` 去重的 `dedupeByName`，结果全部被跳过——内置函数
+   （sin / cos 等）在补全与高亮里整体消失。
+
+另外清掉若干死代码：`runThtkRaw`（后端根本没有 `run_thtk_raw` 命令）、
+`theclMetadata` 里重复的 `createDefaultBuildPayload`、`useWorkbenchShortcuts`
+从未使用的 `projectStore` 参数、`tokenizer` 里算完不用的 `normalizeEclSemanticData`、
+`renderFileIcon` 的死导入、`FileTree` 解构却不用的 `draggingNode`。
+
+### 仍未解决
+
+- **`.vue` 的模板表达式检查有限**。SFC 已进门禁，但模板里的类型推断不如
+  `<script>` 严格；组件层依然零测试覆盖。Task 10–12 的安全网只有 typecheck +
+  build + 人工审阅（三档均已逐文件核对模板区零改动）。
+- **`uno.config..js` 文件名笔误**未处理。它是构建配置而非 `src/` 代码，改名会让
+  UnoCSS preflight 突然生效并改变全局样式，需单独一批并实机比对。
+
 ## Global Constraints
 
 - `strict: true` 全程保持开启。不得为了让某一档过关而临时关掉。

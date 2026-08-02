@@ -4,7 +4,13 @@ import { useProjectActions } from '../../src/composables/useProjectActions'
 import { useEditorStore } from '../../src/stores/editor'
 import { useExplorerClipboardStore } from '../../src/stores/explorerClipboard'
 import { useProjectStore } from '../../src/stores/project'
-import { openProject } from '../../src/api'
+import { openProject as rawOpenProject } from '../../src/api'
+
+const openProject = vi.mocked(rawOpenProject)
+import type { VNode } from 'vue'
+import type { DialogOptions } from 'naive-ui'
+import type { ProjectOpenResult } from '../../src/types'
+import { createDialogStub, createMessageStub } from '../helpers/naive'
 
 vi.mock('../../src/api', () => ({
   openProject: vi.fn(),
@@ -24,26 +30,36 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
 }))
 
 /** 从对话框的 action 渲染函数里按按钮文字取出点击回调 */
-function clickDialogButton(options, label) {
-  const node = options.action()
-  const button = node.children.find(child => child.children?.default?.() === label)
+function clickDialogButton(options: DialogOptions, label: string) {
+  const node = (options.action as () => VNode)()
+  const children = node.children as VNode[]
+  const button = children.find(
+    (child) => (child.children as { default?: () => string })?.default?.() === label
+  )
   if (!button) throw new Error(`对话框里没有「${label}」按钮`)
-  button.props.onClick()
+  ;(button.props as { onClick: () => void }).onClick()
+}
+
+/** 取出对话框按钮的文字，用于断言顺序 */
+function dialogButtonLabels(options: DialogOptions): string[] {
+  const node = (options.action as () => VNode)()
+  return (node.children as VNode[]).map(
+    (child) => (child.children as { default: () => string }).default()
+  )
 }
 
 function makeActions() {
-  const dialogCalls = []
-  const dialog = {
-    warning: vi.fn((options) => {
-      dialogCalls.push(options)
-      return { destroy: vi.fn() }
-    })
+  const message = createMessageStub()
+  const dialog = createDialogStub()
+  return {
+    actions: useProjectActions({ message: message.api, dialog: dialog.api }),
+    dialog: { warning: dialog.warning },
+    dialogCalls: dialog.calls,
+    message: message.stub
   }
-  const message = { success: vi.fn(), error: vi.fn(), warning: vi.fn() }
-  return { actions: useProjectActions({ message, dialog }), dialog, dialogCalls, message }
 }
 
-function openResultFor(rootPath) {
+function openResultFor(rootPath: string): ProjectOpenResult {
   return {
     rootPath,
     files: [],
@@ -52,21 +68,25 @@ function openResultFor(rootPath) {
 }
 
 /** 给 editor store 塞一个脏标签 */
-function addDirtyTab(editorStore, path) {
+function addDirtyTab(editorStore: ReturnType<typeof useEditorStore>, path: string) {
   editorStore.tabs.push({
     path,
-    name: path.split('/').pop(),
+    name: path.split('/').pop() || path,
     isDirty: true,
     viewType: 'text',
     content: 'x',
-    originalContent: 'y'
+    originalContent: 'y',
+    language: 'cpp',
+    size: null,
+    extension: 'decl',
+    category: null
   })
 }
 
 describe('useProjectActions', () => {
-  let editorStore
-  let projectStore
-  let clipboardStore
+  let editorStore: ReturnType<typeof useEditorStore>
+  let projectStore: ReturnType<typeof useProjectStore>
+  let clipboardStore: ReturnType<typeof useExplorerClipboardStore>
 
   beforeEach(() => {
     setActivePinia(createPinia())
@@ -127,9 +147,9 @@ describe('useProjectActions', () => {
   })
 
   describe('有脏标签时的三向选择', () => {
-    let actions
-    let dialogCalls
-    let message
+    let actions: ReturnType<typeof useProjectActions>
+    let dialogCalls: DialogOptions[]
+    let message: ReturnType<typeof createMessageStub>['stub']
 
     beforeEach(async () => {
       openProject.mockResolvedValueOnce(openResultFor('/proj/a'))
@@ -192,8 +212,7 @@ describe('useProjectActions', () => {
       const pending = actions.openProjectPath('/proj/b')
       await vi.waitFor(() => expect(dialogCalls).toHaveLength(1))
 
-      const labels = dialogCalls[0].action().children.map(child => child.children.default())
-      expect(labels).toEqual(['取消', '放弃并切换', '保存并切换'])
+      expect(dialogButtonLabels(dialogCalls[0])).toEqual(['取消', '放弃并切换', '保存并切换'])
 
       clickDialogButton(dialogCalls[0], '取消')
       await pending
@@ -205,7 +224,18 @@ describe('useProjectActions', () => {
     const { actions } = makeActions()
     await actions.openProjectPath('/proj/a')
 
-    clipboardStore.entries = [{ path: '/proj/a/x.decl' }]
+    clipboardStore.entries = [
+      {
+        path: '/proj/a/x.decl',
+        name: 'x.decl',
+        is_dir: false,
+        size: null,
+        extension: 'decl',
+        category: 'sourceScript',
+        isLeaf: true,
+        lossy: false
+      }
+    ]
     clipboardStore.mode = 'cut'
 
     openProject.mockResolvedValueOnce(openResultFor('/proj/b'))
@@ -215,7 +245,7 @@ describe('useProjectActions', () => {
   })
 
   it('重入保护：前一次打开还没结束时，第二次直接返回 false', async () => {
-    let releaseFirst
+    let releaseFirst: () => void = () => {}
     openProject.mockImplementationOnce(
       () => new Promise((resolve) => { releaseFirst = () => resolve(openResultFor('/proj/a')) })
     )

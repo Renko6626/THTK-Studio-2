@@ -1,28 +1,43 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { loadDefaultEclSemanticData } from '../../src/services/languages/ecl/semantic-loader'
-import { getEclMapSemantics, getSettings } from '../../src/api'
+import { getEclMapSemantics as rawGetSemantics, getSettings as rawGetSettings } from '../../src/api'
+
+const getEclMapSemantics = vi.mocked(rawGetSemantics)
+const getSettings = vi.mocked(rawGetSettings)
+
+import type { EclMapSemanticData } from '../../src/types'
+import { makeAppConfig, makeProjectConfig } from '../helpers/fixtures'
 
 vi.mock('../../src/api', () => ({
   getSettings: vi.fn(),
   getEclMapSemantics: vi.fn()
 }))
 
-function semanticsWith(names) {
+function semanticsWith(names: string[]): EclMapSemanticData {
   return {
     version: '18',
     sourcePath: '',
-    instructions: names.map((name, index) => ({ name, opcode: index })),
-    builtins: []
+    instructions: names.map((name: string, index: number) => ({
+      name,
+      opcode: index,
+      section: null,
+      signature: null,
+      params: []
+    })),
+    builtins: [],
+    globals: []
   }
 }
 
 describe('ECL 词表加载', () => {
   beforeEach(() => {
-    getSettings.mockResolvedValue({
-      default_game_version: '20',
-      eclmap_path: '/global/th20.eclm',
-      thtk_dir: '/global/thtk'
-    })
+    getSettings.mockResolvedValue(
+      makeAppConfig({
+        default_game_version: '20',
+        eclmap_path: '/global/th20.eclm',
+        thtk_dir: '/global/thtk'
+      })
+    )
   })
 
   it('合并项目声明的全部 map，而不是只取第一条', async () => {
@@ -36,7 +51,7 @@ describe('ECL 词表加载', () => {
 
     const result = await loadDefaultEclSemanticData({
       projectRoot: '/proj',
-      projectConfig: { mapPaths: ['maps/base.eclm', 'maps/extra.eclm'] }
+      projectConfig: makeProjectConfig({ mapPaths: ['maps/base.eclm', 'maps/extra.eclm'] })
     })
 
     expect(result.instructions.map(i => i.name).sort()).toEqual(['ins_a', 'ins_b', 'ins_c'])
@@ -53,7 +68,7 @@ describe('ECL 词表加载', () => {
 
     const result = await loadDefaultEclSemanticData({
       projectRoot: '/proj',
-      projectConfig: { mapPaths: ['maps/gone.eclm'] }
+      projectConfig: makeProjectConfig({ mapPaths: ['maps/gone.eclm'] })
     })
 
     expect(result.instructions.map(i => i.name)).toEqual(['global_ins'])
@@ -64,7 +79,7 @@ describe('ECL 词表加载', () => {
 
     const result = await loadDefaultEclSemanticData({
       projectRoot: '/proj',
-      projectConfig: { gameVersion: 'th18', mapPaths: ['maps/a.eclm'] }
+      projectConfig: makeProjectConfig({ gameVersion: 'th18', mapPaths: ['maps/a.eclm'] })
     })
 
     expect(result.version).toBe('18')
@@ -75,7 +90,7 @@ describe('ECL 词表加载', () => {
 
     await loadDefaultEclSemanticData({
       projectRoot: '/proj',
-      projectConfig: { mapPaths: ['maps/a.eclm'] }
+      projectConfig: makeProjectConfig({ mapPaths: ['maps/a.eclm'] })
     })
 
     expect(getEclMapSemantics).toHaveBeenCalledWith('/proj/maps/a.eclm')
@@ -86,7 +101,7 @@ describe('ECL 词表加载', () => {
 
     await loadDefaultEclSemanticData({
       projectRoot: '/proj',
-      projectConfig: { mapPaths: ['/abs/a.eclm'] }
+      projectConfig: makeProjectConfig({ mapPaths: ['/abs/a.eclm'] })
     })
 
     expect(getEclMapSemantics).toHaveBeenCalledWith('/abs/a.eclm')
@@ -94,7 +109,7 @@ describe('ECL 词表加载', () => {
 
   it('没有任何 map 可用时返回空词表并带上最后一次错误', async () => {
     getEclMapSemantics.mockRejectedValue(new Error('nope'))
-    getSettings.mockResolvedValue({ default_game_version: '20', eclmap_path: '', thtk_dir: '' })
+    getSettings.mockResolvedValue(makeAppConfig({ default_game_version: '20' }))
 
     const result = await loadDefaultEclSemanticData({ projectRoot: '/proj', projectConfig: null })
 
@@ -115,7 +130,7 @@ describe('ECL 词表加载', () => {
 
     return loadDefaultEclSemanticData({
       projectRoot: '/proj',
-      projectConfig: { mapPaths: ['a.eclm', 'b.eclm'] }
+      projectConfig: makeProjectConfig({ mapPaths: ['a.eclm', 'b.eclm'] })
     }).then((result) => {
       expect([...result.builtins].sort()).toEqual(['cos', 'sin', 'tan'])
     })
@@ -129,7 +144,7 @@ describe('ECL 词表加载', () => {
 
     const result = await loadDefaultEclSemanticData({
       projectRoot: '/proj',
-      projectConfig: { mapPaths: ['a.eclm'] }
+      projectConfig: makeProjectConfig({ mapPaths: ['a.eclm'] })
     })
 
     expect(result.builtins).toEqual(['sin'])
@@ -137,13 +152,13 @@ describe('ECL 词表加载', () => {
 
   it('同名指令后加载的覆盖先加载的', async () => {
     getEclMapSemantics.mockImplementation(async (path) => {
-      if (path === '/proj/a.eclm') return { instructions: [{ name: 'dup', opcode: 1 }], builtins: [] }
-      return { instructions: [{ name: 'dup', opcode: 99 }], builtins: [] }
+      const opcode = path === '/proj/a.eclm' ? 1 : 99
+      return { ...semanticsWith([]), instructions: [{ name: 'dup', opcode, section: null, signature: null, params: [] }] }
     })
 
     const result = await loadDefaultEclSemanticData({
       projectRoot: '/proj',
-      projectConfig: { mapPaths: ['a.eclm', 'b.eclm'] }
+      projectConfig: makeProjectConfig({ mapPaths: ['a.eclm', 'b.eclm'] })
     })
 
     expect(result.instructions).toHaveLength(1)
