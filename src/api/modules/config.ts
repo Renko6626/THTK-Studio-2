@@ -4,7 +4,8 @@ import type {
   ProjectConfig,
   ProjectConfigLoad,
   RecentProjectView,
-  ToolchainStatus
+  ToolchainStatus,
+  UserSettingsPayload
 } from '../../types'
 
 /**
@@ -18,7 +19,7 @@ export function getSettings(): Promise<AppConfig> {
  * 保存用户设置
  * @param {Object} config 
  */
-export function saveSettings(config: AppConfig): Promise<void> {
+export function saveSettings(config: UserSettingsPayload): Promise<void> {
   return invoke('save_settings', { config })
 }
 

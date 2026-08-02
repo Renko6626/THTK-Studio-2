@@ -21,7 +21,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
 import { NDropdown, useMessage, useDialog } from 'naive-ui'
 import { useEditorStore } from '../../stores/editor'
@@ -155,7 +155,15 @@ async function openFolder() {
   await projectActions.openProjectFromPicker()
 }
 
-function publishAiPackResult({ success, path, message: text }) {
+function publishAiPackResult({
+  success,
+  path,
+  message: text
+}: {
+  success: boolean
+  path: string | null
+  message: string
+}) {
   reportsStore.publishToolResult({
     ownerKey: 'ecl:ai-pack',
     source: 'toolchain',
@@ -218,16 +226,16 @@ async function runGenerateAiPack() {
   }
 }
 
-async function handleSelect(key) {
+async function handleSelect(key: string) {
   switch (key) {
     case 'file.openFolder':
       await openFolder()
       break
     case 'file.newFile':
-      handleCreate(projectStore.rootPath, 'file')
+      if (projectStore.rootPath) handleCreate(projectStore.rootPath, 'file')
       break
     case 'file.newFolder':
-      handleCreate(projectStore.rootPath, 'dir')
+      if (projectStore.rootPath) handleCreate(projectStore.rootPath, 'dir')
       break
     case 'file.save': {
       const ok = await editorStore.saveActiveFile()

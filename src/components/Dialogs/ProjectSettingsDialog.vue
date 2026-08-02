@@ -129,7 +129,7 @@
   </n-modal>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { h, reactive, ref, watch } from 'vue'
 import { open } from '@tauri-apps/plugin-dialog'
 import {
@@ -147,6 +147,7 @@ import {
 import { useProjectSettingsStore } from '../../stores/projectSettings'
 import { useProjectStore } from '../../stores/project'
 import { THECL_VERSION_OPTIONS } from '../../services/toolchains/theclMetadata'
+import type { ProjectConfig, ProjectEncoding } from '../../types'
 
 const projectSettingsStore = useProjectSettingsStore()
 const projectStore = useProjectStore()
@@ -157,8 +158,19 @@ const versionOptions = THECL_VERSION_OPTIONS
 const loading = ref(false)
 const saving = ref(false)
 
-const form = reactive({
-  gameVersion: '',
+/**
+ * 表单状态。gameVersion 用 null 表示"未选择"——n-select 对空字符串会套用
+ * fallbackOption 当成已选中，placeholder 就不显示了。
+ */
+interface ProjectSettingsForm {
+  gameVersion: string | null
+  encoding: ProjectEncoding
+  mapPaths: string[]
+  thtkDir: string
+}
+
+const form = reactive<ProjectSettingsForm>({
+  gameVersion: null,
   encoding: 'shift-jis',
   mapPaths: [],
   thtkDir: ''
@@ -207,7 +219,7 @@ function syncForm() {
 }
 
 /** 表单 → 后端结构。字段名对齐 serde 的 camelCase。 */
-function buildConfig() {
+function buildConfig(): ProjectConfig {
   return {
     gameVersion: form.gameVersion?.trim() || '',
     encoding: form.encoding,
@@ -219,11 +231,11 @@ function buildConfig() {
   }
 }
 
-function updateMapPath(index, value) {
+function updateMapPath(index: number, value: string) {
   form.mapPaths = form.mapPaths.map((item, current) => (current === index ? value : item))
 }
 
-function moveMapPath(index, delta) {
+function moveMapPath(index: number, delta: number) {
   const target = index + delta
   if (target < 0 || target >= form.mapPaths.length) return
   const next = [...form.mapPaths]
@@ -231,7 +243,7 @@ function moveMapPath(index, delta) {
   form.mapPaths = next
 }
 
-function removeMapPath(index) {
+function removeMapPath(index: number) {
   form.mapPaths = form.mapPaths.filter((_, current) => current !== index)
 }
 
@@ -307,7 +319,7 @@ function close() {
   projectSettingsStore.close()
 }
 
-function handleVisibleChange(value) {
+function handleVisibleChange(value: boolean) {
   if (!value) {
     close()
   }

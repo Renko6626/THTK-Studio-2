@@ -123,7 +123,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, h } from 'vue'
 import {
   NCheckbox,
@@ -139,21 +139,24 @@ import {
   THECL_MODE_OPTIONS,
   THECL_VERSION_OPTIONS
 } from '../../../services/toolchains/theclMetadata'
+import type { TheclBuildPayload } from '../../../types'
 
-const props = defineProps({
-  model: {
-    type: Object,
-    required: true
-  }
-})
+const props = defineProps<{
+  model: TheclBuildPayload
+}>()
 
-const emit = defineEmits(['update:model'])
+const emit = defineEmits<{
+  'update:model': [value: TheclBuildPayload]
+}>()
 
 const isCompileMode = computed(() => props.model.mode === 'compile')
 const isDecompileMode = computed(() => props.model.mode === 'decompile')
 
-function updateField(field, value) {
-  const nextModel = {
+function updateField<K extends keyof TheclBuildPayload>(
+  field: K,
+  value: TheclBuildPayload[K]
+) {
+  const nextModel: TheclBuildPayload = {
     ...props.model,
     [field]: value
   }
@@ -170,7 +173,7 @@ function updateField(field, value) {
   emit('update:model', nextModel)
 }
 
-function renderTag(tag, index) {
+function renderTag(tag: string, index: number) {
   return h(
     NTag,
     {
@@ -179,7 +182,7 @@ function renderTag(tag, index) {
       onClose: () => {
         updateField(
           'mapPaths',
-          props.model.mapPaths.filter((_, currentIndex) => currentIndex !== index)
+          props.model.mapPaths.filter((_: string, currentIndex: number) => currentIndex !== index)
         )
       }
     },

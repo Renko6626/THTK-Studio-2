@@ -36,6 +36,16 @@ export interface AppConfig {
   recent_projects: RecentProjectStored[]
 }
 
+/**
+ * 工具链设置表单实际提交的字段。
+ *
+ * ⚠️ 刻意**不是**完整的 `AppConfig`：`mcp_port` 与 `recent_projects` 由后端维护，
+ * 没有表单入口。后端的 `merge_user_settings` 会从当前配置继承这两项——早先
+ * `save_settings` 直接整体替换，保存一次工具链设置就会清空最近项目。
+ * 这里用独立类型把该契约写死，避免有人"顺手"补齐成 AppConfig。
+ */
+export type UserSettingsPayload = Omit<AppConfig, 'mcp_port' | 'recent_projects'>
+
 /** 对应 `common/toolchain.rs` 的 `ToolchainStatus`（`rename_all = "camelCase"`） */
 export interface ToolchainStatus {
   tool: string

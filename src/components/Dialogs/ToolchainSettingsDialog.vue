@@ -125,7 +125,7 @@
   </n-modal>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { reactive, ref, watch } from 'vue'
 import { open } from '@tauri-apps/plugin-dialog'
 import {
@@ -138,6 +138,8 @@ import {
   useMessage
 } from 'naive-ui'
 import { getSettings, getToolchainStatuses, saveSettings } from '../../api'
+import type { ToolchainStatus, UserSettingsPayload } from '../../types'
+import type { ToolchainDescriptor } from '../../services/toolchains/registry'
 import { useToolchainSettingsStore } from '../../stores/toolchainSettings'
 import { getRegisteredToolchains } from '../../services/toolchains/registry'
 import { THECL_VERSION_OPTIONS } from '../../services/toolchains/theclMetadata'
@@ -146,7 +148,7 @@ const toolchainSettingsStore = useToolchainSettingsStore()
 const message = useMessage()
 const registeredToolchains = getRegisteredToolchains()
 
-const form = reactive({
+const form = reactive<UserSettingsPayload>({
   thtk_dir: '',
   thecl_path: '',
   eclmap_path: '',
@@ -155,7 +157,7 @@ const form = reactive({
   theme: 'dark'
 })
 
-const toolStatuses = reactive({})
+const toolStatuses = reactive<Record<string, ToolchainStatus | null>>({})
 const checking = ref(false)
 const saving = ref(false)
 const versionOptions = THECL_VERSION_OPTIONS
@@ -196,7 +198,7 @@ async function refreshStatuses() {
   }
 }
 
-function updateToolOverride(toolId, value) {
+function updateToolOverride(toolId: string, value: string) {
   form.tool_overrides = {
     ...form.tool_overrides,
     [toolId]: value
@@ -210,7 +212,7 @@ async function pickThtkDir() {
   }
 }
 
-async function pickToolExe(tool) {
+async function pickToolExe(tool: ToolchainDescriptor) {
   const selected = await open({
     directory: false,
     multiple: false,
@@ -235,7 +237,7 @@ async function pickEclMapFile() {
 async function save() {
   saving.value = true
   try {
-    const normalizedOverrides = Object.fromEntries(
+    const normalizedOverrides: Record<string, string> = Object.fromEntries(
       Object.entries(form.tool_overrides)
         .map(([key, value]) => [key, String(value || '').trim()])
         .filter(([, value]) => Boolean(value))
@@ -260,7 +262,7 @@ async function save() {
   }
 }
 
-function statusBadgeClass(available) {
+function statusBadgeClass(available: boolean | undefined) {
   return available
     ? 'text-[#89d185]'
     : 'text-[#f48771]'
@@ -270,7 +272,7 @@ function closeDialog() {
   toolchainSettingsStore.close()
 }
 
-function handleVisibleChange(value) {
+function handleVisibleChange(value: boolean) {
   if (!value) {
     closeDialog()
   }

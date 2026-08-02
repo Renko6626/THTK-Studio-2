@@ -6,9 +6,11 @@ export const THECL_MODE_LABELS: Record<TheclMode, string> = {
   header: '生成头文件'
 }
 
+/** 与 naive-ui n-select 的 options 兼容 */
 export interface SelectOption {
   label: string
   value: string
+  [key: string]: unknown
 }
 
 export const THECL_MODE_OPTIONS: SelectOption[] = [

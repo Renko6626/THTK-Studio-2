@@ -25,7 +25,7 @@
   </BuildDialogShell>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, reactive, watch } from 'vue'
 import { useMessage } from 'naive-ui'
 import { getSettings } from '../../api'
@@ -34,6 +34,7 @@ import { useEditorStore } from '../../stores/editor'
 import { useProjectStore } from '../../stores/project'
 import { useBuildDialogStore } from '../../stores/buildDialog'
 import { useTheclActions } from '../../composables/useTheclActions'
+import type { BuildDialogPayload, TheclBuildPayload } from '../../types'
 import {
   createDefaultBuildPayload,
   getToolchainDescriptor
@@ -99,16 +100,17 @@ watch(
   { immediate: true }
 )
 
-function syncForm(payload) {
+function syncForm(payload: Partial<BuildDialogPayload> | null | undefined) {
   const base = createDefaultBuildPayload(payload?.tool)
 
   Object.assign(formModel, base, payload, {
     inputPath: payload?.inputPath || editorStore.activeTab?.path || '',
-    mapPaths: [...(payload?.mapPaths || [])]
+    // 只有 thecl 的载荷有 mapPaths；其余工具没有构建对话框
+    mapPaths: [...((payload as Partial<TheclBuildPayload>)?.mapPaths || [])]
   })
 }
 
-function updateFormModel(nextModel) {
+function updateFormModel(nextModel: TheclBuildPayload) {
   Object.assign(formModel, nextModel)
 }
 
@@ -128,8 +130,11 @@ async function handleSubmit() {
     return
   }
 
-  const request = descriptor.createRequest(formModel)
-  const result = await descriptor.execute({ runTheclRequest }, request, formModel)
+  // formModel 是 reactive 包装的联合类型；只有 thecl 支持构建对话框，
+  // 到这一步 descriptor.createRequest 存在就说明它是 thecl 的载荷。
+  const payload = formModel as TheclBuildPayload
+  const request = descriptor.createRequest(payload)
+  const result = await descriptor.execute({ runTheclRequest }, request, payload)
 
   if (result?.success) {
     closeDialog()

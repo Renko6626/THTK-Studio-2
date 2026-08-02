@@ -41,7 +41,7 @@
   </n-modal>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { NButton, NModal } from 'naive-ui'
 
 defineProps({
@@ -55,9 +55,12 @@ defineProps({
   submitting: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['cancel', 'confirm'])
+const emit = defineEmits<{
+  cancel: []
+  confirm: []
+}>()
 
-function handleVisibleChange(value) {
+function handleVisibleChange(value: boolean) {
   if (!value) {
     emit('cancel')
   }

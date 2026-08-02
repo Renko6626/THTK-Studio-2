@@ -91,10 +91,11 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { onMounted } from 'vue'
 import { NButton, useDialog, useMessage } from 'naive-ui'
 import { useProjectStore } from '../../stores/project'
+import type { RecentProjectView } from '../../types'
 import { useRecentProjectsStore } from '../../stores/recentProjects'
 import { useProjectActions } from '../../composables/useProjectActions'
 
@@ -112,11 +113,11 @@ async function openFromPicker() {
   await projectActions.openProjectFromPicker()
 }
 
-async function openRecent(item) {
+async function openRecent(item: RecentProjectView) {
   await projectActions.openProjectPath(item.path)
 }
 
-async function removeRecent(item) {
+async function removeRecent(item: RecentProjectView) {
   await projectActions.removeRecentProject(item.path)
 }
 
@@ -137,7 +138,7 @@ function confirmClear() {
 }
 
 /** 相对时间；超过一周就直接给日期，避免"53 天前"这种没法换算的说法 */
-function formatOpenedAt(timestamp) {
+function formatOpenedAt(timestamp: number) {
   if (!timestamp) return ''
 
   const elapsed = Date.now() - timestamp
