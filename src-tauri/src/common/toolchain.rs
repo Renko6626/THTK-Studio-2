@@ -21,6 +21,8 @@ pub struct ToolchainStatus {
     pub available: bool,
     pub version: String,
     pub message: String,
+    /// 该工具实际可用的版本集合（运行时探测 ∩ 静态表；探测失败则为静态表）。
+    pub supported_versions: Vec<u32>,
 }
 
 pub const TOOLCHAIN_DESCRIPTORS: [ToolchainDescriptor; 5] = [
@@ -136,20 +138,26 @@ pub fn get_toolchain_status(config: &AppConfig, tool_id: &str) -> Result<Toolcha
             available: false,
             version: String::new(),
             message: "Toolchain path is not configured".to_string(),
+            supported_versions: Vec::new(),
         });
     }
 
     match query_tool_version(&resolved_path) {
-        Ok(version) => Ok(ToolchainStatus {
-            tool: descriptor.id.to_string(),
-            label: descriptor.label.to_string(),
-            exe_name: descriptor.exe_name.to_string(),
-            configured_path,
-            resolved_path,
-            available: true,
-            version,
-            message: "Toolchain is available".to_string(),
-        }),
+        Ok(version) => {
+            // 必须在结构体字面量之前算：字面量里 resolved_path 字段会先被移动。
+            let supported_versions = probe_supported_versions(&resolved_path, descriptor.id);
+            Ok(ToolchainStatus {
+                tool: descriptor.id.to_string(),
+                label: descriptor.label.to_string(),
+                exe_name: descriptor.exe_name.to_string(),
+                configured_path,
+                resolved_path,
+                available: true,
+                version,
+                message: "Toolchain is available".to_string(),
+                supported_versions,
+            })
+        }
         Err(error) => Ok(ToolchainStatus {
             tool: descriptor.id.to_string(),
             label: descriptor.label.to_string(),
@@ -159,6 +167,7 @@ pub fn get_toolchain_status(config: &AppConfig, tool_id: &str) -> Result<Toolcha
             available: false,
             version: String::new(),
             message: error,
+            supported_versions: Vec::new(),
         }),
     }
 }
@@ -180,6 +189,60 @@ fn query_tool_version(exe_path: &str) -> Result<String, String> {
     }
 
     Ok(output.lines().next().unwrap_or("").trim().to_string())
+}
+
+/// 从工具的 usage 文本里解析它自报的支持版本列表。
+///
+/// thtk 的 usage 形如：
+/// ```text
+/// VERSION can be:
+///   6, 7, ..., 103 (for Uwabami Breakers), ..., 19, or 20
+/// ```
+/// 解析不到就返回 None——调用方降级到 `game_version` 的静态表。
+/// thdat 的 usage 不含该标记，返回 None 是预期行为不是故障。
+pub fn parse_supported_versions(usage: &str) -> Option<Vec<u32>> {
+    let mut lines = usage.lines();
+    lines.find(|line| line.trim_start().starts_with("VERSION can be:"))?;
+    let list_line = lines.next()?;
+
+    let versions: Vec<u32> = list_line
+        .split(',')
+        .filter_map(|token| {
+            let token = token.trim().trim_start_matches("or ").trim_start();
+            let digits: String = token.chars().take_while(|c| c.is_ascii_digit()).collect();
+            digits.parse().ok()
+        })
+        .collect();
+
+    if versions.is_empty() {
+        None
+    } else {
+        Some(versions)
+    }
+}
+
+/// 无参运行工具拿 usage 并解析出可用版本。
+///
+/// 不硬编码「thtk 版本 X 支持到 thYY」——那张表一定会过期。thtk 出 th21 时
+/// 只需在 `game_version` 静态表加一行，探测逻辑无需改动。
+///
+/// 两个要点：
+/// - thtk 的 `print_usage()` 走 **stdout**，且无参运行的退出码非 0，必须忽略退出码；
+/// - 探测结果与静态表**取交集**：探测可能报出我们表里没有的新版本，那些版本我们
+///   既没有标题也没有工具支持信息，暂不放出。
+fn probe_supported_versions(exe_path: &str, tool_id: &str) -> Vec<u32> {
+    let parent_dir = Path::new(exe_path).parent();
+    let probed = cmd_runner::run_tool(exe_path, &[], parent_dir)
+        .ok()
+        .and_then(|result| parse_supported_versions(&result.stdout));
+
+    match probed {
+        Some(list) => crate::common::game_version::versions_for_tool(tool_id)
+            .into_iter()
+            .filter(|id| list.contains(id))
+            .collect(),
+        None => crate::common::game_version::versions_for_tool(tool_id),
+    }
 }
 
 #[cfg(test)]
@@ -275,5 +338,55 @@ mod tests {
         assert!(resolve_tool_path(&effective, "thstd", "thstd.exe").contains("/project/thtk"));
 
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    // ---- usage 探测：thtk 自报支持哪些版本 ----
+
+    /// 取自本地 tools/thecl.exe 的真实 usage 输出。
+    const THECL_USAGE: &str = "\
+Usage: thecl [-Vrsxj] [[-c | -h | -d] VERSION] [-m ECLMAP]... [INPUT [OUTPUT]]
+  -V  display version information and exit
+VERSION can be:
+  6, 7, 8, 9, 95, 10, 103 (for Uwabami Breakers), 11, 12, 125, 128, 13, 14, 143, 15, 16, 165, 17, 18, 185, 19, or 20
+Report bugs to <https://github.com/thpatch/thtk/issues>.
+";
+
+    #[test]
+    fn parses_the_real_thecl_usage() {
+        let versions = parse_supported_versions(THECL_USAGE).expect("应解析出版本列表");
+        assert_eq!(versions.len(), 22);
+        assert_eq!(versions.first(), Some(&6));
+        assert_eq!(versions.last(), Some(&20));
+        assert!(versions.contains(&103), "带括号注释的 103 应被解析出来");
+        assert!(versions.contains(&185));
+    }
+
+    #[test]
+    fn strips_the_trailing_or_before_the_last_version() {
+        let versions = parse_supported_versions(THECL_USAGE).unwrap();
+        assert!(versions.contains(&20), "'or 20' 里的 20 应被解析");
+    }
+
+    #[test]
+    fn returns_none_when_marker_is_absent() {
+        // thdat 的 usage 里没有 "VERSION can be:" 行。
+        let thdat_usage = "\
+Usage: thdat [-Vg] [-C DIR] [[-c | -l | -x] VERSION] [ARCHIVE [FILE...]]
+Options:
+  -c  create an archive
+Specify 'd' as VERSION to automatically detect archive format.
+";
+        assert_eq!(parse_supported_versions(thdat_usage), None);
+    }
+
+    #[test]
+    fn returns_none_on_empty_output() {
+        assert_eq!(parse_supported_versions(""), None);
+    }
+
+    #[test]
+    fn ignores_non_numeric_noise() {
+        let usage = "VERSION can be:\n  6, banana, 7, or 8\n";
+        assert_eq!(parse_supported_versions(usage), Some(vec![6, 7, 8]));
     }
 }

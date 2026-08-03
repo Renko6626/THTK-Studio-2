@@ -144,6 +144,7 @@ fn toolchain_status_is_camel_case() {
         available: false,
         version: String::new(),
         message: String::new(),
+        supported_versions: vec![6, 20],
     };
 
     assert_eq!(
@@ -156,7 +157,8 @@ fn toolchain_status_is_camel_case() {
             "resolvedPath",
             "available",
             "version",
-            "message"
+            "message",
+            "supportedVersions"
         ])
     );
 }
