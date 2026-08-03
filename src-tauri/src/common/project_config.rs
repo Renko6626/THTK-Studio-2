@@ -126,6 +126,14 @@ pub fn validate_project_config(config: &ProjectConfig) -> Result<(), String> {
         ));
     }
 
+    // 空表示回退全局默认，允许；非空则必须是 thtk 认识的版本。
+    // 不校验的话，"21" 或 "th１８"（全角）这类值会一路带到命令行，
+    // thtk 按 %u 解析后变成 0 或直接失败，报错完全指不到配置本身。
+    let game_version = config.game_version.trim();
+    if !game_version.is_empty() {
+        crate::common::game_version::parse(game_version)?;
+    }
+
     if let Some(index) = config.map_paths.iter().position(|p| p.trim().is_empty()) {
         return Err(format!("mapPaths[{index}] 为空路径"));
     }
@@ -305,6 +313,36 @@ mod tests {
         assert_eq!(fs::read_to_string(&path).unwrap(), original);
 
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    fn config_with_version(version: &str) -> ProjectConfig {
+        ProjectConfig {
+            game_version: version.to_string(),
+            encoding: "shift-jis".to_string(),
+            map_paths: Vec::new(),
+            toolchain: ProjectToolchainConfig {
+                thtk_dir: String::new(),
+            },
+        }
+    }
+
+    #[test]
+    fn validate_rejects_unknown_game_version() {
+        assert!(validate_project_config(&config_with_version("21")).is_err());
+        assert!(validate_project_config(&config_with_version("abc")).is_err());
+    }
+
+    #[test]
+    fn validate_accepts_th_prefixed_game_version() {
+        assert!(validate_project_config(&config_with_version("th18")).is_ok());
+    }
+
+    #[test]
+    fn validate_still_accepts_empty_game_version() {
+        assert!(
+            validate_project_config(&config_with_version("")).is_ok(),
+            "空字符串表示回退全局默认，必须继续接受"
+        );
     }
 
     #[test]
