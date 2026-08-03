@@ -1,22 +1,7 @@
 use super::compiler;
 use crate::app_state::AppState;
-use crate::common::{project_config, toolchain};
+use crate::common::toolchain;
 use tauri::State;
-
-/// 项目 game_version 优先,fallback 到全局 default_game_version。
-/// 不复用 mcp 模块里的 effective_toolchain_config——那是 ECL 专用的,带 eclmap 字段,
-/// 对 msg 完全无用。
-fn effective_msg_version(config: &crate::config::AppConfig, project_root: Option<&str>) -> String {
-    let mut version = config.default_game_version.clone();
-    if let Some(root) = project_root {
-        if let Some(pc) = project_config::load_project_config(root) {
-            if !pc.game_version.is_empty() {
-                version = pc.game_version.clone();
-            }
-        }
-    }
-    version
-}
 
 fn ensure_thmsg_configured(config: &crate::config::AppConfig) -> Result<(), String> {
     let resolved = toolchain::resolve_tool_path(config, "thmsg", "thmsg.exe");
@@ -40,7 +25,9 @@ pub async fn decompile_msg_file(
         .clone();
     let config = toolchain::effective_config(&state.config_manager.get_config(), root.as_deref());
     ensure_thmsg_configured(&config)?;
-    let version = effective_msg_version(&config, root.as_deref());
+    let version =
+        crate::common::game_version::resolve(&config, root.as_deref(), "thmsg")?
+            .to_string();
     let req = compiler::MsgRequest {
         mode: compiler::MsgMode::Decompile,
         version,
@@ -64,7 +51,9 @@ pub async fn compile_msg_file(
         .clone();
     let config = toolchain::effective_config(&state.config_manager.get_config(), root.as_deref());
     ensure_thmsg_configured(&config)?;
-    let version = effective_msg_version(&config, root.as_deref());
+    let version =
+        crate::common::game_version::resolve(&config, root.as_deref(), "thmsg")?
+            .to_string();
     let req = compiler::MsgRequest {
         mode: compiler::MsgMode::Compile,
         version,

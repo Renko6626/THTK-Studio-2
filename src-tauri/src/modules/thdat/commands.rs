@@ -1,23 +1,7 @@
 use super::compiler;
 use crate::app_state::AppState;
-use crate::common::{project_config, toolchain};
+use crate::common::toolchain;
 use tauri::State;
-
-/// Project game_version takes priority; fallback to global default_game_version.
-fn effective_thdat_version(
-    config: &crate::config::AppConfig,
-    project_root: Option<&str>,
-) -> String {
-    let mut version = config.default_game_version.clone();
-    if let Some(root) = project_root {
-        if let Some(pc) = project_config::load_project_config(root) {
-            if !pc.game_version.is_empty() {
-                version = pc.game_version.clone();
-            }
-        }
-    }
-    version
-}
 
 fn ensure_thdat_configured(config: &crate::config::AppConfig) -> Result<(), String> {
     let resolved = toolchain::resolve_tool_path(config, "thdat", "thdat.exe");
@@ -63,7 +47,9 @@ pub async fn pack_dat_file(
         .clone();
     let config = toolchain::effective_config(&state.config_manager.get_config(), root.as_deref());
     ensure_thdat_configured(&config)?;
-    let version = effective_thdat_version(&config, root.as_deref());
+    let version =
+        crate::common::game_version::resolve(&config, root.as_deref(), "thdat")?
+            .to_string();
     let req = compiler::ThdatRequest {
         mode: compiler::ThdatMode::Pack,
         version,
