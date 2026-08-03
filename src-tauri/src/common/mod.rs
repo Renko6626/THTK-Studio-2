@@ -2,6 +2,7 @@
 
 pub mod cmd_runner;
 pub mod file_watcher;
+pub mod game_version;
 pub mod fs_utils;
 pub mod project_config;
 pub mod recent_projects;

@@ -290,7 +290,9 @@ pub mod game_version;
 cargo test --manifest-path src-tauri/Cargo.toml game_version
 ```
 
-预期：11 个测试全绿。若 `tool_version_counts_match_thtk_usage` 失败，说明表里某条的 `tools` 写错了，对照上方「事实依据」的三行集合逐一核对。
+预期：10 个测试全绿。若 `tool_version_counts_match_thtk_usage` 失败，说明表里某条的 `tools` 写错了，对照上方「事实依据」的三行集合逐一核对。
+
+> 若测试与实现一次性落盘、没能先看到红，补一次**变异检验**找回保证：把 `id: 103` 那行的 `tools: NO_MSG` 临时改成 `ALL`，应当且只应当有 `thmsg_does_not_support_uwabami_breakers` 与 `tool_version_counts_match_thtk_usage` 两个测试失败，然后还原。
 
 - [ ] **Step 5: 提交**
 
