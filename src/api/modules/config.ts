@@ -4,6 +4,7 @@ import type {
   ProjectConfig,
   ProjectConfigLoad,
   RecentProjectView,
+  GameVersionView,
   ToolchainStatus,
   UserSettingsPayload
 } from '../../types'
@@ -67,4 +68,13 @@ export function removeRecentProject(path: string): Promise<RecentProjectView[]> 
 
 export function clearRecentProjects(): Promise<void> {
   return invoke('clear_recent_projects')
+}
+
+/**
+ * thtk 支持的全部游戏版本（静态权威表）。
+ * 某个工具在某个版本下是否可用看 entry.tools；用户实际装的 thtk 支持哪些，
+ * 看 ToolchainStatus.supportedVersions（运行时探测结果）。
+ */
+export function listGameVersions(): Promise<GameVersionView[]> {
+  return invoke('list_game_versions')
 }

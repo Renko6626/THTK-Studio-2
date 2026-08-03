@@ -261,3 +261,17 @@ fn eclmap_parameter_type_field_is_renamed() {
     // 写成 typeName 会在运行时静默拿到 undefined。
     assert_eq!(json_keys(&param), sorted(&["name", "type"]));
 }
+
+#[test]
+fn game_version_view_keys_are_pinned() {
+    use crate::common::game_version_commands::GameVersionView;
+
+    let view = GameVersionView {
+        id: 18,
+        code: "th18".to_string(),
+        title: "東方虹龍洞".to_string(),
+        tools: vec!["thecl".to_string()],
+    };
+
+    assert_eq!(json_keys(&view), sorted(&["id", "code", "title", "tools"]));
+}
