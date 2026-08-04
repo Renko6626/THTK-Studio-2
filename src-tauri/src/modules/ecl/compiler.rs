@@ -23,14 +23,6 @@ impl TheclMode {
     }
 }
 
-pub fn normalize_thecl_version(version: &str) -> String {
-    let trimmed = version.trim().to_lowercase();
-    if let Some(stripped) = trimmed.strip_prefix("th") {
-        return stripped.to_string();
-    }
-    trimmed
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct TheclRequest {
@@ -64,9 +56,27 @@ pub struct EclResult {
 }
 
 pub fn run(config: &AppConfig, request: &TheclRequest) -> EclResult {
+    // 版本在边界处解析一次。run() 返回的是 EclResult 而不是 Result，所以用不了 `?`；
+    // 走与下方 run_tool 失败路径一致的结构化失败结果，错误经既有渠道进问题面板。
+    let version_id = match crate::common::game_version::parse(&request.version) {
+        Ok(id) => id,
+        Err(message) => {
+            return EclResult {
+                success: false,
+                tool: "thecl".to_string(),
+                mode: request.mode.as_str().to_string(),
+                script_kind: "ecl".to_string(),
+                input_path: request.input_path.clone(),
+                message,
+                diagnostics: Vec::new(),
+                output_path: None,
+            }
+        }
+    };
+
     let tool_path = toolchain::resolve_tool_path(config, "thecl", "thecl.exe");
     let output_path = infer_output_path(request);
-    let args = build_thecl_args(request, output_path.as_deref());
+    let args = build_thecl_args(request, version_id, output_path.as_deref());
     let arg_refs = args.iter().map(|arg| arg.as_str()).collect::<Vec<_>>();
     let work_dir = Path::new(&request.input_path).parent();
 
@@ -107,20 +117,24 @@ pub fn run(config: &AppConfig, request: &TheclRequest) -> EclResult {
     }
 }
 
-pub fn build_thecl_args(request: &TheclRequest, output_path: Option<&str>) -> Vec<String> {
+pub fn build_thecl_args(
+    request: &TheclRequest,
+    version_id: u32,
+    output_path: Option<&str>,
+) -> Vec<String> {
     let mut args = Vec::new();
 
     match request.mode {
         TheclMode::Compile => {
             args.push("-c".to_string());
-            args.push(normalize_thecl_version(&request.version));
+            args.push(version_id.to_string());
             if request.simple_creation {
                 args.push("-s".to_string());
             }
         }
         TheclMode::Decompile => {
             args.push("-d".to_string());
-            args.push(normalize_thecl_version(&request.version));
+            args.push(version_id.to_string());
             if request.raw_dump {
                 args.push("-r".to_string());
             }
@@ -130,7 +144,7 @@ pub fn build_thecl_args(request: &TheclRequest, output_path: Option<&str>) -> Ve
         }
         TheclMode::Header => {
             args.push("-h".to_string());
-            args.push(normalize_thecl_version(&request.version));
+            args.push(version_id.to_string());
         }
     }
 

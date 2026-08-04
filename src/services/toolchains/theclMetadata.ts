@@ -19,12 +19,6 @@ export const THECL_MODE_OPTIONS: SelectOption[] = [
   { label: THECL_MODE_LABELS.header, value: 'header' }
 ]
 
-export const THECL_VERSION_OPTIONS: SelectOption[] = [
-  '6', '7', '8', '9', '95', '10', '103', '11', '12',
-  '125', '128', '13', '14', '143', '15', '16', '165',
-  '17', '18', '185', '19', '20'
-].map((value) => ({ label: value, value }))
-
 /**
  * 构建对话框的默认表单值。
  * 注意 outputPath 用空字符串表示"自动推导"，请求构建器再把它转成 null。

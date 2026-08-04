@@ -48,6 +48,23 @@ impl Default for AppConfig {
     }
 }
 
+/// 把全局默认版本归一成纯数字形式。解析不了的原样保留——
+/// 真正的拦截在 `game_version::resolve`，那里会给出带合法版本列表的报错。
+///
+/// 与 `project_config::canonicalize_game_version` 同一个目的：让前端下拉框
+/// 的 option value（纯数字）能对上，也让 semantic-loader 拼出的
+/// `th{version}.eclm` 不会变成 `thth18.eclm`。
+fn canonicalize_version(raw: &str) -> String {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+    match crate::common::game_version::parse(trimmed) {
+        Ok(id) => id.to_string(),
+        Err(_) => trimmed.to_string(),
+    }
+}
+
 pub struct ConfigManager {
     config_path: PathBuf,
     // 使用 Mutex 允许在多线程命令中安全修改配置
@@ -68,7 +85,9 @@ impl ConfigManager {
 
         let config_path = config_dir.join("settings.json");
 
-        let config = Self::load_or_recover(&config_path);
+        let mut config = Self::load_or_recover(&config_path);
+        // 手改过的 settings.json 里可能是 "th18"，归一后前端下拉框才对得上
+        config.default_game_version = canonicalize_version(&config.default_game_version);
 
         Self {
             config_path,
@@ -185,7 +204,7 @@ pub fn merge_user_settings(current: &AppConfig, incoming: AppConfig) -> AppConfi
         thecl_path: incoming.thecl_path,
         eclmap_path: incoming.eclmap_path,
         tool_overrides: incoming.tool_overrides,
-        default_game_version: incoming.default_game_version,
+        default_game_version: canonicalize_version(&incoming.default_game_version),
         theme: incoming.theme,
         // 后端维护，表单不传：mcp_port 由用户手改 settings.json，
         // recent_projects 由 open_project / 最近项目命令写

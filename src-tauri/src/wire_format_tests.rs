@@ -144,6 +144,7 @@ fn toolchain_status_is_camel_case() {
         available: false,
         version: String::new(),
         message: String::new(),
+        supported_versions: vec![6, 20],
     };
 
     assert_eq!(
@@ -156,7 +157,8 @@ fn toolchain_status_is_camel_case() {
             "resolvedPath",
             "available",
             "version",
-            "message"
+            "message",
+            "supportedVersions"
         ])
     );
 }
@@ -258,4 +260,18 @@ fn eclmap_parameter_type_field_is_renamed() {
     // Rust 侧字段叫 type_name，但 #[serde(rename = "type")] 把它变成了 type。
     // 写成 typeName 会在运行时静默拿到 undefined。
     assert_eq!(json_keys(&param), sorted(&["name", "type"]));
+}
+
+#[test]
+fn game_version_view_keys_are_pinned() {
+    use crate::common::game_version_commands::GameVersionView;
+
+    let view = GameVersionView {
+        id: 18,
+        code: "th18".to_string(),
+        title: "東方虹龍洞".to_string(),
+        tools: vec!["thecl".to_string()],
+    };
+
+    assert_eq!(json_keys(&view), sorted(&["id", "code", "title", "tools"]));
 }

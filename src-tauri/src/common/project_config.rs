@@ -115,6 +115,25 @@ fn check_known_keys(raw: &serde_json::Value) -> Result<(), String> {
     Ok(())
 }
 
+/// 把 game_version 归一成 thtk 直接可用的数字形式（`"TH18"` → `"18"`）。
+///
+/// 空值保持不动（表示回退全局默认）；解析不了的值也原样保留，交给
+/// [`validate_project_config`] 去报错——归一化不是校验的地方。
+///
+/// 归一化必须发生在**读取**而不只是保存时：老配置文件里的 `"th18"` 若原样
+/// 交给前端，下拉框的 option value 是纯数字，会一个都对不上而显示空白；
+/// semantic-loader 拿它拼 `th{version}.eclm` 会得到 `"thth18.eclm"`。
+fn canonicalize_game_version(config: &mut ProjectConfig) {
+    let trimmed = config.game_version.trim();
+    if trimmed.is_empty() {
+        config.game_version = String::new();
+        return;
+    }
+    if let Ok(id) = crate::common::game_version::parse(trimmed) {
+        config.game_version = id.to_string();
+    }
+}
+
 /// 校验配置字段。game_version 允许为空（表示回退到全局默认版本）。
 pub fn validate_project_config(config: &ProjectConfig) -> Result<(), String> {
     let encoding = config.encoding.trim();
@@ -124,6 +143,14 @@ pub fn validate_project_config(config: &ProjectConfig) -> Result<(), String> {
             config.encoding,
             SUPPORTED_ENCODINGS.join(" / ")
         ));
+    }
+
+    // 空表示回退全局默认，允许；非空则必须是 thtk 认识的版本。
+    // 不校验的话，"21" 或 "th１８"（全角）这类值会一路带到命令行，
+    // thtk 按 %u 解析后变成 0 或直接失败，报错完全指不到配置本身。
+    let game_version = config.game_version.trim();
+    if !game_version.is_empty() {
+        crate::common::game_version::parse(game_version)?;
     }
 
     if let Some(index) = config.map_paths.iter().position(|p| p.trim().is_empty()) {
@@ -170,10 +197,11 @@ pub fn load_project_config_detailed(project_root: &str) -> ProjectConfigLoad {
         return invalid(e);
     }
 
-    let config: ProjectConfig = match serde_json::from_value(raw) {
+    let mut config: ProjectConfig = match serde_json::from_value(raw) {
         Ok(config) => config,
         Err(e) => return invalid(format!("字段类型不正确: {e}")),
     };
+    canonicalize_game_version(&mut config);
 
     if let Err(e) = validate_project_config(&config) {
         return invalid(e);
@@ -200,7 +228,9 @@ pub fn load_project_config(project_root: &str) -> Option<ProjectConfig> {
     }
 
     let content = fs::read_to_string(&config_path).ok()?;
-    serde_json::from_str(&content).ok()
+    let mut config: ProjectConfig = serde_json::from_str(&content).ok()?;
+    canonicalize_game_version(&mut config);
+    Some(config)
 }
 
 /// 保存 .thtk-project.json 到项目根目录。
@@ -210,7 +240,7 @@ pub fn load_project_config(project_root: &str) -> Option<ProjectConfig> {
 pub fn save_project_config(project_root: &str, config: &ProjectConfig) -> Result<(), String> {
     // 归一化后再写：校验是按 trim 过的值做的，直接落盘会让 `" utf-8 "` 这种
     // 通过校验却在消费端按等值比较时既不等于 shift-jis 也不等于 utf-8。
-    let config = ProjectConfig {
+    let mut config = ProjectConfig {
         game_version: config.game_version.trim().to_string(),
         encoding: config.encoding.trim().to_string(),
         map_paths: config
@@ -222,6 +252,7 @@ pub fn save_project_config(project_root: &str, config: &ProjectConfig) -> Result
             thtk_dir: config.toolchain.thtk_dir.trim().to_string(),
         },
     };
+    canonicalize_game_version(&mut config);
     validate_project_config(&config)?;
 
     let config_path = config_path_for(project_root);
@@ -305,6 +336,75 @@ mod tests {
         assert_eq!(fs::read_to_string(&path).unwrap(), original);
 
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    fn config_with_version(version: &str) -> ProjectConfig {
+        ProjectConfig {
+            game_version: version.to_string(),
+            encoding: "shift-jis".to_string(),
+            map_paths: Vec::new(),
+            toolchain: ProjectToolchainConfig {
+                thtk_dir: String::new(),
+            },
+        }
+    }
+
+    /// 加载时把 game_version 归一成 thtk 直接可用的数字形式。
+    ///
+    /// 不归一的话有两处会坏：前端下拉框的 option value 是纯数字，旧配置里的
+    /// "th18" 对不上任何一项会显示空白；semantic-loader 用它拼 `th{version}.eclm`，
+    /// 会得到 "thth18.eclm"。
+    #[test]
+    fn load_canonicalizes_th_prefixed_version() {
+        let dir = temp_root("canonicalize-version");
+        fs::write(
+            config_path_for(&root_str(&dir)),
+            r#"{"gameVersion":"TH18","encoding":"shift-jis","mapPaths":[],"toolchain":{"thtkDir":""}}"#,
+        )
+        .unwrap();
+
+        let detailed = load_project_config_detailed(&root_str(&dir));
+        assert_eq!(detailed.status, ProjectConfigStatus::Loaded);
+        assert_eq!(detailed.value.unwrap().game_version, "18");
+
+        let best_effort = load_project_config(&root_str(&dir)).unwrap();
+        assert_eq!(best_effort.game_version, "18");
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn load_leaves_empty_game_version_alone() {
+        let dir = temp_root("empty-version-untouched");
+        fs::write(
+            config_path_for(&root_str(&dir)),
+            r#"{"gameVersion":"","encoding":"utf-8","mapPaths":[],"toolchain":{"thtkDir":""}}"#,
+        )
+        .unwrap();
+
+        let loaded = load_project_config(&root_str(&dir)).unwrap();
+        assert_eq!(loaded.game_version, "", "空值表示回退全局默认，不能被改写");
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn validate_rejects_unknown_game_version() {
+        assert!(validate_project_config(&config_with_version("21")).is_err());
+        assert!(validate_project_config(&config_with_version("abc")).is_err());
+    }
+
+    #[test]
+    fn validate_accepts_th_prefixed_game_version() {
+        assert!(validate_project_config(&config_with_version("th18")).is_ok());
+    }
+
+    #[test]
+    fn validate_still_accepts_empty_game_version() {
+        assert!(
+            validate_project_config(&config_with_version("")).is_ok(),
+            "空字符串表示回退全局默认，必须继续接受"
+        );
     }
 
     #[test]

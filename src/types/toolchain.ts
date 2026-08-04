@@ -56,6 +56,8 @@ export interface ToolchainStatus {
   available: boolean
   version: string
   message: string
+  /** 该工具实际可用的版本（运行时探测 ∩ 静态表）；不可用时为空数组 */
+  supportedVersions: number[]
 }
 
 /**

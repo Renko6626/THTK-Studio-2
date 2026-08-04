@@ -6,6 +6,7 @@
  * 各文件的注释里标了来源与坑位。
  */
 export * from './ecl'
+export * from './gameVersion'
 export * from './fs'
 export * from './project'
 export * from './toolchain'

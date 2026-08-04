@@ -325,6 +325,7 @@ fn main() {
             save_settings,
             get_toolchain_status,
             get_toolchain_statuses,
+            common::game_version_commands::list_game_versions,
             read_file,
             save_file,
             open_project,

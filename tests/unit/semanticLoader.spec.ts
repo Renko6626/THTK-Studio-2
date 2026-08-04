@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { loadDefaultEclSemanticData } from '../../src/services/languages/ecl/semantic-loader'
+import {
+  loadDefaultEclSemanticData,
+  detectEclmapVersionMismatch
+} from '../../src/services/languages/ecl/semantic-loader'
 import { getEclMapSemantics as rawGetSemantics, getSettings as rawGetSettings } from '../../src/api'
 
 const getEclMapSemantics = vi.mocked(rawGetSemantics)
@@ -79,10 +82,63 @@ describe('ECL 词表加载', () => {
 
     const result = await loadDefaultEclSemanticData({
       projectRoot: '/proj',
-      projectConfig: makeProjectConfig({ gameVersion: 'th18', mapPaths: ['maps/a.eclm'] })
+      projectConfig: makeProjectConfig({ gameVersion: '18', mapPaths: ['maps/a.eclm'] })
     })
 
     expect(result.version).toBe('18')
+  })
+
+  /**
+   * 契约变更：归一化已从前端移到后端。
+   *
+   * 此前这里喂 'th18' 期望前端剥掉前缀——那是第三份归一化实现。现在
+   * project_config::canonicalize_game_version 与 config::canonicalize_version
+   * 在加载/保存时就把值规范成纯数字，前端拿到的必然已规范。
+   *
+   * 这条测试把该契约钉住：万一后端漏了归一，前端会**原样透传**而不是
+   * 悄悄补救——问题会暴露在候选路径 thth18.eclm 上，而不是被掩盖。
+   */
+  it('不再二次归一：前端原样透传后端给的版本值', async () => {
+    getEclMapSemantics.mockResolvedValue({ ...semanticsWith(['x']), version: '' })
+
+    const result = await loadDefaultEclSemanticData({
+      projectRoot: '/proj',
+      projectConfig: makeProjectConfig({ gameVersion: 'th18', mapPaths: ['maps/a.eclm'] })
+    })
+
+    expect(result.version).toBe('th18')
+  })
+
+  describe('eclmap 版本一致性', () => {
+    it('文件名版本与项目版本不符时给出提示', () => {
+      const warning = detectEclmapVersionMismatch(['maps/th18.eclm'], '20')
+      expect(warning).toContain('th18')
+      expect(warning).toContain('th20')
+    })
+
+    it('相符时无提示', () => {
+      expect(detectEclmapVersionMismatch(['maps/th20.eclm'], '20')).toBeNull()
+    })
+
+    it('文件名不含版本时不误报', () => {
+      expect(detectEclmapVersionMismatch(['maps/custom.eclm'], '20')).toBeNull()
+    })
+
+    /** 多份 map 是并列关系，只要有一个对得上就认为配置是有意的 */
+    it('多个 eclmap 只要有一个相符就不提示', () => {
+      expect(
+        detectEclmapVersionMismatch(['maps/th20.eclm', 'maps/th18.eclm'], '20')
+      ).toBeNull()
+    })
+
+    it('未选版本或无 map 时不提示', () => {
+      expect(detectEclmapVersionMismatch(['maps/th18.eclm'], '')).toBeNull()
+      expect(detectEclmapVersionMismatch([], '20')).toBeNull()
+    })
+
+    it('认 Windows 反斜杠路径', () => {
+      expect(detectEclmapVersionMismatch(['maps\\th18.eclm'], '20')).toContain('th18')
+    })
   })
 
   it('项目相对路径按项目根解析', async () => {

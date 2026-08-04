@@ -35,6 +35,8 @@ import { dispatchEditorAction } from '../../composables/useEditorActionBridge'
 import { useFileOperations } from '../../composables/useFileOperations'
 import { useProjectActions } from '../../composables/useProjectActions'
 import { useToolchainActions } from '../../composables/useToolchainActions'
+import { useGameVersionsStore } from '../../stores/gameVersions'
+import { toolAvailability } from '../../services/toolchains/gameVersions'
 import { generateAiAssistPack } from '../../api'
 
 const editorStore = useEditorStore()
@@ -51,6 +53,25 @@ const tcActions = useToolchainActions({ message })
 const projectActions = useProjectActions({ message, dialog })
 
 const hasWorkspace = computed(() => Boolean(projectStore.rootPath))
+
+const gameVersionsStore = useGameVersionsStore()
+gameVersionsStore.ensureLoaded()
+
+/**
+ * 五个工具支持的版本集合并不相同，所以按工具分别判断。
+ *
+ * 只看**项目声明的**版本，不回退全局默认：前端没有持有 AppConfig 的 store，
+ * 为置灰这一件事去同步一份全局设置不划算。项目没声明版本时 toolAvailability
+ * 会放行，用户仍会从后端拿到明确报错——置灰只在信息确凿时发生，
+ * 这跟"信息不足一律放行"是同一条原则。
+ */
+const currentVersion = computed(() => projectStore.gameVersion || '')
+const availability = computed(() => ({
+  thecl: toolAvailability('thecl', currentVersion.value, gameVersionsStore.table),
+  thmsg: toolAvailability('thmsg', currentVersion.value, gameVersionsStore.table),
+  thstd: toolAvailability('thstd', currentVersion.value, gameVersionsStore.table),
+  thdat: toolAvailability('thdat', currentVersion.value, gameVersionsStore.table)
+}))
 const hasActiveTab = computed(() => Boolean(editorStore.activeTab))
 const hasEditableTab = computed(() => editorStore.activeTab?.viewType !== 'binary-script' && Boolean(editorStore.activeTab))
 const activeExtension = computed(() => editorStore.activeTab?.path?.split('.').pop()?.toLowerCase() || '')
@@ -61,6 +82,31 @@ const activeIsDmsg = computed(() => activeExtension.value === 'dmsg')
 const activeIsStd  = computed(() => activeExtension.value === 'std')
 const activeIsDstd = computed(() => activeExtension.value === 'dstd')
 const activeIsDat  = computed(() => activeExtension.value === 'dat')
+
+/**
+ * 生成一个受「当前版本是否被该工具支持」约束的菜单项。
+ *
+ * 两种禁用理由要区分开：`inactive` 是当前文件类型不对（用户切个标签就好，
+ * 不需要解释），版本不支持则必须说清楚——否则用户面对一个灰掉的按钮
+ * 完全不知道该改什么。后者把原因追加到 label 上，因为 naive-ui 的
+ * dropdown 在 disabled 项上不显示 tooltip。
+ */
+function toolItem(
+  toolId: 'thecl' | 'thmsg' | 'thstd' | 'thdat',
+  label: string,
+  key: string,
+  inactive: boolean
+) {
+  const { enabled, reason } = availability.value[toolId]
+  return {
+    label: enabled ? label : `${label}（${reason}）`,
+    key,
+    disabled: inactive || !enabled
+  }
+}
+
+const eclItem = (label: string, key: string, inactive: boolean) =>
+  toolItem('thecl', label, key, inactive)
 
 const menus = computed(() => [
   {
@@ -120,23 +166,23 @@ const menus = computed(() => [
     label: '脚本',
     options: [
       // ECL
-      { label: '反编译当前 .ecl', key: 'script.decompileEclQuick', disabled: !activeIsEcl.value },
-      { label: '反编译当前 .ecl(高级…)', key: 'script.decompileEclAdvanced', disabled: !activeIsEcl.value },
-      { label: '编译当前 .decl', key: 'script.compileEclQuick', disabled: !activeIsDecl.value },
-      { label: '编译当前 .decl(高级…)', key: 'script.compileEclAdvanced', disabled: !activeIsDecl.value },
-      { label: '生成 ECL 头文件…', key: 'script.generateEclHeader', disabled: !activeIsDecl.value },
+      eclItem('反编译当前 .ecl', 'script.decompileEclQuick', !activeIsEcl.value),
+      eclItem('反编译当前 .ecl(高级…)', 'script.decompileEclAdvanced', !activeIsEcl.value),
+      eclItem('编译当前 .decl', 'script.compileEclQuick', !activeIsDecl.value),
+      eclItem('编译当前 .decl(高级…)', 'script.compileEclAdvanced', !activeIsDecl.value),
+      eclItem('生成 ECL 头文件…', 'script.generateEclHeader', !activeIsDecl.value),
       { type: 'divider', key: 'script-msg-div' },
       // MSG
-      { label: '反编译当前 .msg', key: 'script.decompileMsg', disabled: !activeIsMsg.value },
-      { label: '编译当前 .dmsg', key: 'script.compileMsg', disabled: !activeIsDmsg.value },
+      toolItem('thmsg', '反编译当前 .msg', 'script.decompileMsg', !activeIsMsg.value),
+      toolItem('thmsg', '编译当前 .dmsg', 'script.compileMsg', !activeIsDmsg.value),
       { type: 'divider', key: 'script-std-div' },
       // STD
-      { label: '反编译当前 .std', key: 'script.decompileStd', disabled: !activeIsStd.value },
-      { label: '编译当前 .dstd', key: 'script.compileStd', disabled: !activeIsDstd.value },
+      toolItem('thstd', '反编译当前 .std', 'script.decompileStd', !activeIsStd.value),
+      toolItem('thstd', '编译当前 .dstd', 'script.compileStd', !activeIsDstd.value),
       { type: 'divider', key: 'script-dat-div' },
       // DAT
-      { label: '解包当前 .dat', key: 'script.extractDat' },
-      { label: '打包目录为 .dat', key: 'script.packDat' },
+      toolItem('thdat', '解包当前 .dat', 'script.extractDat', false),
+      toolItem('thdat', '打包目录为 .dat', 'script.packDat', false),
       { type: 'divider', key: 'script-ai-div' },
       // AI pack
       { label: '生成 AI 辅助包', key: 'script.generateAiPack', disabled: !hasWorkspace.value }

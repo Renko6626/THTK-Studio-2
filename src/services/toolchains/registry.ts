@@ -5,7 +5,6 @@ import {
   createDefaultTheclPayload,
   THECL_MODE_LABELS,
   THECL_MODE_OPTIONS,
-  THECL_VERSION_OPTIONS,
   type SelectOption
 } from './theclMetadata'
 import type {
@@ -44,7 +43,6 @@ export interface ToolchainDescriptor {
   buildDialogTitle?: string
   buildDialogSubtitle?: string
   buildFormComponent?: Component
-  versionOptions?: SelectOption[]
   modeLabels?: Record<TheclMode, string>
   modeOptions?: SelectOption[]
   createRequest?: (payload: TheclBuildPayload) => TheclRequest
@@ -79,7 +77,6 @@ export const TOOLCHAIN_REGISTRY: Record<ToolchainId, ToolchainDescriptor> = {
     buildDialogSubtitle: '为当前脚本选择模式、版本和 thecl 选项',
     defaultPayload: createDefaultTheclPayload,
     buildFormComponent: TheclBuildForm,
-    versionOptions: THECL_VERSION_OPTIONS,
     modeLabels: THECL_MODE_LABELS,
     modeOptions: THECL_MODE_OPTIONS,
     createRequest(payload) {
