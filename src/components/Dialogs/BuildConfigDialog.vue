@@ -34,6 +34,7 @@ import { useEditorStore } from '../../stores/editor'
 import { useProjectStore } from '../../stores/project'
 import { useBuildDialogStore } from '../../stores/buildDialog'
 import { useTheclActions } from '../../composables/useTheclActions'
+import { useToolchainActions } from '../../composables/useToolchainActions'
 import type { BuildDialogPayload, TheclBuildPayload } from '../../types'
 import {
   createDefaultBuildPayload,
@@ -43,8 +44,9 @@ import {
 const buildDialogStore = useBuildDialogStore()
 const editorStore = useEditorStore()
 const projectStore = useProjectStore()
-const { runTheclRequest } = useTheclActions()
 const message = useMessage()
+const { runTheclRequest } = useTheclActions()
+const { runDecompileMsg, runCompileMsg } = useToolchainActions({ message })
 
 const formModel = reactive(createDefaultBuildPayload())
 
@@ -125,16 +127,28 @@ async function handleSubmit() {
   }
 
   const descriptor = activeToolchain.value
+  const context = { runTheclRequest, runDecompileMsg, runCompileMsg }
+
+  // 自带执行入口的工具（thmsg）走这条：它的请求形状与 thecl 完全不同，
+  // 强行套 TheclRequest 会让两边都别扭。
+  if (descriptor?.runFromPayload) {
+    const result = await descriptor.runFromPayload(
+      context,
+      formModel as unknown as BuildDialogPayload
+    )
+    if (result?.success) closeDialog()
+    return
+  }
+
   if (!descriptor?.createRequest || !descriptor?.execute) {
     message.warning('当前工具链尚未接入执行器')
     return
   }
 
-  // formModel 是 reactive 包装的联合类型；只有 thecl 支持构建对话框，
   // 到这一步 descriptor.createRequest 存在就说明它是 thecl 的载荷。
   const payload = formModel as TheclBuildPayload
   const request = descriptor.createRequest(payload)
-  const result = await descriptor.execute({ runTheclRequest }, request, payload)
+  const result = await descriptor.execute(context, request, payload)
 
   if (result?.success) {
     closeDialog()

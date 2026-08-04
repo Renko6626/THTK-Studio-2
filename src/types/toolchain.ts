@@ -161,12 +161,34 @@ export interface TheclBuildPayload {
 }
 
 /**
- * 其余四个工具在注册表里 `supportsBuildDialog: false`，还没有表单，
+ * thmsg 构建对话框的载荷。
+ *
+ * 不复用 TheclBuildPayload：thmsg 没有 eclmap（语义数据是内嵌的
+ * `assets/msg-th{ver}.json`，不由用户提供），也没有 -r/-s/-x 那些开关；
+ * 反过来它有 thecl 没有的 encoding——游戏文本编码，解包/打包各自独立。
+ */
+export interface MsgBuildPayload {
+  tool: 'thmsg'
+  mode: 'compile' | 'decompile'
+  inputPath: string
+  /** 留空 = 按输入路径自动推导 */
+  outputPath: string
+  /** 游戏文本编码；留空 = 跟随项目配置 */
+  encoding: string
+  /** 仅 decompile：在每行末尾追加指令说明 */
+  withComments: boolean
+}
+
+/**
+ * 其余三个工具在注册表里 `supportsBuildDialog: false`，还没有表单，
  * 只有最小载荷。等它们真正接上构建对话框时，各自补自己的 payload 类型。
  */
 export interface GenericBuildPayload {
-  tool: Exclude<ToolchainId, 'thecl'>
+  tool: Exclude<ToolchainId, 'thecl' | 'thmsg'>
   inputPath: string
 }
 
-export type BuildDialogPayload = TheclBuildPayload | GenericBuildPayload
+export type BuildDialogPayload =
+  | TheclBuildPayload
+  | MsgBuildPayload
+  | GenericBuildPayload

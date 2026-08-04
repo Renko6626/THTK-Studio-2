@@ -30,6 +30,7 @@ import { useTerminalStore } from '../../stores/terminal'
 import { useWorkbenchPanelsStore } from '../../stores/workbenchPanels'
 import { useProjectSettingsStore } from '../../stores/projectSettings'
 import { useToolchainSettingsStore } from '../../stores/toolchainSettings'
+import { useBuildDialogStore } from '../../stores/buildDialog'
 import { useWorkbenchReportsStore } from '../../stores/workbenchReports'
 import { dispatchEditorAction } from '../../composables/useEditorActionBridge'
 import { useFileOperations } from '../../composables/useFileOperations'
@@ -45,6 +46,7 @@ const terminalStore = useTerminalStore()
 const workbenchPanelsStore = useWorkbenchPanelsStore()
 const projectSettingsStore = useProjectSettingsStore()
 const toolchainSettingsStore = useToolchainSettingsStore()
+const buildDialogStore = useBuildDialogStore()
 const reportsStore = useWorkbenchReportsStore()
 const { handleCreate } = useFileOperations()
 const message = useMessage()
@@ -107,6 +109,13 @@ function toolItem(
 
 const eclItem = (label: string, key: string, inactive: boolean) =>
   toolItem('thecl', label, key, inactive)
+
+/** 用当前标签预填 MSG 构建对话框。编码留空即"跟随项目设置"。 */
+function openMsgBuildDialog(mode: 'compile' | 'decompile') {
+  const path = editorStore.activeTab?.path
+  if (!path) return
+  buildDialogStore.openDialog({ tool: 'thmsg', mode, inputPath: path } as never)
+}
 
 const menus = computed(() => [
   {
@@ -173,8 +182,10 @@ const menus = computed(() => [
       eclItem('生成 ECL 头文件…', 'script.generateEclHeader', !activeIsDecl.value),
       { type: 'divider', key: 'script-msg-div' },
       // MSG
-      toolItem('thmsg', '反编译当前 .msg', 'script.decompileMsg', !activeIsMsg.value),
-      toolItem('thmsg', '编译当前 .dmsg', 'script.compileMsg', !activeIsDmsg.value),
+      toolItem('thmsg', '解包当前 .msg', 'script.decompileMsg', !activeIsMsg.value),
+      toolItem('thmsg', '解包当前 .msg(高级…)', 'script.decompileMsgAdvanced', !activeIsMsg.value),
+      toolItem('thmsg', '打包当前 .dmsg', 'script.compileMsg', !activeIsDmsg.value),
+      toolItem('thmsg', '打包当前 .dmsg(高级…)', 'script.compileMsgAdvanced', !activeIsDmsg.value),
       { type: 'divider', key: 'script-std-div' },
       // STD
       toolItem('thstd', '反编译当前 .std', 'script.decompileStd', !activeIsStd.value),
@@ -367,6 +378,12 @@ async function handleSelect(key: string) {
       break
     case 'script.decompileMsg':
       tcActions.runDecompileMsg(editorStore.activeTab?.path)
+      break
+    case 'script.decompileMsgAdvanced':
+      openMsgBuildDialog('decompile')
+      break
+    case 'script.compileMsgAdvanced':
+      openMsgBuildDialog('compile')
       break
     case 'script.compileMsg':
       tcActions.runCompileMsg(editorStore.activeTab)
