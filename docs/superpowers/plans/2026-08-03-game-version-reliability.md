@@ -1407,6 +1407,33 @@ cargo test --manifest-path src-tauri/Cargo.toml
 未做：`AppConfig.default_game_version` 只归一不校验（非法值仍会在
 `game_version::resolve` 处被拦下并给出带合法列表的报错，故未加第二道）。
 
+### 后续 i18n 的一处结构障碍（2026-08-03 记）
+
+作品名已于同日统一为简体中文（`115a978`），并在 `GameVersionInfo.title` 上留了
+i18n 锚点：换成语言 key、由前端按语言查表即可，`id` / `code` / `tools` 是逻辑、
+不受影响。
+
+但**后端的错误文案里嵌了作品名**，这是届时真正的障碍：
+
+```rust
+// game_version.rs::resolve
+"{tool_id} 不支持版本 {id}（{}）——该作品在 thtk 里只有 {} 支持"
+```
+
+Rust 侧做文案本地化通常比前端麻烦（要引入语言资源、还要知道当前 UI 语言）。
+更合适的做法是让后端**只返回结构化信息**——例如 `Err(VersionUnsupported { id, tool })`——
+由前端组装文案。这样 `title` 的多语言查表只需要在前端做一处。
+
+涉及范围（届时一并改）：
+
+- `game_version::resolve` 的两条错误分支（未配置 / 工具不支持）
+- `game_version::parse` 的三条（写法非法 / 超范围 / 未知版本，后者还拼了完整版本列表）
+- `project_config::validate_project_config` 透传的上述错误
+
+现在不做：当前只有简中一种语言，提前抽象只会增加一层无人受益的间接。等真的
+要加英文时再动，届时前端的 `formatVersionLabel` / `toolAvailability` 已经是文案
+组装的天然落点。
+
 ## Windows 手动验收（追加到 MVP 清单）
 
 1. 项目设置的版本下拉显示「th18 · 东方虹龙洞」形式，**不能再自由输入**任意字符串。
