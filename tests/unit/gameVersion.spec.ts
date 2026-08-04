@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { versionsForTool, formatVersionLabel } from '../../src/services/toolchains/gameVersions'
+import {
+  versionsForTool,
+  formatVersionLabel,
+  toolAvailability
+} from '../../src/services/toolchains/gameVersions'
 import type { GameVersionView } from '../../src/types'
 
 /**
@@ -33,5 +37,41 @@ describe('gameVersions', () => {
 
   it('标签同时给出版本号与标题', () => {
     expect(formatVersionLabel(TABLE[0])).toBe('th18 · 東方虹龍洞')
+  })
+})
+
+describe('toolAvailability', () => {
+  it('版本受支持时启用', () => {
+    expect(toolAvailability('thdat', '75', TABLE).enabled).toBe(true)
+    expect(toolAvailability('thecl', '18', TABLE).enabled).toBe(true)
+  })
+
+  it('版本不被该工具支持时禁用并说明原因', () => {
+    const availability = toolAvailability('thecl', '75', TABLE)
+    expect(availability.enabled).toBe(false)
+    expect(availability.reason).toContain('東方萃夢想')
+    expect(availability.reason).toContain('thdat')
+  })
+
+  it('接受 th 前缀写法（旧配置可能还没被归一）', () => {
+    expect(toolAvailability('thecl', 'th75', TABLE).enabled).toBe(false)
+  })
+
+  /**
+   * 以下三种"信息不足"的情形一律放行。
+   * 宁可让用户点了拿后端的明确报错，也不要因为前端状态没就绪就把功能灰掉——
+   * 灰掉的按钮不会告诉用户为什么，而后端的报错会。
+   */
+  it('版本表未加载时不误禁用', () => {
+    expect(toolAvailability('thecl', '18', []).enabled).toBe(true)
+  })
+
+  it('未选版本时不误禁用', () => {
+    expect(toolAvailability('thecl', '', TABLE).enabled).toBe(true)
+    expect(toolAvailability('thecl', null, TABLE).enabled).toBe(true)
+  })
+
+  it('版本不在表内时不误禁用', () => {
+    expect(toolAvailability('thecl', '999', TABLE).enabled).toBe(true)
   })
 })
