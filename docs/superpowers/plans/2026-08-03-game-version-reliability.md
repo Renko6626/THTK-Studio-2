@@ -1382,6 +1382,31 @@ export PKG_CONFIG_PATH=$P/lib/pkgconfig:$P/share/pkgconfig LD_LIBRARY_PATH=$P/li
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
+## 执行结果（2026-08-03）
+
+七个 Task 全部完成，四道门禁绿：Rust 159（+27）、前端 67（+12）、typecheck、build。
+
+与计划的偏差：
+
+- **计划让直接删掉 `semantic-loader` 的 `normalizeVersion`，这是错的。** 它用来拼
+  `th{version}.eclm`，配置里存 `"th18"` 会得到 `"thth18.eclm"`。更要命的是新下拉框的
+  option value 是纯数字，旧配置里的 `"th18"` 对不上任何选项会**显示空白**。
+  改为在后端归一：`project_config` 的两个加载器 + 保存共三处入口，加上
+  `config::canonicalize_version` 处理全局默认值（手改 settings.json 的情况）。
+  前端因此不再有第二份归一化。
+- **`toolAvailability` 放在 `services/toolchains/gameVersions.ts` 而非 `useToolchainActions`。**
+  它是关于版本表的纯函数，与动作分发无关。
+- **菜单置灰只看项目声明的版本，不回退全局默认。** 前端没有持有 `AppConfig` 的 store，
+  为置灰去同步一份全局设置不划算；项目没声明版本时不置灰，用户仍会拿到后端报错。
+- **禁用原因写在 label 上而非 tooltip。** naive-ui 的 dropdown 在 disabled 项上不显示 tooltip。
+- **`build_thecl_args` 改收已解析的 `u32`** 而不是返回 `Result`——解析放在 `run()` 边界做一次。
+  `run()` 返回 `EclResult` 而非 `Result`，失败时走既有的结构化失败结果。
+- **`ToolchainSettingsDialog` 的 n-select 也带 `tag`**，计划只点了 `ProjectSettingsDialog`，
+  实际两处都删了。
+
+未做：`AppConfig.default_game_version` 只归一不校验（非法值仍会在
+`game_version::resolve` 处被拦下并给出带合法列表的报错，故未加第二道）。
+
 ## Windows 手动验收（追加到 MVP 清单）
 
 1. 项目设置的版本下拉显示「th18 · 東方虹龍洞」形式，**不能再自由输入**任意字符串。
