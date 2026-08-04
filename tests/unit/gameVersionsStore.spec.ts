@@ -11,8 +11,8 @@ vi.mock('../../src/api', () => ({
 }))
 
 const TABLE: GameVersionView[] = [
-  { id: 18, code: 'th18', title: '東方虹龍洞', tools: ['thecl', 'thdat'] },
-  { id: 75, code: 'th75', title: '東方萃夢想', tools: ['thdat'] }
+  { id: 18, code: 'th18', title: '东方虹龙洞', tools: ['thecl', 'thdat'] },
+  { id: 75, code: 'th75', title: '东方萃梦想', tools: ['thdat'] }
 ]
 
 describe('gameVersions store', () => {
@@ -40,7 +40,7 @@ describe('gameVersions store', () => {
     const store = useGameVersionsStore()
     await store.ensureLoaded()
     expect(store.optionsForTool('thecl')).toEqual([
-      { label: 'th18 · 東方虹龍洞', value: '18' }
+      { label: 'th18 · 东方虹龙洞', value: '18' }
     ])
     expect(store.optionsForTool('thdat')).toHaveLength(2)
   })

@@ -269,7 +269,7 @@ fn game_version_view_keys_are_pinned() {
     let view = GameVersionView {
         id: 18,
         code: "th18".to_string(),
-        title: "東方虹龍洞".to_string(),
+        title: "东方虹龙洞".to_string(),
         tools: vec!["thecl".to_string()],
     };
 

@@ -12,6 +12,8 @@ pub struct GameVersionInfo {
     pub id: u32,
     /// 规范化写法 `th18`，用于文件名匹配与展示。
     pub code: &'static str,
+    /// 简体中文作品名。这是目前唯一的展示文案来源——将来做 i18n 时，
+    /// 这里换成语言 key、由前端按语言查表即可，`id` / `code` / `tools` 都不受影响。
     pub title: &'static str,
     /// 支持该版本的工具 id，与 `toolchain::TOOLCHAIN_DESCRIPTORS` 的 id 对齐。
     pub tools: &'static [&'static str],
@@ -19,42 +21,43 @@ pub struct GameVersionInfo {
 
 /// 五个工具全支持。
 const ALL: &[&str] = &["thecl", "thanm", "thstd", "thmsg", "thdat"];
-/// thmsg 的 usage 里没有 103（Uwabami Breakers 无对话文件）。
+/// thmsg 的 usage 里没有 103——黄昏酒场没有对话文件。
+/// （thtk 自己的 usage 把它标作 "for Uwabami Breakers"。）
 const NO_MSG: &[&str] = &["thecl", "thanm", "thstd", "thdat"];
 /// PC-98 五作与三部格斗作只有封包格式，没有 ECL/ANM/STD/MSG 脚本支持。
 const DAT_ONLY: &[&str] = &["thdat"];
 
 pub const GAME_VERSIONS: [GameVersionInfo; 30] = [
-    GameVersionInfo { id: 1,   code: "th1",   title: "東方靈異伝",                 tools: DAT_ONLY },
-    GameVersionInfo { id: 2,   code: "th2",   title: "東方封魔録",                 tools: DAT_ONLY },
-    GameVersionInfo { id: 3,   code: "th3",   title: "東方夢時空",                 tools: DAT_ONLY },
-    GameVersionInfo { id: 4,   code: "th4",   title: "東方幻想郷",                 tools: DAT_ONLY },
-    GameVersionInfo { id: 5,   code: "th5",   title: "東方怪綺談",                 tools: DAT_ONLY },
-    GameVersionInfo { id: 6,   code: "th6",   title: "東方紅魔郷",                 tools: ALL },
-    GameVersionInfo { id: 7,   code: "th7",   title: "東方妖々夢",                 tools: ALL },
-    GameVersionInfo { id: 75,  code: "th75",  title: "東方萃夢想",                 tools: DAT_ONLY },
-    GameVersionInfo { id: 8,   code: "th8",   title: "東方永夜抄",                 tools: ALL },
-    GameVersionInfo { id: 9,   code: "th9",   title: "東方花映塚",                 tools: ALL },
-    GameVersionInfo { id: 95,  code: "th95",  title: "東方文花帖",                 tools: ALL },
-    GameVersionInfo { id: 10,  code: "th10",  title: "東方風神録",                 tools: ALL },
-    GameVersionInfo { id: 103, code: "th103", title: "Uwabami Breakers（非东方）", tools: NO_MSG },
-    GameVersionInfo { id: 105, code: "th105", title: "東方緋想天",                 tools: DAT_ONLY },
-    GameVersionInfo { id: 11,  code: "th11",  title: "東方地霊殿",                 tools: ALL },
-    GameVersionInfo { id: 12,  code: "th12",  title: "東方星蓮船",                 tools: ALL },
-    GameVersionInfo { id: 123, code: "th123", title: "東方非想天則",               tools: DAT_ONLY },
-    GameVersionInfo { id: 125, code: "th125", title: "ダブルスポイラー",           tools: ALL },
-    GameVersionInfo { id: 128, code: "th128", title: "妖精大戦争",                 tools: ALL },
-    GameVersionInfo { id: 13,  code: "th13",  title: "東方神霊廟",                 tools: ALL },
-    GameVersionInfo { id: 14,  code: "th14",  title: "東方輝針城",                 tools: ALL },
-    GameVersionInfo { id: 143, code: "th143", title: "弾幕アマノジャク",           tools: ALL },
-    GameVersionInfo { id: 15,  code: "th15",  title: "東方紺珠伝",                 tools: ALL },
-    GameVersionInfo { id: 16,  code: "th16",  title: "東方天空璋",                 tools: ALL },
-    GameVersionInfo { id: 165, code: "th165", title: "秘封ナイトメアダイアリー",   tools: ALL },
-    GameVersionInfo { id: 17,  code: "th17",  title: "東方鬼形獣",                 tools: ALL },
-    GameVersionInfo { id: 18,  code: "th18",  title: "東方虹龍洞",                 tools: ALL },
-    GameVersionInfo { id: 185, code: "th185", title: "東方剛欲異聞",               tools: ALL },
-    GameVersionInfo { id: 19,  code: "th19",  title: "東方獣王園",                 tools: ALL },
-    GameVersionInfo { id: 20,  code: "th20",  title: "東方錦上京",                 tools: ALL },
+    GameVersionInfo { id: 1,   code: "th1",   title: "东方灵异传",   tools: DAT_ONLY },
+    GameVersionInfo { id: 2,   code: "th2",   title: "东方封魔录",   tools: DAT_ONLY },
+    GameVersionInfo { id: 3,   code: "th3",   title: "东方梦时空",   tools: DAT_ONLY },
+    GameVersionInfo { id: 4,   code: "th4",   title: "东方幻想乡",   tools: DAT_ONLY },
+    GameVersionInfo { id: 5,   code: "th5",   title: "东方怪绮谈",   tools: DAT_ONLY },
+    GameVersionInfo { id: 6,   code: "th6",   title: "东方红魔乡",   tools: ALL },
+    GameVersionInfo { id: 7,   code: "th7",   title: "东方妖妖梦",   tools: ALL },
+    GameVersionInfo { id: 75,  code: "th75",  title: "东方萃梦想",   tools: DAT_ONLY },
+    GameVersionInfo { id: 8,   code: "th8",   title: "东方永夜抄",   tools: ALL },
+    GameVersionInfo { id: 9,   code: "th9",   title: "东方花映塚",   tools: ALL },
+    GameVersionInfo { id: 95,  code: "th95",  title: "东方文花帖",   tools: ALL },
+    GameVersionInfo { id: 10,  code: "th10",  title: "东方风神录",   tools: ALL },
+    GameVersionInfo { id: 103, code: "th103", title: "黄昏酒场",     tools: NO_MSG },
+    GameVersionInfo { id: 105, code: "th105", title: "东方绯想天",   tools: DAT_ONLY },
+    GameVersionInfo { id: 11,  code: "th11",  title: "东方地灵殿",   tools: ALL },
+    GameVersionInfo { id: 12,  code: "th12",  title: "东方星莲船",   tools: ALL },
+    GameVersionInfo { id: 123, code: "th123", title: "东方非想天则", tools: DAT_ONLY },
+    GameVersionInfo { id: 125, code: "th125", title: "东方文花帖DS", tools: ALL },
+    GameVersionInfo { id: 128, code: "th128", title: "妖精大战争",   tools: ALL },
+    GameVersionInfo { id: 13,  code: "th13",  title: "东方神灵庙",   tools: ALL },
+    GameVersionInfo { id: 14,  code: "th14",  title: "东方辉针城",   tools: ALL },
+    GameVersionInfo { id: 143, code: "th143", title: "弹幕天邪鬼",   tools: ALL },
+    GameVersionInfo { id: 15,  code: "th15",  title: "东方绀珠传",   tools: ALL },
+    GameVersionInfo { id: 16,  code: "th16",  title: "东方天空璋",   tools: ALL },
+    GameVersionInfo { id: 165, code: "th165", title: "秘封噩梦日记", tools: ALL },
+    GameVersionInfo { id: 17,  code: "th17",  title: "东方鬼形兽",   tools: ALL },
+    GameVersionInfo { id: 18,  code: "th18",  title: "东方虹龙洞",   tools: ALL },
+    GameVersionInfo { id: 185, code: "th185", title: "东方刚欲异闻", tools: ALL },
+    GameVersionInfo { id: 19,  code: "th19",  title: "东方兽王园",   tools: ALL },
+    GameVersionInfo { id: 20,  code: "th20",  title: "东方锦上京",   tools: ALL },
 ];
 
 /// 解析用户/配置里的版本写法。接受 `18`、`th18`、`TH18`、前后空白。
