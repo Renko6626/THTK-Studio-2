@@ -283,18 +283,18 @@ THTK-Studio 的核心编辑与工具链底座已经完成，并提前落地了 A
 ## 9. 手动验收清单（待用户在带桌面的机器执行）
 
 1. `npm run tauri dev` 启动，打开一个项目文件夹
-2. 底部终端面板：新建终端 → 跑 `vim` / `python` REPL — 交互正常、resize 正常、多 tab 切换不丢内容
-3. 项目根出现 `.mcp.json`，含 `thtk-studio` entry（端口 + Bearer token），已有自定义 entry 不被破坏
-4. 终端里跑 `claude` → `/mcp` 列出 thtk-studio 六个工具
-5. 让 agent 调 `check_ecl` 编译一个 `.decl` — 诊断与问题面板一致
-6. 让 agent 调 `report_to_user` — 输出面板弹出卡片
-7. 菜单"生成 AI 辅助包" — `.claude/skills/ecl-modding/` 生成；改 `SKILL.md` 后重跑不被覆盖，`references/` 刷新
-8. 输入 `exit` 关闭 shell — 终端显示退出码，tab 变灰，无报错
-9. 内嵌终端 `echo $THTK_MCP_URL $THTK_MCP_TOKEN` 有值
+2. 底部终端面板：新建终端 → 跑 `vim` / `python` REPL — 交互正常、resize 正常、多 tab 切换不丢内容 done
+3. 项目根出现 `.mcp.json`，含 `thtk-studio` entry（端口 + Bearer token），已有自定义 entry 不被破坏 done
+4. 终端里跑 `claude` → `/mcp` 列出 thtk-studio 六个工具 done
+5. 让 agent 调 `check_ecl` 编译一个 `.decl` — 诊断与问题面板一致 done
+6. 让 agent 调 `report_to_user` — 输出面板弹出卡片 done
+7. 菜单"生成 AI 辅助包" — `.claude/skills/ecl-modding/` 生成；改 `SKILL.md` 后重跑不被覆盖，`references/` 刷新 done
+8. 输入 `exit` 关闭 shell — 终端显示退出码，tab 变灰，无报错 done
+9. 内嵌终端 `echo $THTK_MCP_URL $THTK_MCP_TOKEN` 有值done
 10. 装 opencode：打开项目生成 `opencode.json`；opencode 启动即见六工具
 11. 装 codex：`.codex/config.toml` 生成 + trust 提示卡；trust 后 codex 见六工具
 12. 未装对应 CLI 的机器：不产生 `opencode.json`/`.codex`
-13. 重启 IDE（端口不变）：opencode/codex 配置无 diff；`.mcp.json` 仅 token 变
+13. 重启 IDE（端口不变）：opencode/codex 配置无 diff；`.mcp.json` 仅 token 变 done
 14. 菜单"脚本 → 解包当前 .msg"：选中 .msg 标签后该项可用；触发后输出面板出现"解包 .msg 完成"卡片，自动打开生成的 .dmsg（内容为可读指令名如 `textboxShow()`，非原始 `ins_N`）
 15. 编辑 .dmsg（如改 textboxShow 的注释、或不改），"脚本 → 打包当前 .dmsg"：输出面板"打包 .msg 完成"，生成的 .msg 字节合理（可再解包验证往返正确）
 16. 故意写错 .dmsg（如 `textboxShow` 改成不存在的 `fakeShow`），打包失败卡片显示 thmsg stderr；原 .msg 不被覆盖损坏

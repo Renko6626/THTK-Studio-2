@@ -600,7 +600,7 @@ git commit -m "fix(version): 校验 gameVersion 并统一版本解析
 同一个配置值在不同工具上语义不同，且 validate_project_config 完全不校验。
 
 现在 resolve() 是四个工具路径唯一的版本来源，并校验目标工具确实支持
-该版本（例如萃夢想 75 只有 thdat 支持）。"
+该版本（例如萃梦想 75 只有 thdat 支持）。"
 
 git add src-tauri/src/modules/
 git commit -m "refactor(version): 四个工具接入统一的版本解析
@@ -1217,10 +1217,10 @@ const TABLE: GameVersionView[] = [
 ]
 
 it('当前版本不被该工具支持时禁用并说明原因', () => {
-  // 项目选了 75（萃夢想），只有 thdat 支持
+  // 项目选了 75（萃梦想），只有 thdat 支持
   const availability = toolAvailability('thecl', 75, TABLE)
   expect(availability.enabled).toBe(false)
-  expect(availability.reason).toContain('萃夢想')
+  expect(availability.reason).toContain('萃梦想')
   expect(availability.reason).toContain('thdat')
 })
 
@@ -1439,7 +1439,7 @@ Rust 侧做文案本地化通常比前端麻烦（要引入语言资源、还要
 1. 项目设置的版本下拉显示「th18 · 东方虹龙洞」形式，**不能再自由输入**任意字符串。
 2. 手工把 `.thtk-project.json` 的 `gameVersion` 改成 `"21"`，IDE 报配置无效且指出合法版本。
 3. 手工改成 `"th18"`，ECL 与 MSG/STD/DAT **行为一致**（此前 ECL 正常而其余失败）。
-4. 选 `75`（萃夢想）后，ECL/MSG/STD/ANM 的菜单项置灰并提示只有 thdat 支持；thdat 打包正常。
+4. 选 `75`（萃梦想）后，ECL/MSG/STD/ANM 的菜单项置灰并提示只有 thdat 支持；thdat 打包正常。
 5. 工具链设置里各工具显示的可用版本数量与 thtk 自报一致（thecl 22 / thmsg 21 / thdat 30）。
 6. 把 thtk 换成较老版本，th19/th20 从下拉里消失（探测生效）；换回新版恢复。
 7. 项目版本 th20 但 mapPaths 挂 `th18.eclm` 时输出面板出现警告，且**不阻塞**编译。
