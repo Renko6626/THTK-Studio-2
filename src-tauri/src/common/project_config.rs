@@ -4,9 +4,15 @@ use std::path::{Path, PathBuf};
 
 const PROJECT_CONFIG_FILENAME: &str = ".thtk-project.json";
 
-/// 允许的 encoding 取值。项目内既有需要 Shift-JIS 的原始游戏文本，
-/// 也有 UTF-8 的 .decl/.dmsg 源码，因此两者都必须支持。
-pub const SUPPORTED_ENCODINGS: [&str; 2] = ["shift-jis", "utf-8"];
+/// 允许的 encoding 取值——指的是**游戏文本**的编码，不是 .decl/.dmsg 源文件的
+/// （那些在磁盘上始终是 UTF-8）。
+///
+/// - `shift-jis`：原作唯一的原生编码，默认值。
+/// - `gbk`：汉化版常用。它同时装得下简体汉字与日文假名/汉字，而汉化版常有简日
+///   混排。**前提是游戏侧已做适配**（字体 charset 补丁、字节边界判断、转区）。
+/// - `utf-8`：原版游戏读不了（thcrap 文档：games don't support any form of
+///   Unicode）。保留是为了兼容既有配置与自定义引擎，工具会在打包时告诫。
+pub const SUPPORTED_ENCODINGS: [&str; 3] = ["shift-jis", "gbk", "utf-8"];
 
 /// `.thtk-project.json` 顶层允许出现的键。
 ///

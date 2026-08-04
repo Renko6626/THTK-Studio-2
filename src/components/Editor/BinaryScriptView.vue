@@ -46,6 +46,20 @@
           </div>
 
           <div class="mt-6 space-y-3">
+            <div v-if="descriptor.needsEncoding">
+              <div class="text-[11px] uppercase tracking-[0.12em] text-gray-500 mb-2">
+                游戏文本编码
+              </div>
+              <n-select
+                v-model:value="selectedEncoding"
+                :options="ENCODING_OPTIONS"
+                size="small"
+                placeholder="跟随项目设置"
+              />
+              <div class="mt-2 text-xs text-gray-500 leading-5">
+                原作是 Shift-JIS。解错编码不会报错，只会得到乱码——若产出可读性差，换个编码重解即可，原文件不动。
+              </div>
+            </div>
             <n-button
               type="primary"
               block
@@ -74,8 +88,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { NButton } from 'naive-ui'
+import { computed, ref } from 'vue'
+import { NButton, NSelect } from 'naive-ui'
 import { useEditorStore } from '../../stores/editor'
 import type { EditorTab } from '../../stores/editor'
 import { useMessage } from 'naive-ui'
@@ -106,7 +120,9 @@ interface ToolDescriptor {
   actionNote: string
   /** true 表示该工具链尚未实现（anm），此时 action 为 null */
   disabled: boolean
-  action: ((tab: EditorTab) => void | Promise<void>) | null
+  action: ((tab: EditorTab, encoding: string | null) => void | Promise<void>) | null
+  /** 该类型的操作需要用户选游戏文本编码（目前只有 msg） */
+  needsEncoding?: boolean
   advancedAction?: (tab: EditorTab) => void
   advancedLabel?: string
 }
@@ -130,7 +146,9 @@ const TOOL_DESCRIPTORS: Record<string, ToolDescriptor> = {
     actionLabel: '反编译为 .dmsg',
     actionNote: '调用 thmsg 反编译,产物 .dmsg 会自动在编辑器打开。',
     disabled: false,
-    action: async (tab) => { await runDecompileMsg(tab.path) }
+    // 游戏文本编码猜不出来：Shift-JIS 解任何字节都不报错，解错了只是满屏乱码
+    needsEncoding: true,
+    action: async (tab, encoding) => { await runDecompileMsg(tab.path, encoding) }
   },
   std: {
     typeLabel: 'Touhou STD 二进制',
@@ -161,6 +179,21 @@ const TOOL_DESCRIPTORS: Record<string, ToolDescriptor> = {
   }
 }
 
+/**
+ * 本次操作用的游戏文本编码。null = 跟随项目配置。
+ *
+ * 之所以要能单次覆盖：一次往返里两个方向常常不同——按 shift-jis 解开原版日文，
+ * 翻译成中文后按 gbk 打包。项目配置只能记住一个默认值。
+ */
+const selectedEncoding = ref<string | null>(null)
+
+const ENCODING_OPTIONS = [
+  { label: '跟随项目设置', value: '' },
+  { label: 'Shift-JIS（原作）', value: 'shift-jis' },
+  { label: 'GBK（汉化版，需游戏侧适配）', value: 'gbk' },
+  { label: 'UTF-8（原版游戏读不了）', value: 'utf-8' }
+]
+
 const descriptor = computed(() => {
   const ext = activeTab.value?.extension?.toLowerCase()
   return (ext ? TOOL_DESCRIPTORS[ext] : null) || TOOL_DESCRIPTORS.ecl
@@ -169,7 +202,7 @@ const descriptor = computed(() => {
 function handleAction() {
   const tab = activeTab.value
   if (!tab || !descriptor.value.action || descriptor.value.disabled) return
-  descriptor.value.action(tab)
+  descriptor.value.action(tab, descriptor.value.needsEncoding ? selectedEncoding.value : null)
 }
 
 function handleAdvanced() {
