@@ -9,7 +9,13 @@ import {
   executeThecl,
   publishTheclResult
 } from '../services/toolchains/thecl'
-import type { EclResult, TheclMode, TheclRequest } from '../types'
+import type {
+  EclResult,
+  ProjectConfig,
+  ProjectConfigStatus,
+  TheclMode,
+  TheclRequest
+} from '../types'
 
 export interface RunTheclOptions {
   /** 执行前若当前标签是脏的，先保存；保存失败则中止 */
@@ -23,19 +29,52 @@ interface RunTheclForActiveOptions extends RunTheclOptions {
   mode: TheclMode
 }
 
-/** 从项目配置填充 thecl 请求的默认值 */
-function applyProjectDefaults(
+export interface ProjectDefaultsResult {
+  request: TheclRequest
+  /** 项目设置未能生效时给用户的说明；正常情况为 null */
+  warning: string | null
+}
+
+/**
+ * 从项目配置填充 thecl 请求的默认值。
+ *
+ * 配置损坏（`invalid`）时前端会把 `projectConfig` 置为 null，此前这里直接
+ * `return request` —— ECL 于是**静默**丢掉 mapPaths，在没有 eclmap 的情况下
+ * 编译，报错完全指不到真正的原因。而 msg/std/dat 走 Rust 的尽力而为加载器，
+ * 照常拿到 gameVersion 与 thtkDir，两条路径行为并不一致。
+ *
+ * 这里不改变"损坏时不采用项目设置"的决定——拿已知格式错误的数据去编译更糟——
+ * 但把它从静默变成显式。
+ */
+export function applyProjectDefaults(
   request: TheclRequest,
-  projectStore: ReturnType<typeof useProjectStore>
-): TheclRequest {
-  const pc = projectStore.projectConfig
-  if (!pc) return request
+  projectConfig: ProjectConfig | null,
+  status: ProjectConfigStatus
+): ProjectDefaultsResult {
+  if (!projectConfig) {
+    const warning =
+      status === 'invalid'
+        ? '项目配置文件有误，本次调用未使用项目设置——eclmap、目标版本与编码都回退到了默认值。请先在「项目设置」里修复。'
+        : null
+    return { request, warning }
+  }
 
   return {
-    ...request,
-    version: request.version || pc.gameVersion || '',
-    mapPaths: request.mapPaths?.length ? request.mapPaths : (pc.mapPaths || []),
-    useShiftJis: request.useShiftJis ?? (pc.encoding === 'shift-jis')
+    request: {
+      ...request,
+      version: request.version || projectConfig.gameVersion || '',
+      mapPaths: request.mapPaths?.length ? request.mapPaths : (projectConfig.mapPaths || []),
+      // 编码由项目配置直接决定，不是"填空"。
+      //
+      // 原先写的是 `request.useShiftJis ?? (...)`，而 createTheclRequest 把
+      // useShiftJis 默认成 true 且类型是非可选 boolean——`??` 永远不会回落，
+      // 项目里写 encoding: "utf-8" 对这条路径完全无效，照样传 -j 给 thecl。
+      //
+      // 本函数只服务于快捷菜单路径（高级构建对话框直接调 runTheclRequest），
+      // 那里没有用户的显式勾选可言，项目配置就是唯一权威。
+      useShiftJis: projectConfig.encoding === 'shift-jis'
+    },
+    warning: null
   }
 }
 
@@ -130,10 +169,28 @@ export function useTheclActions() {
       return null
     }
 
-    const request = applyProjectDefaults(
+    const { request, warning } = applyProjectDefaults(
       createTheclRequest({ mode, inputPath: activeTab.path }),
-      projectStore
+      projectStore.projectConfig,
+      projectStore.projectConfigStatus
     )
+
+    // 配置损坏时项目设置整体没生效，先说清楚再跑——否则用户只会看到一堆
+    // "unknown instruction"，完全联想不到是配置文件的问题。
+    if (warning) {
+      reportsStore.publishToolResult({
+        ownerKey: `thecl:project-config:${projectStore.rootPath || 'workspace'}`,
+        source: 'thecl',
+        operation: mode,
+        scriptKind: 'ecl',
+        title: '项目配置未生效',
+        path: projectStore.projectConfigPath || null,
+        success: false,
+        message: warning,
+        diagnostics: []
+      })
+      workbenchPanelsStore.showBottomPanel('output')
+    }
 
     return runTheclRequest(request, {
       requireSave,
