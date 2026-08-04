@@ -81,21 +81,51 @@ pub fn resolve_tool_override(config: &AppConfig, tool_id: &str) -> String {
 /// 所有会调起外部工具或展示工具链状态的路径都应该先过这个函数，否则项目配置里的
 /// thtkDir 就只是写进 JSON 却无人读取的死数据。
 pub fn effective_config(config: &AppConfig, project_root: Option<&str>) -> AppConfig {
+    effective_context(config, project_root).config
+}
+
+/// 一次读盘拿到本次调用需要的**全部**项目上下文。
+///
+/// 工具链命令此前读两次 `.thtk-project.json`：一次给 `effective_config` 解析
+/// thtkDir，一次给 `game_version::resolve` 取版本。除了多一次 IO，两次读取
+/// 之间文件若被改动，同一次调用还会用上两份不一致的配置。
+///
+/// 配合 [`crate::common::game_version::resolve_from`] 使用。
+pub struct EffectiveContext {
+    /// 应用过项目级覆盖的配置
+    pub config: AppConfig,
+    /// 本次读到的项目配置；没有项目根或文件不存在时为 None
+    pub project: Option<crate::common::project_config::ProjectConfig>,
+}
+
+pub fn effective_context(config: &AppConfig, project_root: Option<&str>) -> EffectiveContext {
     let Some(root) = project_root else {
-        return config.clone();
+        return EffectiveContext {
+            config: config.clone(),
+            project: None,
+        };
     };
     let Some(project) = crate::common::project_config::load_project_config(root) else {
-        return config.clone();
+        return EffectiveContext {
+            config: config.clone(),
+            project: None,
+        };
     };
 
     let project_thtk_dir = project.toolchain.thtk_dir.trim();
     if project_thtk_dir.is_empty() {
-        return config.clone();
+        return EffectiveContext {
+            config: config.clone(),
+            project: Some(project),
+        };
     }
 
     let mut effective = config.clone();
     effective.thtk_dir = project_thtk_dir.to_string();
-    effective
+    EffectiveContext {
+        config: effective,
+        project: Some(project),
+    }
 }
 
 pub fn resolve_tool_path(config: &AppConfig, tool_id: &str, exe_name: &str) -> String {
@@ -112,6 +142,19 @@ pub fn resolve_tool_path(config: &AppConfig, tool_id: &str, exe_name: &str) -> S
         .join(exe_name)
         .to_string_lossy()
         .to_string()
+}
+
+/// 工具未配置时给用户的说明。
+///
+/// 安装包不含 thtk（第三方 GPL 工具，不随包分发），而 `thtk_dir` 默认为空、
+/// 为空时 `resolve_tool_path` 退回裸 exe 名走 PATH。所以全新安装后这条会是
+/// 用户点任何工具链功能时看到的第一句话——它必须说清楚下一步做什么，
+/// 而不是只陈述"没配置"。
+pub fn not_configured_message(tool_id: &str) -> String {
+    format!(
+        "未找到 {tool_id}。请在「设置 → 工具链设置」里指定 thtk 所在目录。\
+thtk 是第三方工具，不随本程序分发，可从 https://github.com/thpatch/thtk 下载。"
+    )
 }
 
 pub fn get_toolchain_status(config: &AppConfig, tool_id: &str) -> Result<ToolchainStatus, String> {
@@ -137,7 +180,7 @@ pub fn get_toolchain_status(config: &AppConfig, tool_id: &str) -> Result<Toolcha
             resolved_path,
             available: false,
             version: String::new(),
-            message: "Toolchain path is not configured".to_string(),
+            message: not_configured_message(descriptor.id),
             supported_versions: Vec::new(),
         });
     }

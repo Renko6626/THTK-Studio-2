@@ -55,14 +55,16 @@ fn current_project_root(state: &State<AppState>) -> Option<String> {
 
 // 状态查询同样要过项目级覆盖，否则设置界面显示的"已解析路径"会和
 // 实际编译时用的 exe 不是同一个。
-#[tauri::command]
+// 重活不能占主线程：启动子进程读版本与 usage
+#[tauri::command(async)]
 fn get_toolchain_status(state: State<AppState>, tool: String) -> Result<toolchain::ToolchainStatus, String> {
     let root = current_project_root(&state);
     let config = toolchain::effective_config(&state.config_manager.get_config(), root.as_deref());
     toolchain::get_toolchain_status(&config, &tool)
 }
 
-#[tauri::command]
+// 重活不能占主线程：五个工具各启动两次子进程（-V 与 usage 探测），共 10 次
+#[tauri::command(async)]
 fn get_toolchain_statuses(state: State<AppState>) -> Vec<toolchain::ToolchainStatus> {
     let root = current_project_root(&state);
     let config = toolchain::effective_config(&state.config_manager.get_config(), root.as_deref());
@@ -166,7 +168,8 @@ fn register_project_mcp_clients(
 /// 并记录最近项目；任何一步失败都不会动到当前工作区、监听器或最近项目列表。
 /// 配置文件损坏**不**阻止打开——用户仍然要能看到项目内容再决定怎么修，
 /// 因此以 invalid 状态返回，由前端在覆盖前二次确认。
-#[tauri::command]
+// 重活不能占主线程：扫描文件树、启动监听器、探测并写入三个 agent 的配置
+#[tauri::command(async)]
 fn open_project(
     state: State<AppState>,
     path: String,
@@ -282,12 +285,14 @@ fn save_project_config_cmd(
 // File Tree Commands
 // ----------------------------------------------------------------
 
-#[tauri::command]
+// 重活不能占主线程：目录扫描
+#[tauri::command(async)]
 fn get_file_tree(path: String) -> Result<Vec<fs_utils::FileNode>, String> {
     fs_utils::get_file_tree(&path).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+// 重活不能占主线程：目录扫描
+#[tauri::command(async)]
 fn get_dir_children(path: String) -> Result<Vec<fs_utils::FileNode>, String> {
     fs_utils::get_dir_children(&path).map_err(|e| e.to_string())
 }

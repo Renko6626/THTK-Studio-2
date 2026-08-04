@@ -6,7 +6,7 @@ use tauri::State;
 fn ensure_thmsg_configured(config: &crate::config::AppConfig) -> Result<(), String> {
     let resolved = toolchain::resolve_tool_path(config, "thmsg", "thmsg.exe");
     if resolved.trim().is_empty() {
-        return Err("thmsg path is not configured".to_string());
+        return Err(toolchain::not_configured_message("thmsg"));
     }
     Ok(())
 }
@@ -23,10 +23,11 @@ pub async fn decompile_msg_file(
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .clone();
-    let config = toolchain::effective_config(&state.config_manager.get_config(), root.as_deref());
+    let ctx = toolchain::effective_context(&state.config_manager.get_config(), root.as_deref());
+    let config = ctx.config;
     ensure_thmsg_configured(&config)?;
     let version =
-        crate::common::game_version::resolve(&config, root.as_deref(), "thmsg")?
+        crate::common::game_version::resolve_from(ctx.project.as_ref(), &config, "thmsg")?
             .to_string();
     let req = compiler::MsgRequest {
         mode: compiler::MsgMode::Decompile,
@@ -49,10 +50,11 @@ pub async fn compile_msg_file(
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .clone();
-    let config = toolchain::effective_config(&state.config_manager.get_config(), root.as_deref());
+    let ctx = toolchain::effective_context(&state.config_manager.get_config(), root.as_deref());
+    let config = ctx.config;
     ensure_thmsg_configured(&config)?;
     let version =
-        crate::common::game_version::resolve(&config, root.as_deref(), "thmsg")?
+        crate::common::game_version::resolve_from(ctx.project.as_ref(), &config, "thmsg")?
             .to_string();
     let req = compiler::MsgRequest {
         mode: compiler::MsgMode::Compile,

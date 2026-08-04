@@ -6,7 +6,7 @@ use tauri::State;
 fn ensure_thdat_configured(config: &crate::config::AppConfig) -> Result<(), String> {
     let resolved = toolchain::resolve_tool_path(config, "thdat", "thdat.exe");
     if resolved.trim().is_empty() {
-        return Err("thdat path is not configured".to_string());
+        return Err(toolchain::not_configured_message("thdat"));
     }
     Ok(())
 }
@@ -22,7 +22,8 @@ pub async fn extract_dat_file(
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .clone();
-    let config = toolchain::effective_config(&state.config_manager.get_config(), root.as_deref());
+    let ctx = toolchain::effective_context(&state.config_manager.get_config(), root.as_deref());
+    let config = ctx.config;
     ensure_thdat_configured(&config)?;
     // Extract uses -xd (auto-detect); version field is ignored.
     let req = compiler::ThdatRequest {
@@ -45,10 +46,11 @@ pub async fn pack_dat_file(
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .clone();
-    let config = toolchain::effective_config(&state.config_manager.get_config(), root.as_deref());
+    let ctx = toolchain::effective_context(&state.config_manager.get_config(), root.as_deref());
+    let config = ctx.config;
     ensure_thdat_configured(&config)?;
     let version =
-        crate::common::game_version::resolve(&config, root.as_deref(), "thdat")?
+        crate::common::game_version::resolve_from(ctx.project.as_ref(), &config, "thdat")?
             .to_string();
     let req = compiler::ThdatRequest {
         mode: compiler::ThdatMode::Pack,

@@ -18,6 +18,19 @@
         <span class="text-xs text-gray-600 select-none">Ctrl+O</span>
       </div>
 
+      <div
+        v-if="readiness.state !== 'ready'"
+        class="rounded border px-3 py-2.5 mb-8 text-xs leading-relaxed"
+        :class="readiness.state === 'missing'
+          ? 'border-[#cca700]/40 bg-[#cca700]/8 text-[#cca700]'
+          : 'border-[#f48771]/40 bg-[#f48771]/8 text-[#f48771]'"
+      >
+        <div>{{ readiness.message }}</div>
+        <n-button size="tiny" quaternary class="mt-2" @click="toolchainSettingsStore.open()">
+          打开工具链设置
+        </n-button>
+      </div>
+
       <div class="flex items-center justify-between mb-3">
         <div class="text-[11px] uppercase tracking-[0.12em] text-gray-500 select-none">最近项目</div>
         <n-button
@@ -92,21 +105,35 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { NButton, useDialog, useMessage } from 'naive-ui'
 import { useProjectStore } from '../../stores/project'
-import type { RecentProjectView } from '../../types'
+import type { RecentProjectView, ToolchainStatus } from '../../types'
 import { useRecentProjectsStore } from '../../stores/recentProjects'
+import { useToolchainSettingsStore } from '../../stores/toolchainSettings'
 import { useProjectActions } from '../../composables/useProjectActions'
+import { getToolchainStatuses } from '../../api'
+import { summarizeToolchainReadiness } from '../../services/toolchains/readiness'
 
 const projectStore = useProjectStore()
 const recentProjectsStore = useRecentProjectsStore()
+const toolchainSettingsStore = useToolchainSettingsStore()
 const message = useMessage()
 const dialog = useDialog()
 const projectActions = useProjectActions({ message, dialog })
 
-onMounted(() => {
+// 全新安装时 thtk 工具链一定是未配置的（安装包不含 thtk）。欢迎页是新用户
+// 见到的第一个界面，把这件事说在他点任何功能之前。
+const toolchainStatuses = ref<ToolchainStatus[]>([])
+const readiness = computed(() => summarizeToolchainReadiness(toolchainStatuses.value))
+
+onMounted(async () => {
   void recentProjectsStore.refresh()
+  try {
+    toolchainStatuses.value = await getToolchainStatuses()
+  } catch {
+    // 拿不到状态就不提示，不值得为此打断欢迎页
+  }
 })
 
 async function openFromPicker() {

@@ -8,7 +8,7 @@ use tauri::State;
 fn ensure_thecl_configured(config: &crate::config::AppConfig) -> Result<(), String> {
     let resolved = toolchain::resolve_tool_path(config, "thecl", "thecl.exe");
     if resolved.trim().is_empty() {
-        return Err("thecl path is not configured".to_string());
+        return Err(toolchain::not_configured_message("thecl"));
     }
     Ok(())
 }
@@ -69,7 +69,8 @@ pub async fn compile_ecl_file(
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .clone();
-    let config = toolchain::effective_config(&state.config_manager.get_config(), root.as_deref());
+    let ctx = toolchain::effective_context(&state.config_manager.get_config(), root.as_deref());
+    let config = ctx.config;
     let thtk_dir = config.thtk_dir.clone();
     let game_ver = config.default_game_version.clone();
 
@@ -92,7 +93,8 @@ pub async fn decompile_ecl_file(
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .clone();
-    let config = toolchain::effective_config(&state.config_manager.get_config(), root.as_deref());
+    let ctx = toolchain::effective_context(&state.config_manager.get_config(), root.as_deref());
+    let config = ctx.config;
     let thtk_dir = config.thtk_dir.clone();
     let game_ver = config.default_game_version.clone();
 
@@ -115,7 +117,8 @@ pub async fn run_thecl_operation(
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .clone();
-    let config = toolchain::effective_config(&state.config_manager.get_config(), root.as_deref());
+    let ctx = toolchain::effective_context(&state.config_manager.get_config(), root.as_deref());
+    let config = ctx.config;
     let thtk_dir = config.thtk_dir.clone();
 
     ensure_thecl_configured(&config)?;
@@ -147,7 +150,8 @@ pub async fn generate_ai_assist_pack(
         .ok_or("No project root set")?;
     // 必须过项目级覆盖：否则辅助包的 references 会按全局 thtk_dir 的 eclmap 生成，
     // 而 check_ecl / compile_ecl 用的是项目级的，agent 拿到的语义和实际编译不是一回事
-    let config = toolchain::effective_config(&state.config_manager.get_config(), Some(&root));
+    let ctx = toolchain::effective_context(&state.config_manager.get_config(), Some(&root));
+    let config = ctx.config;
 
     let map_path = crate::modules::mcp::tools::resolve_map_path(&config, Some(&root))?;
     let semantics = map_parser::parse_ecl_map_file(&map_path)?;
