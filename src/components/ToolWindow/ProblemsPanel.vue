@@ -1,16 +1,12 @@
 <template>
-  <div class="h-full flex flex-col bg-[#111111]">
-    <div class="h-9 px-3 flex items-center justify-between border-b border-white/8 bg-[#202020]">
-      <div class="flex items-center gap-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
-        <span>Problems</span>
-        <span class="text-[#f48771]">{{ reportsStore.errorCount }} Errors</span>
-        <span class="text-[#dcdcaa]">{{ reportsStore.warningCount }} Warnings</span>
+  <div class="h-full flex flex-col bg-[#181818]">
+    <!-- 只留计数（tab 上没有这个信息），标题不重复画 -->
+    <div class="h-8 pl-3 pr-1 flex items-center justify-between shrink-0">
+      <div class="flex items-center gap-3 text-[11px] text-[#9d9d9d]">
+        <span class="text-[#f48771]">{{ reportsStore.errorCount }} 个错误</span>
+        <span class="text-[#dcdcaa]">{{ reportsStore.warningCount }} 个警告</span>
       </div>
-      <button
-        type="button"
-        class="h-6 px-2 text-[11px] rounded-sm border border-transparent bg-transparent text-gray-400 hover:text-gray-200 hover:border-[#3b82f6]/60"
-        @click="reportsStore.clearProblems()"
-      >
+      <button type="button" class="panel-text-action" @click="reportsStore.clearProblems()">
         清空
       </button>
     </div>

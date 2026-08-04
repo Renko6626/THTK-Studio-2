@@ -17,5 +17,36 @@ import { defineConfig, presetUno } from 'unocss'
  * （`Welcome/WelcomeView.vue` 的 `.recent-entry` 就是为此加的局部重置）。
  */
 export default defineConfig({
-  presets: [presetUno()]
+  presets: [presetUno()],
+
+  /**
+   * 底部面板 chrome 的共享样式，取自 VS Code Dark Modern 的面板配色。
+   *
+   * 三条规则是这套观感的关键，改动时别破坏：
+   * 1. hover 只加半透明底色，**不加边框**——彩色描边是最不像 VS Code 的地方；
+   * 2. 活动态是近白色文字 + 近白色下划线（panelTitle.activeBorder = #e7e7e7），
+   *    不是蓝色，蓝色只留给键盘焦点；
+   * 3. 动作按钮是方形热区里的 16px 图标，圆角 5px。
+   *
+   * 放在这里而不是各组件的 scoped style：BottomPanelHost 与 TerminalPanel
+   * 的头栏上下相邻，样式必须由同一处定义，否则一改就错位。
+   */
+  shortcuts: {
+    'panel-action':
+      'w-6 h-6 shrink-0 flex items-center justify-center rounded-[5px] ' +
+      'text-[#9d9d9d] hover:text-[#e7e7e7] hover:bg-white/10 ' +
+      // 不要再叠 outline-none：它排在后面会把上面这条焦点环覆盖成透明，
+      // 键盘用户就彻底看不到焦点了。
+      'focus-visible:[outline:1px_solid_#0078d4] transition-colors',
+    // 文字型工具按钮（清空等）。与 panel-action 同一套 hover 语言，只是热区随文字宽。
+    'panel-text-action':
+      'h-6 px-2 shrink-0 flex items-center rounded-[5px] text-[11px] ' +
+      'text-[#9d9d9d] hover:text-[#e7e7e7] hover:bg-white/10 ' +
+      'focus-visible:[outline:1px_solid_#0078d4] transition-colors',
+    'panel-tab':
+      'relative h-full px-2 text-[11px] leading-none flex items-center shrink-0 ' +
+      'border-b border-transparent text-[#9d9d9d] hover:text-[#e7e7e7] ' +
+      'focus-visible:[outline:1px_solid_#0078d4] transition-colors',
+    'panel-tab-active': 'text-[#e7e7e7] border-b-[#e7e7e7]'
+  }
 })
