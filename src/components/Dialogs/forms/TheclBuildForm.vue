@@ -44,7 +44,7 @@
       <n-form-item label="目标游戏版本">
         <n-select
           :value="model.version"
-          :options="THECL_VERSION_OPTIONS"
+          :options="versionOptions"
           filterable
           tag
           placeholder="选择或输入版本"
@@ -136,10 +136,15 @@ import {
 } from 'naive-ui'
 import {
   THECL_MODE_LABELS,
-  THECL_MODE_OPTIONS,
-  THECL_VERSION_OPTIONS
+  THECL_MODE_OPTIONS
 } from '../../../services/toolchains/theclMetadata'
+import { useGameVersionsStore } from '../../../stores/gameVersions'
 import type { TheclBuildPayload } from '../../../types'
+
+// 构建对话框是 thecl 专用，只列 thecl 支持的版本（thdat 多 8 个、thmsg 少 1 个）
+const gameVersionsStore = useGameVersionsStore()
+gameVersionsStore.ensureLoaded()
+const versionOptions = computed(() => gameVersionsStore.optionsForTool('thecl'))
 
 const props = defineProps<{
   model: TheclBuildPayload

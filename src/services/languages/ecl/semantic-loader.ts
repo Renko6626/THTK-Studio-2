@@ -17,13 +17,6 @@ interface LoadedMap {
   semantics: EclMapSemanticData
 }
 
-function normalizeVersion(version: string | null | undefined): string {
-  return String(version || '')
-    .trim()
-    .toLowerCase()
-    .replace(/^th/, '')
-}
-
 function joinPath(basePath: string | null | undefined, relativePath: string): string {
   if (!basePath) return relativePath
   const separator = basePath.includes('\\') ? '\\' : '/'
@@ -82,7 +75,9 @@ export async function loadDefaultEclSemanticData({
   projectConfig
 }: LoadSemanticDataOptions = {}): Promise<LoadedEclSemanticData> {
   const settings = await getSettings()
-  const version = normalizeVersion(projectConfig?.gameVersion || settings?.default_game_version)
+  // 后端 project_config::canonicalize_game_version 已把项目值归一成纯数字，
+  // 这里不再二次处理。全局默认值来自设置对话框的下拉框，同样是纯数字。
+  const version = String(projectConfig?.gameVersion || settings?.default_game_version || '').trim()
 
   // 项目声明的**全部** map 都要进词表：thecl 和 mcp 侧都是把 mapPaths 整体传下去的，
   // 只取第一条会让 maps[1..] 里定义的指令在编辑器里查无此项，正好是这套改动

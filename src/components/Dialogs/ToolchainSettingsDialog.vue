@@ -29,7 +29,6 @@
             v-model:value="form.default_game_version"
             :options="versionOptions"
             filterable
-            tag
           />
         </n-form-item>
       </n-form>
@@ -126,7 +125,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { open } from '@tauri-apps/plugin-dialog'
 import {
   NButton,
@@ -142,7 +141,7 @@ import type { ToolchainStatus, UserSettingsPayload } from '../../types'
 import type { ToolchainDescriptor } from '../../services/toolchains/registry'
 import { useToolchainSettingsStore } from '../../stores/toolchainSettings'
 import { getRegisteredToolchains } from '../../services/toolchains/registry'
-import { THECL_VERSION_OPTIONS } from '../../services/toolchains/theclMetadata'
+import { useGameVersionsStore } from '../../stores/gameVersions'
 
 const toolchainSettingsStore = useToolchainSettingsStore()
 const message = useMessage()
@@ -160,7 +159,8 @@ const form = reactive<UserSettingsPayload>({
 const toolStatuses = reactive<Record<string, ToolchainStatus | null>>({})
 const checking = ref(false)
 const saving = ref(false)
-const versionOptions = THECL_VERSION_OPTIONS
+const gameVersionsStore = useGameVersionsStore()
+const versionOptions = computed(() => gameVersionsStore.allOptions)
 
 watch(
   () => toolchainSettingsStore.visible,

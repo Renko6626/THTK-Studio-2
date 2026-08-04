@@ -44,7 +44,6 @@
               v-model:value="form.gameVersion"
               :options="versionOptions"
               filterable
-              tag
               clearable
               placeholder="留空则使用全局默认版本"
             />
@@ -130,7 +129,7 @@
 </template>
 
 <script setup lang="ts">
-import { h, reactive, ref, watch } from 'vue'
+import { computed, h, reactive, ref, watch } from 'vue'
 import { open } from '@tauri-apps/plugin-dialog'
 import {
   NButton,
@@ -146,7 +145,7 @@ import {
 } from 'naive-ui'
 import { useProjectSettingsStore } from '../../stores/projectSettings'
 import { useProjectStore } from '../../stores/project'
-import { THECL_VERSION_OPTIONS } from '../../services/toolchains/theclMetadata'
+import { useGameVersionsStore } from '../../stores/gameVersions'
 import type { ProjectConfig, ProjectEncoding } from '../../types'
 
 const projectSettingsStore = useProjectSettingsStore()
@@ -154,7 +153,9 @@ const projectStore = useProjectStore()
 const message = useMessage()
 const dialog = useDialog()
 
-const versionOptions = THECL_VERSION_OPTIONS
+const gameVersionsStore = useGameVersionsStore()
+// 项目级版本对五个工具都生效，所以列整张表而非某个工具的子集
+const versionOptions = computed(() => gameVersionsStore.allOptions)
 const loading = ref(false)
 const saving = ref(false)
 
@@ -185,6 +186,7 @@ watch(
     if (!visible) return
     editingRoot.value = projectStore.rootPath || ''
     loading.value = true
+    await gameVersionsStore.ensureLoaded()
     try {
       // 每次打开都重读磁盘：文件可能被外部工具或用户手动改过
       await projectStore.reloadProjectConfig()

@@ -79,10 +79,31 @@ describe('ECL 词表加载', () => {
 
     const result = await loadDefaultEclSemanticData({
       projectRoot: '/proj',
-      projectConfig: makeProjectConfig({ gameVersion: 'th18', mapPaths: ['maps/a.eclm'] })
+      projectConfig: makeProjectConfig({ gameVersion: '18', mapPaths: ['maps/a.eclm'] })
     })
 
     expect(result.version).toBe('18')
+  })
+
+  /**
+   * 契约变更：归一化已从前端移到后端。
+   *
+   * 此前这里喂 'th18' 期望前端剥掉前缀——那是第三份归一化实现。现在
+   * project_config::canonicalize_game_version 与 config::canonicalize_version
+   * 在加载/保存时就把值规范成纯数字，前端拿到的必然已规范。
+   *
+   * 这条测试把该契约钉住：万一后端漏了归一，前端会**原样透传**而不是
+   * 悄悄补救——问题会暴露在候选路径 thth18.eclm 上，而不是被掩盖。
+   */
+  it('不再二次归一：前端原样透传后端给的版本值', async () => {
+    getEclMapSemantics.mockResolvedValue({ ...semanticsWith(['x']), version: '' })
+
+    const result = await loadDefaultEclSemanticData({
+      projectRoot: '/proj',
+      projectConfig: makeProjectConfig({ gameVersion: 'th18', mapPaths: ['maps/a.eclm'] })
+    })
+
+    expect(result.version).toBe('th18')
   })
 
   it('项目相对路径按项目根解析', async () => {
