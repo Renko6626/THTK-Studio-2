@@ -61,6 +61,11 @@ export interface LoadedEclSemanticData extends Partial<EclMapSemanticData> {
   builtins: string[]
   resolvedPath: string
   error?: string
+  /**
+   * eclmap 文件名版本与项目版本不符时的提示。只是警告，不影响加载结果——
+   * 用户可能在用改造版或自制 eclmap。
+   */
+  versionWarning?: string
 }
 
 /**

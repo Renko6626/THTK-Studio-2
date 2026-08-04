@@ -17,6 +17,35 @@ interface LoadedMap {
   semantics: EclMapSemanticData
 }
 
+/**
+ * eclmap 文件名里的版本与项目版本不符时返回提示文案，否则 null。
+ *
+ * **只警告不拦截**：用户可能在用改造版或自制 eclmap，文件名未必反映内容。
+ * 只要有任意一份 map 的文件名与项目版本相符，就认为这套配置是有意的。
+ * 文件名完全不含版本（如 `custom.eclm`）同样不报——那是常见的自定义命名。
+ *
+ * @param version 纯数字形式的版本（后端已归一），例如 `"20"`
+ */
+export function detectEclmapVersionMismatch(
+  mapPaths: string[],
+  version: string
+): string | null {
+  const trimmed = String(version || '').trim()
+  if (!trimmed || !mapPaths.length) return null
+
+  const expected = `th${trimmed.toLowerCase().replace(/^th/, '')}`
+
+  const named = mapPaths
+    .map((path) => /(?:^|[\\/])(th\d+)\b/i.exec(path)?.[1]?.toLowerCase())
+    .filter((code): code is string => Boolean(code))
+
+  if (!named.length) return null
+  if (named.includes(expected)) return null
+
+  const found = [...new Set(named)].join(' / ')
+  return `项目版本是 ${expected}，但 eclmap 看起来是 ${found} 的——补全与编译可能用到错误的指令签名。`
+}
+
 function joinPath(basePath: string | null | undefined, relativePath: string): string {
   if (!basePath) return relativePath
   const separator = basePath.includes('\\') ? '\\' : '/'
@@ -86,6 +115,10 @@ export async function loadDefaultEclSemanticData({
     .map(path => resolveAgainstRoot(path, projectRoot))
     .filter(Boolean)
 
+  // 只针对项目声明的 map 做校验：全局 eclmap 与推导出的候选路径本来就是
+  // 跨项目复用的，拿项目版本去比对没有意义。
+  const versionWarning = detectEclmapVersionMismatch(projectConfig?.mapPaths || [], version)
+
   const globalMapPath = String(settings?.eclmap_path || '').trim()
 
   // 按 thtk 目录推导 thXX.eclm 的候选位置。这里是"依次尝试"，和后端
@@ -137,7 +170,8 @@ export async function loadDefaultEclSemanticData({
       resolvedPath: '',
       instructions: [],
       builtins: [],
-      error: lastError ? String(lastError) : ''
+      error: lastError ? String(lastError) : '',
+      versionWarning: versionWarning || undefined
     }
   }
 
@@ -148,6 +182,7 @@ export async function loadDefaultEclSemanticData({
     // builtins 是字符串数组，按值去重（dedupeByName 是给指令对象用的）
     builtins: [...new Set(loaded.flatMap(item => item.semantics?.builtins || []))],
     resolvedPath: loaded.map(item => item.path).join(' + '),
-    version: base?.version || version
+    version: base?.version || version,
+    versionWarning: versionWarning || undefined
   }
 }

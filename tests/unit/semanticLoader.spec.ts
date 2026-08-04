@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { loadDefaultEclSemanticData } from '../../src/services/languages/ecl/semantic-loader'
+import {
+  loadDefaultEclSemanticData,
+  detectEclmapVersionMismatch
+} from '../../src/services/languages/ecl/semantic-loader'
 import { getEclMapSemantics as rawGetSemantics, getSettings as rawGetSettings } from '../../src/api'
 
 const getEclMapSemantics = vi.mocked(rawGetSemantics)
@@ -104,6 +107,38 @@ describe('ECL 词表加载', () => {
     })
 
     expect(result.version).toBe('th18')
+  })
+
+  describe('eclmap 版本一致性', () => {
+    it('文件名版本与项目版本不符时给出提示', () => {
+      const warning = detectEclmapVersionMismatch(['maps/th18.eclm'], '20')
+      expect(warning).toContain('th18')
+      expect(warning).toContain('th20')
+    })
+
+    it('相符时无提示', () => {
+      expect(detectEclmapVersionMismatch(['maps/th20.eclm'], '20')).toBeNull()
+    })
+
+    it('文件名不含版本时不误报', () => {
+      expect(detectEclmapVersionMismatch(['maps/custom.eclm'], '20')).toBeNull()
+    })
+
+    /** 多份 map 是并列关系，只要有一个对得上就认为配置是有意的 */
+    it('多个 eclmap 只要有一个相符就不提示', () => {
+      expect(
+        detectEclmapVersionMismatch(['maps/th20.eclm', 'maps/th18.eclm'], '20')
+      ).toBeNull()
+    })
+
+    it('未选版本或无 map 时不提示', () => {
+      expect(detectEclmapVersionMismatch(['maps/th18.eclm'], '')).toBeNull()
+      expect(detectEclmapVersionMismatch([], '20')).toBeNull()
+    })
+
+    it('认 Windows 反斜杠路径', () => {
+      expect(detectEclmapVersionMismatch(['maps\\th18.eclm'], '20')).toContain('th18')
+    })
   })
 
   it('项目相对路径按项目根解析', async () => {
