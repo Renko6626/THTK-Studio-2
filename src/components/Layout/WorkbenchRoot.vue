@@ -16,7 +16,7 @@
     </template>
 
     <template #main>
-      <WorkbenchEditorHost @update-cursor="updateCursorStats" />
+      <WorkbenchEditorHost />
     </template>
 
     <template #bottom-panel>
@@ -27,27 +27,12 @@
       <RightSidebar />
     </template>
 
-    <template #statusbar>
-      <div class="h-full flex items-center px-3 text-xs justify-between select-none">
-        <div class="flex items-center gap-4 overflow-hidden">
-          <span class="hover:bg-white/10 px-1 rounded cursor-pointer">
-            Ln {{ cursorStats.line }}, Col {{ cursorStats.col }}
-          </span>
-          <span v-if="explorerViewStore.hasSelection">
-            Explorer: {{ explorerViewStore.selectionCount }} selected
-          </span>
-          <span class="truncate max-w-[26rem]">{{ projectStore.rootPath || 'No workspace' }}</span>
-          <span v-if="reloadNotice" class="truncate max-w-[20rem] text-blue-100/95">
-            {{ reloadNotice }}
-          </span>
-        </div>
-        <div class="flex items-center gap-4">
-          <span v-if="terminalStore.sessionCount">{{ terminalStore.sessionCount }} 个终端</span>
-          <span class="uppercase">{{ activeEditorModeLabel }}</span>
-          <span>UTF-8</span>
-        </div>
-      </div>
-    </template>
+    <!--
+      不提供 statusbar 插槽：底部那条 24px 的蓝条挤占的是终端高度，而终端里
+      常驻跑着 claude / codex 这类 agent，纵向空间比 Ln/Col、编码这些常驻信息
+      值钱。WorkbenchLayout 的插槽本身保留（有 v-if $slots 守着，零成本），
+      将来想加回来只需重新提供这个 template。
+    -->
   </WorkbenchLayout>
 
   <BuildConfigDialog />
@@ -64,7 +49,6 @@
  * 在它自己的 provider 外面，取不到。工作台级的 composable（快捷键、会话恢复等）
  * 需要弹提示和确认框，所以整体下沉到这一层。
  */
-import { computed, reactive, ref, onBeforeUnmount } from 'vue'
 import { useDialog, useMessage } from 'naive-ui'
 import MenuBar from '../Common/MenuBar.vue'
 import WorkbenchLayout from './WorkbenchLayout.vue'
@@ -77,7 +61,6 @@ import ToolchainSettingsDialog from '../Dialogs/ToolchainSettingsDialog.vue'
 import ProjectSettingsDialog from '../Dialogs/ProjectSettingsDialog.vue'
 import BottomPanelHost from '../ToolWindow/BottomPanelHost.vue'
 import { useEditorStore } from '../../stores/editor'
-import { useExplorerViewStore } from '../../stores/explorerView'
 import { useProjectStore } from '../../stores/project'
 import { useTerminalStore } from '../../stores/terminal'
 import { useWorkbenchPanelsStore } from '../../stores/workbenchPanels'
@@ -88,10 +71,8 @@ import { useMcpBridge } from '../../composables/useMcpBridge'
 import { useProjectActions } from '../../composables/useProjectActions'
 import { useWorkbenchSession } from '../../composables/useWorkbenchSession'
 import { useWorkbenchShortcuts } from '../../composables/useWorkbenchShortcuts'
-import { resolveEditorView } from '../../services/workbench/editorViews'
 
 const editorStore = useEditorStore()
-const explorerViewStore = useExplorerViewStore()
 const projectStore = useProjectStore()
 const terminalStore = useTerminalStore()
 const workbenchPanelsStore = useWorkbenchPanelsStore()
@@ -100,29 +81,15 @@ const message = useMessage()
 const dialog = useDialog()
 const projectActions = useProjectActions({ message, dialog })
 
-const cursorStats = reactive({ line: 1, col: 1 })
-const reloadNotice = ref('')
-let reloadNoticeTimer: number | null = null
 
-const activeEditorModeLabel = computed(() => {
-  const activeTab = editorStore.activeTab
-  if (!activeTab) return 'TXT'
-  return resolveEditorView(activeTab.viewType)?.statusLabel?.(activeTab) || 'TXT'
-})
-
-function updateCursorStats({ line, col }: { line: number; col: number }) {
-  cursorStats.line = line
-  cursorStats.col = col
-}
-
+/**
+ * 外部改动导致文件重载时的提示。
+ *
+ * 原来显示在底部状态栏里 2.5 秒后自行消失；状态栏删掉后改走 toast——
+ * 这条信息不能跟着栏一起没掉，用户需要知道自己看的内容被外部换过。
+ */
 function showReloadNotice(text: string) {
-  reloadNotice.value = text
-  if (reloadNoticeTimer) {
-    window.clearTimeout(reloadNoticeTimer)
-  }
-  reloadNoticeTimer = window.setTimeout(() => {
-    reloadNotice.value = ''
-  }, 2500)
+  message.info(text)
 }
 
 function hasDirtyTabs() {
@@ -164,9 +131,4 @@ useBeforeUnloadGuard({
   flushSnapshots
 })
 
-onBeforeUnmount(() => {
-  if (reloadNoticeTimer) {
-    window.clearTimeout(reloadNoticeTimer)
-  }
-})
 </script>
