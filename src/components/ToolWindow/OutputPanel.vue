@@ -1,12 +1,8 @@
 <template>
-  <div class="h-full flex flex-col bg-[#111111]">
-    <div class="h-9 px-3 flex items-center justify-between border-b border-white/8 bg-[#202020]">
-      <div class="text-xs font-semibold uppercase tracking-wider text-gray-400">Output</div>
-      <button
-        type="button"
-        class="h-6 px-2 text-[11px] rounded-sm border border-transparent bg-transparent text-gray-400 hover:text-gray-200 hover:border-[#3b82f6]/60"
-        @click="reportsStore.clearOutput()"
-      >
+  <div class="h-full flex flex-col bg-[#181818]">
+    <!-- 不重复画标题：正上方 BottomPanelHost 的 tab 已经写着「输出」 -->
+    <div class="h-8 pl-2 pr-1 flex items-center justify-end shrink-0">
+      <button type="button" class="panel-text-action" @click="reportsStore.clearOutput()">
         清空
       </button>
     </div>

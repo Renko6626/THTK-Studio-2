@@ -1,34 +1,49 @@
 <template>
-  <div class="h-full flex flex-col bg-[#181818] border-t border-black">
-    <div class="h-9 px-3 flex items-center justify-between border-b border-white/8 bg-[#202020]">
-      <div class="flex items-center gap-1 min-w-0 overflow-x-auto">
-        <span class="text-xs font-semibold uppercase tracking-wider text-gray-400 mr-2">Terminal</span>
+  <div class="h-full flex flex-col bg-[#181818]">
+    <!--
+      会话条。刻意做得比上方 BottomPanelHost 的面板头**轻**：更矮、无独立底色、
+      无边框，读起来是"属于终端的标签"，而不是第二条 chrome。
+      这里也不再重复画「隐藏」按钮和 Terminal 标题——正上方那条面板头已有。
+    -->
+    <div
+      v-if="terminalStore.sessionCount"
+      class="h-8 pl-2 pr-1 flex items-center gap-px shrink-0 overflow-x-auto"
+    >
+      <div
+        v-for="session in terminalStore.sessions"
+        :key="session.id"
+        class="group panel-tab gap-1.5 cursor-pointer select-none"
+        :class="[
+          session.id === terminalStore.activeSessionId ? 'panel-tab-active' : '',
+          session.exited ? 'opacity-50' : ''
+        ]"
+        role="tab"
+        :aria-selected="session.id === terminalStore.activeSessionId"
+        @click="terminalStore.setActive(session.id)"
+      >
+        <span class="truncate max-w-[14rem]">{{ session.title }}</span>
+        <!-- 关闭只在悬停或当前标签上出现，避免一排 × 抢视线（同 VS Code） -->
         <button
-          v-for="session in terminalStore.sessions"
-          :key="session.id"
           type="button"
-          class="h-6 px-2 text-[11px] rounded-sm border flex items-center gap-1 shrink-0"
-          :class="[
-            session.id === terminalStore.activeSessionId
-              ? 'text-gray-100 border-[#3b82f6] bg-transparent'
-              : 'text-gray-400 border-transparent hover:text-gray-200 hover:border-[#3b82f6]/55',
-            session.exited ? 'opacity-50' : ''
-          ]"
-          @click="terminalStore.setActive(session.id)"
+          class="w-4 h-4 shrink-0 flex items-center justify-center rounded-[3px]
+                 opacity-0 group-hover:opacity-100 focus-visible:opacity-100
+                 hover:bg-white/10 transition-opacity"
+          :class="session.id === terminalStore.activeSessionId ? 'opacity-100' : ''"
+          :title="`关闭 ${session.title}`"
+          @click.stop="terminalStore.closeSession(session.id).catch(() => {})"
         >
-          {{ session.title }}
-          <span
-            class="text-gray-500 hover:text-red-400"
-            @click.stop="terminalStore.closeSession(session.id).catch(() => {})"
-          >×</span>
+          <n-icon :size="12"><Dismiss16Regular /></n-icon>
         </button>
+      </div>
+
+      <div class="flex items-center ml-1 shrink-0">
         <button
           type="button"
-          class="h-6 pl-2 pr-1 text-[12px] rounded-l-sm text-gray-400 hover:text-gray-200 hover:bg-white/8 shrink-0"
-          title="新建终端(默认 shell)"
+          class="panel-action"
+          title="新建终端（默认 shell）"
           @click="terminalStore.openSession()"
         >
-          ＋
+          <n-icon :size="16"><Add16Regular /></n-icon>
         </button>
         <n-dropdown
           trigger="click"
@@ -36,32 +51,28 @@
           placement="bottom-start"
           @select="openWithShell"
         >
-          <button
-            type="button"
-            class="h-6 px-1 text-[10px] rounded-r-sm text-gray-400 hover:text-gray-200 hover:bg-white/8 shrink-0"
-            title="选择 shell 新建终端"
-          >
-            ▾
+          <button type="button" class="panel-action w-4" title="选择 shell 新建终端">
+            <n-icon :size="12"><ChevronDown16Regular /></n-icon>
           </button>
         </n-dropdown>
       </div>
-      <div class="flex items-center gap-2">
-        <button
-          type="button"
-          class="h-6 px-2 text-[11px] rounded-sm border border-transparent bg-transparent text-gray-400 hover:text-gray-200 hover:border-[#3b82f6]/60"
-          @click="workbenchPanelsStore.hideBottomPanel()"
-        >
-          隐藏
-        </button>
-      </div>
     </div>
 
-    <div ref="hostRef" class="flex-1 min-h-0 relative bg-[#111111]">
+    <div ref="hostRef" class="flex-1 min-h-0 relative bg-[#181818]">
       <div
         v-if="!terminalStore.sessionCount"
-        class="h-full flex items-center justify-center text-sm text-gray-500"
+        class="h-full flex flex-col items-center justify-center gap-3 text-sm text-[#9d9d9d]"
       >
-        没有打开的终端 — 点击 ＋ 新建
+        <div>没有打开的终端</div>
+        <button
+          type="button"
+          class="h-7 px-3 rounded-[5px] text-[12px] flex items-center gap-1.5
+                 text-[#9d9d9d] hover:text-[#e7e7e7] hover:bg-white/10 transition-colors"
+          @click="terminalStore.openSession()"
+        >
+          <n-icon :size="14"><Add16Regular /></n-icon>
+          新建终端
+        </button>
       </div>
     </div>
   </div>
@@ -69,7 +80,8 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { NDropdown } from 'naive-ui'
+import { NDropdown, NIcon } from 'naive-ui'
+import { Add16Regular, ChevronDown16Regular, Dismiss16Regular } from '@vicons/fluent'
 import { useTerminalStore } from '../../stores/terminal'
 import { useWorkbenchPanelsStore } from '../../stores/workbenchPanels'
 import { mountAllSessions, showSession, fitSession } from '../../services/terminal/sessionRuntime'

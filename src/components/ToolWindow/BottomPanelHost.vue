@@ -1,33 +1,39 @@
 <template>
   <div class="h-full flex flex-col bg-[#181818]">
-    <div class="h-9 px-3 flex items-center justify-between border-b border-white/8 bg-[#202020]">
-      <div class="flex items-center gap-1">
+    <div class="h-9 pl-3 pr-1 flex items-center justify-between border-b border-[#2b2b2b] shrink-0">
+      <div class="flex items-center gap-3 h-full" role="tablist">
         <button
           v-for="panel in panels"
           :key="panel.key"
           type="button"
-          class="h-6 px-2 text-[11px] rounded-sm border border-transparent bg-transparent uppercase tracking-[0.08em] transition-colors"
-          :class="panelClasses(panel.key)"
+          class="panel-tab uppercase tracking-[0.08em] !px-0"
+          :class="panel.key === workbenchPanelsStore.activeBottomPanel ? 'panel-tab-active' : ''"
+          role="tab"
+          :aria-selected="panel.key === workbenchPanelsStore.activeBottomPanel"
           @click="workbenchPanelsStore.showBottomPanel(panel.key)"
         >
           {{ panel.label }}
         </button>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex items-center">
         <button
           type="button"
-          class="h-6 px-2 text-[12px] rounded-sm border border-transparent bg-transparent text-gray-400 hover:text-gray-200 hover:border-[#3b82f6]/60"
+          class="panel-action"
           :title="workbenchPanelsStore.bottomMaximized ? '还原面板高度' : '最大化面板'"
           @click="workbenchPanelsStore.toggleBottomMaximized()"
         >
-          {{ workbenchPanelsStore.bottomMaximized ? '⌄' : '⌃' }}
+          <n-icon :size="16">
+            <ChevronDown16Regular v-if="workbenchPanelsStore.bottomMaximized" />
+            <ChevronUp16Regular v-else />
+          </n-icon>
         </button>
         <button
           type="button"
-          class="h-6 px-2 text-[11px] rounded-sm border border-transparent bg-transparent text-gray-400 hover:text-gray-200 hover:border-[#3b82f6]/60"
+          class="panel-action"
+          title="隐藏面板"
           @click="workbenchPanelsStore.hideBottomPanel()"
         >
-          隐藏
+          <n-icon :size="16"><Dismiss16Regular /></n-icon>
         </button>
       </div>
     </div>
@@ -41,7 +47,7 @@
 
       <div
         v-else-if="workbenchPanelsStore.activeBottomPanel !== 'terminal'"
-        class="h-full flex items-center justify-center text-sm text-gray-500 bg-[#111111]"
+        class="h-full flex items-center justify-center text-sm text-[#9d9d9d] bg-[#181818]"
       >
         {{ currentPanelLabel }} 面板尚未实现
       </div>
@@ -51,6 +57,8 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { NIcon } from 'naive-ui'
+import { ChevronDown16Regular, ChevronUp16Regular, Dismiss16Regular } from '@vicons/fluent'
 import TerminalPanel from './TerminalPanel.vue'
 import OutputPanel from './OutputPanel.vue'
 import ProblemsPanel from './ProblemsPanel.vue'
@@ -69,9 +77,4 @@ const currentPanelLabel = computed(() => {
   return panels.find(panel => panel.key === workbenchPanelsStore.activeBottomPanel)?.label || '未知'
 })
 
-function panelClasses(key: BottomPanelKey) {
-  return key === workbenchPanelsStore.activeBottomPanel
-    ? 'text-gray-100 border-[#3b82f6] bg-transparent'
-    : 'text-gray-400 hover:text-gray-200 hover:border-[#3b82f6]/55'
-}
 </script>
