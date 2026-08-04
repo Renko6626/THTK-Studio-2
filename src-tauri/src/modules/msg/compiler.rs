@@ -2,6 +2,7 @@ use crate::common::toolchain;
 use crate::config::AppConfig;
 use crate::modules::ecl::error_parser::Diagnostic;
 use crate::utils;
+use crate::common::text_encoding;
 use encoding_rs::SHIFT_JIS;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -44,6 +45,12 @@ pub struct MsgRequest {
     /// decompile 时是否在每行末尾追加 ` // <description>`;compile 路径忽略此字段
     #[serde(default = "default_with_comments")]
     pub with_comments: bool,
+    /// 游戏文本的编码。解包时用它解 thmsg 吐出的字节，打包时用它编码写回。
+    ///
+    /// 两个方向**各自独立**：常见工作流是按 shift-jis 解开原版日文，翻译后按
+    /// gbk 打包成汉化版。留空则回退项目配置、再回退 shift-jis。
+    #[serde(default)]
+    pub encoding: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -143,6 +150,19 @@ pub fn run(config: &AppConfig, request: &MsgRequest) -> MsgResult {
     }
 }
 
+/// 本次调用生效的编码：请求里指定的优先，留空回退 shift-jis。
+///
+/// 项目级默认值在 `commands.rs` 里填进 request，这里只做最后兜底——
+/// compiler 是纯函数层，不该自己去读项目配置。
+fn effective_encoding(request: &MsgRequest) -> String {
+    let raw = request.encoding.trim();
+    if raw.is_empty() {
+        "shift-jis".to_string()
+    } else {
+        raw.to_lowercase()
+    }
+}
+
 fn run_decompile(tool_path: &str, request: &MsgRequest) -> MsgResult {
     let version = normalize_thmsg_version(&request.version);
     let output_path = infer_output_path(request);
@@ -170,8 +190,11 @@ fn run_decompile(tool_path: &str, request: &MsgRequest) -> MsgResult {
         return fail(request, msg);
     }
 
-    // 2. SJIS → UTF-8(lossy 与 thmsg 自身行为一致)
-    let raw_dmsg = SHIFT_JIS.decode(&output.stdout).0.into_owned();
+    // 2. 按指定编码解成 UTF-8。不能无脑用 SJIS——汉化版的 .msg 常是 GBK，
+    //    而 SJIS 解 GBK 字节不会报任何错，只会安静地给出满屏乱码。
+    let encoding = effective_encoding(request);
+    let (raw_dmsg, mojibake_warning) =
+        text_encoding::decode_with_warning(&output.stdout, &encoding);
 
     // 3. 语义加载 + 翻译
     let semantics = match super::map_parser::parse_msg_semantics(&version) {
@@ -185,11 +208,16 @@ fn run_decompile(tool_path: &str, request: &MsgRequest) -> MsgResult {
         return fail(request, format!("Failed to write {output_path}: {e}"));
     }
 
-    let message = if stderr_str.trim().is_empty() {
-        format!("Decompiled {} → {}", request.input_path, output_path)
+    let mut message = if stderr_str.trim().is_empty() {
+        format!("Decompiled {} → {}（编码 {encoding}）", request.input_path, output_path)
     } else {
         stderr_str
     };
+    // 解包本身几乎不会失败，失败的是"解得对不对"。可疑就说出来，让用户换编码重解。
+    if let Some(warning) = mojibake_warning {
+        message.push_str("\n\n⚠ ");
+        message.push_str(&warning);
+    }
 
     MsgResult {
         success: true,
@@ -225,8 +253,21 @@ fn run_compile(tool_path: &str, request: &MsgRequest) -> MsgResult {
     };
     let raw_dmsg = super::translator::readable_to_dmsg(&content, &semantics);
 
-    // 3. UTF-8 → SJIS,写到唯一临时文件
-    let (sjis_bytes, _, _) = SHIFT_JIS.encode(&raw_dmsg);
+    // 3. UTF-8 → 目标编码。装不下**必须失败**：encoding_rs 的 encode 对无法映射的
+    //    字符不报错，而是写入 HTML 数字实体（"你" → "&#20320;"），打包会"成功"
+    //    而游戏里显示的是这串实体本身。更隐蔽的是简体汉字大部分能编进 Shift-JIS
+    //    （"好世界再朋友"日文汉字里都有），只有少数字变实体，症状是"大部分正常、
+    //    个别地方冒怪东西"。
+    let encoding = effective_encoding(request);
+    let sjis_bytes = match text_encoding::encode_strict(&raw_dmsg, &encoding) {
+        Ok(bytes) => bytes,
+        Err(offenders) => {
+            return fail(
+                request,
+                text_encoding::describe_unmappable(&offenders, &encoding),
+            )
+        }
+    };
     let stem = Path::new(&request.input_path)
         .file_stem()
         .map(|s| s.to_string_lossy().to_string())
@@ -294,6 +335,7 @@ mod tests {
             input_path: input.to_string(),
             output_path: output.map(|s| s.to_string()),
             with_comments: true,
+            encoding: String::new(),
         }
     }
 
@@ -363,5 +405,42 @@ mod tests {
         assert_eq!(result.tool, "thmsg");
         assert_eq!(result.mode, "decompile");
         assert_eq!(result.script_kind, "msg");
+    }
+
+    // ---- 编码：本轮修复的核心行为 ----
+
+    #[test]
+    fn effective_encoding_defaults_to_shift_jis() {
+        let mut r = req(MsgMode::Compile, "a.dmsg", None);
+        r.encoding = String::new();
+        assert_eq!(effective_encoding(&r), "shift-jis");
+        r.encoding = "   ".to_string();
+        assert_eq!(effective_encoding(&r), "shift-jis");
+    }
+
+    #[test]
+    fn effective_encoding_is_case_insensitive() {
+        let mut r = req(MsgMode::Compile, "a.dmsg", None);
+        r.encoding = "  GBK ".to_string();
+        assert_eq!(effective_encoding(&r), "gbk");
+    }
+
+    /// 回归：原实现 `SHIFT_JIS.encode()` 丢掉第三个返回值，简体汉字被静默写成
+    /// `&#20320;` 这样的 HTML 实体，打包"成功"而游戏里显示的就是这串实体。
+    /// 现在必须失败，且错误里指出是哪些字、在第几行第几列。
+    #[test]
+    fn packing_chinese_as_shift_jis_fails_with_located_characters() {
+        let offenders =
+            crate::common::text_encoding::encode_strict("博丽灵梦", "shift-jis").unwrap_err();
+        let message = crate::common::text_encoding::describe_unmappable(&offenders, "shift-jis");
+        assert!(message.contains("丽") || message.contains("灵"));
+        assert!(message.contains("行"), "要能定位到行: {message}");
+        assert!(message.contains("GBK"), "要给出下一步: {message}");
+    }
+
+    /// 同一段中文换成 GBK 就能打包——这正是汉化版该走的路。
+    #[test]
+    fn packing_chinese_as_gbk_succeeds() {
+        assert!(crate::common::text_encoding::encode_strict("博丽灵梦", "gbk").is_ok());
     }
 }

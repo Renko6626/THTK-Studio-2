@@ -49,11 +49,11 @@
             />
           </n-form-item>
 
-          <n-form-item label="文本编码">
-            <n-radio-group v-model:value="form.encoding" class="w-full">
-              <n-radio-button value="shift-jis" class="w-1/2 text-center">Shift-JIS</n-radio-button>
-              <n-radio-button value="utf-8" class="w-1/2 text-center">UTF-8</n-radio-button>
-            </n-radio-group>
+          <n-form-item label="游戏文本编码">
+            <div class="w-full">
+              <n-select v-model:value="form.encoding" :options="encodingOptions" />
+              <div class="mt-1.5 text-xs text-gray-500 leading-5">{{ encodingHint }}</div>
+            </div>
           </n-form-item>
         </div>
 
@@ -137,8 +137,6 @@ import {
   NFormItem,
   NInput,
   NModal,
-  NRadioButton,
-  NRadioGroup,
   NSelect,
   useDialog,
   useMessage
@@ -155,6 +153,27 @@ const dialog = useDialog()
 
 const gameVersionsStore = useGameVersionsStore()
 // 项目级版本对五个工具都生效，所以列整张表而非某个工具的子集
+/**
+ * 这里选的是**游戏文本**的编码，不是 .decl/.dmsg 源文件的——那些在磁盘上
+ * 始终是 UTF-8。选错的后果不是报错而是产出坏的游戏文件，所以每一项都写清前提。
+ */
+const encodingOptions = [
+  { label: 'Shift-JIS —— 原作', value: 'shift-jis' },
+  { label: 'GBK —— 汉化版', value: 'gbk' },
+  { label: 'UTF-8 —— 自定义引擎', value: 'utf-8' }
+]
+
+const encodingHint = computed(() => {
+  switch (form.encoding) {
+    case 'gbk':
+      return 'GBK 同时装得下简体汉字与日文，适合简日混排的汉化版。前提是游戏侧已做适配（字体 charset 补丁、字节边界判断、转区），未打补丁的原版读 GBK 会乱码。'
+    case 'utf-8':
+      return '⚠ 原版东方游戏不支持任何形式的 Unicode，UTF-8 的文件在原版里读不出来。仅在你确知目标引擎能读 UTF-8 时选它。'
+    default:
+      return '原作唯一的原生编码。注意它装不下简体汉字——写中文请改用 GBK，否则打包会失败并指出是哪几个字。'
+  }
+})
+
 const versionOptions = computed(() => gameVersionsStore.allOptions)
 const loading = ref(false)
 const saving = ref(false)

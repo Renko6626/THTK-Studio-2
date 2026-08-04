@@ -41,3 +41,6 @@ __pycache__/
 *.pyc
 # 旧 PyQt 版本 THTK-Studio 的本地参考拷贝(克隆到 /tmp,本来就在仓库外,这条仅作说明)
 /tmp/thtk-old-ref/
+
+# 参考用的外部仓库（THTK-Studio 一代等），只读不提交
+reference/

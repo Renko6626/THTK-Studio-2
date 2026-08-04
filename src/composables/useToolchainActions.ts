@@ -157,10 +157,13 @@ export function useToolchainActions({ message }: ToolchainActionsOptions = {}) {
 
   // ===== MSG =====
 
-  async function runDecompileMsg(path: string | null | undefined) {
+  async function runDecompileMsg(
+    path: string | null | undefined,
+    encoding: string | null = null
+  ) {
     if (!path) return
     try {
-      const result = await decompileMsgFile({ inputPath: path })
+      const result = await decompileMsgFile({ inputPath: path, encoding })
       publishToolchainResult({
         tool: 'thmsg',
         operation: 'decompile',
@@ -183,11 +186,14 @@ export function useToolchainActions({ message }: ToolchainActionsOptions = {}) {
     }
   }
 
-  async function runCompileMsg(tab: EditorTab | null | undefined) {
+  async function runCompileMsg(
+    tab: EditorTab | null | undefined,
+    encoding: string | null = null
+  ) {
     if (!tab?.path) return
     if (!(await ensureSavedIfDirty(tab))) return
     try {
-      const result = await compileMsgFile({ inputPath: tab.path })
+      const result = await compileMsgFile({ inputPath: tab.path, encoding })
       publishToolchainResult({
         tool: 'thmsg',
         operation: 'compile',

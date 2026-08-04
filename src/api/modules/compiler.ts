@@ -18,6 +18,8 @@ export interface ScriptFileParams {
   inputPath: string
   outputPath?: string | null
   withComments?: boolean
+  /** 游戏文本编码；仅 msg 路径使用，留空走项目配置 */
+  encoding?: string | null
 }
 
 export interface ExtractDatParams {
@@ -79,22 +81,30 @@ export function decompileEclFile({ sourcePath, mapPaths = [] }: EclFileParams): 
 
 /**
  * 反编译 MSG 文件 (.msg -> .dmsg)
- * @param {{ inputPath: string, outputPath?: string|null, withComments?: boolean }} params
+ *
+ * `encoding` 指**游戏文本**的编码（.dmsg 文件本身始终写 UTF-8）。留空则用项目
+ * 配置，再空则 shift-jis。与打包各自独立——常见工作流是 shift-jis 解开原版日文、
+ * 翻译后用 gbk 打包。
  */
 export function decompileMsgFile({
   inputPath,
   outputPath = null,
-  withComments = true
+  withComments = true,
+  encoding = null
 }: ScriptFileParams): Promise<MsgResult> {
-  return invoke('decompile_msg_file', { inputPath, outputPath, withComments })
+  return invoke('decompile_msg_file', { inputPath, outputPath, withComments, encoding })
 }
 
 /**
  * 编译 MSG 文件 (.dmsg -> .msg)
  * @param {{ inputPath: string, outputPath?: string|null }} params
  */
-export function compileMsgFile({ inputPath, outputPath = null }: ScriptFileParams): Promise<MsgResult> {
-  return invoke('compile_msg_file', { inputPath, outputPath })
+export function compileMsgFile({
+  inputPath,
+  outputPath = null,
+  encoding = null
+}: ScriptFileParams): Promise<MsgResult> {
+  return invoke('compile_msg_file', { inputPath, outputPath, encoding })
 }
 
 /**
