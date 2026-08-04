@@ -1,6 +1,9 @@
 import type { Component } from 'vue'
 import TheclBuildForm from '../../components/Dialogs/forms/TheclBuildForm.vue'
 import { createTheclRequest, executeThecl, publishTheclResult } from './thecl'
+import { createDefaultMsgPayload } from './msgMetadata'
+import type { EditorTab } from '../../stores/editor'
+import MsgBuildForm from '../../components/Dialogs/forms/MsgBuildForm.vue'
 import {
   createDefaultTheclPayload,
   THECL_MODE_LABELS,
@@ -25,6 +28,9 @@ export interface ToolchainExecuteContext {
     request: TheclRequest,
     options?: { requireSave?: boolean; openOutput?: boolean; successMessage?: string }
   ) => Promise<EclResult | null>
+  /** thmsg 走 runFromPayload，不经过 thecl 的 request 形状 */
+  runDecompileMsg?: (path: string, encoding: string | null) => Promise<unknown>
+  runCompileMsg?: (tab: EditorTab | null, encoding: string | null) => Promise<unknown>
 }
 
 /**
@@ -53,6 +59,18 @@ export interface ToolchainDescriptor {
   ) => Promise<EclResult | null>
   executeDirect?: typeof executeThecl
   publishResult?: typeof publishTheclResult
+  /**
+   * 自带执行逻辑的工具链入口，直接吃载荷。
+   *
+   * thecl 的 createRequest / execute 是围绕 TheclRequest 设计的，thmsg 的请求
+   * 形状完全不同（有 encoding、没有 eclmap 和 -r/-s/-x）。与其把那两个签名
+   * 泛化到两边都别扭，不如让不合身的工具走自己的入口——thecl 那条已经跑通的
+   * 路一行不动。
+   */
+  runFromPayload?: (
+    context: ToolchainExecuteContext,
+    payload: BuildDialogPayload
+  ) => Promise<{ success: boolean } | null>
 }
 
 function inferTheclSuccessMessage(mode: TheclMode | string): string {
@@ -63,7 +81,7 @@ function inferTheclSuccessMessage(mode: TheclMode | string): string {
 }
 
 /** 尚未接构建对话框的工具链的最小载荷 */
-function stubPayload(tool: Exclude<ToolchainId, 'thecl'>): () => BuildDialogPayload {
+function stubPayload(tool: Exclude<ToolchainId, 'thecl' | 'thmsg'>): () => BuildDialogPayload {
   return () => ({ tool, inputPath: '' })
 }
 
@@ -105,9 +123,27 @@ export const TOOLCHAIN_REGISTRY: Record<ToolchainId, ToolchainDescriptor> = {
   thmsg: {
     id: 'thmsg',
     label: 'Message Script Tool',
+    buildDialogTitle: 'MSG 构建配置',
+    buildDialogSubtitle: '选择解包 / 打包、输出路径与游戏文本编码',
+    defaultPayload: createDefaultMsgPayload,
+    buildFormComponent: MsgBuildForm,
+    async runFromPayload(context, payload) {
+      if (payload.tool !== 'thmsg') return null
+      // 空串表示"跟随项目配置"，后端据此回退；不能传空串过去当编码名
+      const encoding = payload.encoding || null
+      const outputPath = payload.outputPath.trim() || null
+      if (payload.mode === 'decompile') {
+        const result = await context.runDecompileMsg?.(payload.inputPath, encoding)
+        return { success: Boolean((result as { success?: boolean } | null)?.success) }
+      }
+      const result = await context.runCompileMsg?.(
+        { path: payload.inputPath, outputPath } as unknown as EditorTab,
+        encoding
+      )
+      return { success: Boolean((result as { success?: boolean } | null)?.success) }
+    },
     exeName: 'thmsg.exe',
-    supportsBuildDialog: false,
-    defaultPayload: stubPayload('thmsg')
+    supportsBuildDialog: true
   },
   thanm: {
     id: 'thanm',
