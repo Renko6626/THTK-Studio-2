@@ -8,7 +8,7 @@ use tauri::State;
 fn ensure_thecl_configured(config: &crate::config::AppConfig) -> Result<(), String> {
     let resolved = toolchain::resolve_tool_path(config, "thecl", "thecl.exe");
     if resolved.trim().is_empty() {
-        return Err("thecl path is not configured".to_string());
+        return Err(toolchain::not_configured_message("thecl"));
     }
     Ok(())
 }

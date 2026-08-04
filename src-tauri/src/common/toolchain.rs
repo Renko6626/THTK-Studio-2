@@ -144,6 +144,19 @@ pub fn resolve_tool_path(config: &AppConfig, tool_id: &str, exe_name: &str) -> S
         .to_string()
 }
 
+/// 工具未配置时给用户的说明。
+///
+/// 安装包不含 thtk（第三方 GPL 工具，不随包分发），而 `thtk_dir` 默认为空、
+/// 为空时 `resolve_tool_path` 退回裸 exe 名走 PATH。所以全新安装后这条会是
+/// 用户点任何工具链功能时看到的第一句话——它必须说清楚下一步做什么，
+/// 而不是只陈述"没配置"。
+pub fn not_configured_message(tool_id: &str) -> String {
+    format!(
+        "未找到 {tool_id}。请在「设置 → 工具链设置」里指定 thtk 所在目录。\
+thtk 是第三方工具，不随本程序分发，可从 https://github.com/thpatch/thtk 下载。"
+    )
+}
+
 pub fn get_toolchain_status(config: &AppConfig, tool_id: &str) -> Result<ToolchainStatus, String> {
     let descriptor = find_toolchain_descriptor(tool_id)
         .ok_or_else(|| format!("Unsupported toolchain '{}'", tool_id))?;
@@ -167,7 +180,7 @@ pub fn get_toolchain_status(config: &AppConfig, tool_id: &str) -> Result<Toolcha
             resolved_path,
             available: false,
             version: String::new(),
-            message: "Toolchain path is not configured".to_string(),
+            message: not_configured_message(descriptor.id),
             supported_versions: Vec::new(),
         });
     }

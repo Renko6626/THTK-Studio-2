@@ -86,7 +86,7 @@ pub fn build_thdat_pack_args(
 pub fn run(config: &AppConfig, request: &ThdatRequest) -> ThdatResult {
     let tool_path = toolchain::resolve_tool_path(config, "thdat", "thdat.exe");
     if tool_path.trim().is_empty() {
-        return failure(request, "thdat path is not configured".to_string(), None);
+        return failure(request, crate::common::toolchain::not_configured_message("thdat"), None);
     }
     match request.mode {
         ThdatMode::Extract => run_extract(&tool_path, request),
@@ -288,7 +288,7 @@ mod tests {
         let result = run(&config, &req);
         assert!(!result.success);
         assert!(
-            result.message.contains("thdat path is not configured"),
+            result.message.contains("thdat") && result.message.contains("工具链设置"),
             "got: {}",
             result.message
         );

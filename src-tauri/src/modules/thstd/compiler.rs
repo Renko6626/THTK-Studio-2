@@ -111,7 +111,7 @@ fn unique_temp_path(stem: &str, ext: &str) -> std::path::PathBuf {
 pub fn run(config: &AppConfig, request: &StdRequest) -> StdResult {
     let tool_path = toolchain::resolve_tool_path(config, "thstd", "thstd.exe");
     if tool_path.trim().is_empty() {
-        return fail(request, "thstd path is not configured");
+        return fail(request, &crate::common::toolchain::not_configured_message("thstd"));
     }
 
     match request.mode {
@@ -331,7 +331,7 @@ mod tests {
         let result = run(&cfg, &r);
         assert!(!result.success);
         assert!(
-            result.message.contains("thstd path is not configured"),
+            result.message.contains("thstd") && result.message.contains("工具链设置"),
             "got message: {}",
             result.message
         );

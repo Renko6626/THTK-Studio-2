@@ -6,7 +6,7 @@ use tauri::State;
 fn ensure_thstd_configured(config: &crate::config::AppConfig) -> Result<(), String> {
     let resolved = toolchain::resolve_tool_path(config, "thstd", "thstd.exe");
     if resolved.trim().is_empty() {
-        return Err("thstd path is not configured".to_string());
+        return Err(toolchain::not_configured_message("thstd"));
     }
     Ok(())
 }

@@ -134,7 +134,7 @@ fn build_command(exe_path: &str, args: &[&str], work_dir: Option<&Path>) -> Comm
 pub fn run(config: &AppConfig, request: &MsgRequest) -> MsgResult {
     let tool_path = toolchain::resolve_tool_path(config, "thmsg", "thmsg.exe");
     if tool_path.trim().is_empty() {
-        return fail(request, "thmsg path is not configured");
+        return fail(request, &crate::common::toolchain::not_configured_message("thmsg"));
     }
 
     match request.mode {
@@ -355,7 +355,7 @@ mod tests {
         let result = run(&cfg, &r);
         assert!(!result.success);
         assert!(
-            result.message.contains("thmsg path is not configured"),
+            result.message.contains("thmsg") && result.message.contains("工具链设置"),
             "got message: {}",
             result.message
         );
