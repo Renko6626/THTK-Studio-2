@@ -116,12 +116,24 @@ pub fn resolve(
     project_root: Option<&str>,
     tool_id: &str,
 ) -> Result<u32, String> {
+    let project = project_root.and_then(crate::common::project_config::load_project_config);
+    resolve_from(project.as_ref(), config, tool_id)
+}
+
+/// 与 [`resolve`] 同义，但接收**已经加载好**的项目配置。
+///
+/// 工具链命令路径上，`toolchain::effective_context` 已经为解析 thtkDir 读过一次
+/// `.thtk-project.json`，再让 `resolve` 去读第二次纯属浪费；更糟的是两次读取
+/// 之间文件可能被改动，同一次调用会用上两份不一致的配置。
+pub fn resolve_from(
+    project: Option<&crate::common::project_config::ProjectConfig>,
+    config: &crate::config::AppConfig,
+    tool_id: &str,
+) -> Result<u32, String> {
     let mut raw = config.default_game_version.clone();
-    if let Some(root) = project_root {
-        if let Some(pc) = crate::common::project_config::load_project_config(root) {
-            if !pc.game_version.trim().is_empty() {
-                raw = pc.game_version;
-            }
+    if let Some(pc) = project {
+        if !pc.game_version.trim().is_empty() {
+            raw = pc.game_version.clone();
         }
     }
 
@@ -314,5 +326,70 @@ mod tests {
     #[test]
     fn resolve_errors_when_nothing_is_configured() {
         assert!(resolve(&app_config(""), None, "thecl").is_err());
+    }
+
+    // ---- resolve_from：接收已加载的项目配置，不再重复读盘 ----
+
+    fn project_with_version(version: &str) -> ProjectConfig {
+        ProjectConfig {
+            game_version: version.to_string(),
+            encoding: "shift-jis".to_string(),
+            map_paths: Vec::new(),
+            toolchain: ProjectToolchainConfig {
+                thtk_dir: String::new(),
+            },
+        }
+    }
+
+    /// 关键断言：给一个磁盘上根本不存在的项目配置，结果仍然是它的值。
+    /// 这证明 resolve_from 用的是传进来的对象，而不是回头去读文件。
+    #[test]
+    fn resolve_from_uses_the_passed_project_without_touching_disk() {
+        let project = project_with_version("18");
+        assert_eq!(
+            resolve_from(Some(&project), &app_config("20"), "thecl"),
+            Ok(18)
+        );
+    }
+
+    #[test]
+    fn resolve_from_falls_back_to_global_when_project_version_empty() {
+        let project = project_with_version("");
+        assert_eq!(
+            resolve_from(Some(&project), &app_config("20"), "thecl"),
+            Ok(20)
+        );
+    }
+
+    #[test]
+    fn resolve_from_falls_back_to_global_without_project() {
+        assert_eq!(resolve_from(None, &app_config("17"), "thecl"), Ok(17));
+    }
+
+    #[test]
+    fn resolve_from_still_checks_tool_support() {
+        let project = project_with_version("75");
+        assert_eq!(
+            resolve_from(Some(&project), &app_config("20"), "thdat"),
+            Ok(75)
+        );
+        assert!(resolve_from(Some(&project), &app_config("20"), "thecl").is_err());
+    }
+
+    /// resolve 与 resolve_from 必须给出完全一致的结果——前者只是后者
+    /// 加一次读盘的便利包装，语义不能有第二套。
+    #[test]
+    fn resolve_and_resolve_from_agree() {
+        let dir = temp_dir("resolve-agree");
+        write_project_version(&dir, "th18");
+        let loaded = crate::common::project_config::load_project_config(&dir.to_string_lossy());
+
+        for tool in ["thecl", "thmsg", "thdat"] {
+            assert_eq!(
+                resolve(&app_config("20"), Some(&dir.to_string_lossy()), tool),
+                resolve_from(loaded.as_ref(), &app_config("20"), tool),
+                "{tool} 两条路径结果不一致"
+            );
+        }
     }
 }
