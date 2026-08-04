@@ -1,7 +1,13 @@
 <template>
-  <div class="h-full bg-[#1f1f1f] border-r border-black select-none" @contextmenu="onEmptyAreaRightClick">
+  <!--
+    必须是 flex 列布局：外层 aside 是 overflow-hidden 的定高盒子，若这里不切出
+    一个 flex-1 + min-h-0 + overflow 的滚动区，文件树会直接溢出被裁掉，
+    页面上没有任何可滚动元素，滚轮完全失效。
+    min-h-0 不能省——flex 子项默认 min-height:auto，会被内容撑开而不产生滚动。
+  -->
+  <div class="h-full flex flex-col bg-[#1f1f1f] border-r border-black select-none" @contextmenu="onEmptyAreaRightClick">
     <!-- 顶部栏 -->
-    <div class="px-3 py-2 text-[11px] font-bold text-gray-400 uppercase tracking-[0.08em] flex justify-between items-center group border-b border-white/6">
+    <div class="shrink-0 px-3 py-2 text-[11px] font-bold text-gray-400 uppercase tracking-[0.08em] flex justify-between items-center group border-b border-white/6">
       <div class="min-w-0">
         <div>文件管理器</div>
         <div class="text-[10px] font-normal normal-case tracking-normal text-gray-500 truncate max-w-[180px]">
@@ -25,7 +31,7 @@
 
     <div
       v-if="projectStore.rootPath"
-      class="px-3 py-2 border-b border-white/6 transition-colors"
+      class="shrink-0 px-3 py-2 border-b border-white/6 transition-colors"
       :class="rootDropActive ? 'bg-[#264f78]/80' : 'bg-white/[0.03]'"
       @dragenter.prevent="handleRootDragEnter"
       @dragover.prevent="handleRootDragOver"
@@ -50,32 +56,39 @@
       </div>
     </div>
 
-    <n-spin v-if="projectStore.rootPath" :show="projectStore.isLoading">
-      <n-tree
-        block-line
-        selectable
-        multiple
-        draggable
-        expand-on-click
-        :data="displayTreeData"
-        key-field="path"
-        label-field="name"
-        :node-props="nodeProps"
-        :render-label="renderLabel"
-        :expanded-keys="expandedKeys"
-        :selected-keys="selectedKeys"
-        :allow-drop="allowDrop"
-        :on-load="handleLazyLoad"
-        @update:expanded-keys="handleExpand"
-        @update:selected-keys="handleSelectKeys"
-        @dragstart="handleTreeDragStart"
-        @dragover="handleTreeDragOver"
-        @dragend="handleTreeDragEnd"
-        @drop="handleTreeDrop"
-        class="bg-transparent px-1 py-1"
+    <!--
+      滚动容器套在 n-spin 外面而不是直接给 n-spin 加类：n-spin 的根是
+      .n-spin-container、内容在 .n-spin-content，overflow 放在它自己身上时
+      遮罩层会跟着滚，滚动条的位置也不对。
+      横向也放开：文件名比侧栏宽时能拖出来看，与 VS Code 资源管理器一致。
+    -->
+    <div v-if="projectStore.rootPath" class="flex-1 min-h-0 overflow-auto">
+      <n-spin :show="projectStore.isLoading">
+        <n-tree
+          block-line
+          selectable
+          multiple
+          draggable
+          expand-on-click
+          :data="displayTreeData"
+          key-field="path"
+          label-field="name"
+          :node-props="nodeProps"
+          :render-label="renderLabel"
+          :expanded-keys="expandedKeys"
+          :selected-keys="selectedKeys"
+          :allow-drop="allowDrop"
+          :on-load="handleLazyLoad"
+          @update:expanded-keys="handleExpand"
+          @update:selected-keys="handleSelectKeys"
+          @dragstart="handleTreeDragStart"
+          @dragover="handleTreeDragOver"
+          @dragend="handleTreeDragEnd"
+          @drop="handleTreeDrop"
+          class="bg-transparent px-1 py-1"
         />
-
-    </n-spin>
+      </n-spin>
+    </div>
 
     <!-- 右键菜单 -->
     <n-dropdown
