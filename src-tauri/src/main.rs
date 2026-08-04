@@ -81,7 +81,21 @@ fn get_toolchain_statuses(state: State<AppState>) -> Vec<toolchain::ToolchainSta
 #[tauri::command]
 fn read_file(state: State<AppState>, path: String) -> Result<String, String> {
     fs_ops::guard_path(&state, &path)?;
-    utils::read_text_file(&path).map_err(|e| e.to_string())
+    // fallback 只对**非 UTF-8** 的文件生效（用户直接打开的原始游戏文本等）；
+    // 本工具自己产出的 .decl / .dmsg / .dstd 都是 UTF-8，走不到这里。
+    let fallback = {
+        let root = state
+            .current_project_root
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone();
+        root.as_deref()
+            .and_then(project_config::load_project_config)
+            .map(|pc| pc.encoding)
+            .filter(|e| !e.trim().is_empty())
+            .unwrap_or_else(|| "shift-jis".to_string())
+    };
+    utils::read_text_file(&path, &fallback).map_err(|e| e.to_string())
 }
 
 // 保存文件

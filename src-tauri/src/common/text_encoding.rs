@@ -139,6 +139,30 @@ pub fn caution_for_game_file(encoding_name: &str) -> Option<String> {
     }
 }
 
+/// 读取工作区里的文本文件：**UTF-8 优先**，不是合法 UTF-8 才按 `fallback` 解。
+///
+/// 返回 `(文本, 是否走了 fallback)`。
+///
+/// 顺序不能反。THTK-Studio 自己产出的 `.decl` / `.dmsg` / `.dstd` 一律以 UTF-8
+/// 无 BOM 写盘（`save_file` 恒传 `is_source = true`），若读取时无条件按 Shift-JIS
+/// 解，日文对白会变成 `蜊夐ｺ鈴怺螟｢` 这样的乱码——而纯 ASCII 的文件往返完全正常，
+/// 所以这个错误能长期潜伏：`.decl` / `.dstd` 基本只有指令名和数字，只有 `.dmsg`
+/// 里的日文才触发。
+///
+/// fallback 留给用户直接打开的外部文件（原始游戏文本等），取项目配置的编码。
+pub fn decode_source_text(bytes: &[u8], fallback_encoding: &str) -> (String, bool) {
+    // 去掉 UTF-8 BOM，否则它会变成正文开头的 U+FEFF
+    let body = bytes.strip_prefix(&[0xEF, 0xBB, 0xBF]).unwrap_or(bytes);
+
+    if let Ok(text) = std::str::from_utf8(body) {
+        return (text.to_string(), false);
+    }
+
+    let encoding = resolve(fallback_encoding).unwrap_or(SHIFT_JIS);
+    let (text, _, _) = encoding.decode(body);
+    (text.into_owned(), true)
+}
+
 /// 解码字节，并在结果疑似乱码时附一条提示。
 ///
 /// 返回 `(文本, 可疑提示)`。Shift-JIS 解什么都不报错，所以不能依赖 `had_errors`，
@@ -362,5 +386,56 @@ mod tests {
     #[test]
     fn shift_jis_needs_no_caution() {
         assert_eq!(caution_for_game_file("shift-jis"), None, "原生编码不该弹告诫");
+    }
+
+    // ---- decode_source_text：读工作区文本文件 ----
+
+    /// 回归：解包产出的 .dmsg 是 UTF-8 无 BOM，此前读取时无条件按 Shift-JIS 解，
+    /// 日文对白在编辑器里变成 `蜊夐ｺ鈴怺螟｢...`，而 VS Code 打开却是好的。
+    #[test]
+    fn utf8_japanese_survives_the_round_trip() {
+        let original = "博麗霊夢「そこまでよ！」";
+        let (text, used_fallback) = decode_source_text(original.as_bytes(), "shift-jis");
+        assert_eq!(text, original);
+        assert!(!used_fallback, "合法 UTF-8 不该走 fallback");
+    }
+
+    /// 纯 ASCII 两种解法结果相同——这正是该 bug 能长期潜伏的原因：
+    /// .decl / .dstd 基本只有指令名和数字，看不出问题。
+    #[test]
+    fn ascii_is_identical_either_way() {
+        let source = b"entry 0\n    textboxShow()\n";
+        let (text, used_fallback) = decode_source_text(source, "shift-jis");
+        assert_eq!(text, "entry 0\n    textboxShow()\n");
+        assert!(!used_fallback);
+    }
+
+    #[test]
+    fn falls_back_for_genuine_shift_jis_files() {
+        let sjis = encode_strict("博麗霊夢", "shift-jis").unwrap();
+        let (text, used_fallback) = decode_source_text(&sjis, "shift-jis");
+        assert_eq!(text, "博麗霊夢");
+        assert!(used_fallback, "非 UTF-8 才该走 fallback");
+    }
+
+    #[test]
+    fn falls_back_to_the_configured_encoding_not_always_shift_jis() {
+        let gbk = encode_strict("博丽灵梦，你好世界", "gbk").unwrap();
+        let (text, used_fallback) = decode_source_text(&gbk, "gbk");
+        assert_eq!(text, "博丽灵梦，你好世界");
+        assert!(used_fallback);
+    }
+
+    #[test]
+    fn strips_the_utf8_bom() {
+        let mut bytes = vec![0xEF, 0xBB, 0xBF];
+        bytes.extend_from_slice("あいう".as_bytes());
+        let (text, _) = decode_source_text(&bytes, "shift-jis");
+        assert_eq!(text, "あいう", "BOM 不该混进正文");
+    }
+
+    #[test]
+    fn empty_file_is_not_an_error() {
+        assert_eq!(decode_source_text(b"", "shift-jis"), (String::new(), false));
     }
 }

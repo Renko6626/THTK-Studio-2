@@ -235,8 +235,9 @@ fn run_compile(tool_path: &str, request: &MsgRequest) -> MsgResult {
     let version = normalize_thmsg_version(&request.version);
     let output_path = infer_output_path(request);
 
-    // 1. 读 UTF-8 输入
-    let content = match utils::read_text_file(&request.input_path) {
+    // 1. 读源文件。正常是我们自己写的 UTF-8；用户手搓的 .dmsg 可能直接是
+    //    游戏编码，故以本次请求的编码兜底。
+    let content = match utils::read_text_file(&request.input_path, &effective_encoding(request)) {
         Ok(c) => c,
         Err(e) => {
             return fail(

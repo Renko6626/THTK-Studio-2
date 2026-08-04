@@ -161,8 +161,9 @@ fn run_decompile(tool_path: &str, request: &StdRequest) -> StdResult {
         return fail(request, msg);
     }
 
-    // 读 UTF-8 临时输出
-    let raw_dstd = match utils::read_text_file(&temp_path) {
+    // 读临时输出。thstd 文件里没有日文，正常就是纯 ASCII/UTF-8；
+    // shift-jis 只作老文件兜底。
+    let raw_dstd = match utils::read_text_file(&temp_path, "shift-jis") {
         Ok(s) => s,
         Err(e) => {
             let _ = std::fs::remove_file(&temp_path);
@@ -208,8 +209,8 @@ fn run_compile(tool_path: &str, request: &StdRequest) -> StdResult {
     let version = normalize_thstd_version(&request.version);
     let output_path = infer_output_path(request);
 
-    // 1. 读 UTF-8 输入
-    let content = match utils::read_text_file(&request.input_path) {
+    // 1. 读源文件（见上，UTF-8 优先）
+    let content = match utils::read_text_file(&request.input_path, "shift-jis") {
         Ok(c) => c,
         Err(e) => {
             return fail(
