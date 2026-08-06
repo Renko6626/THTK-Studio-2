@@ -1,0 +1,72 @@
+!msgmap
+
+# MSG - TH19 / TH20
+
+# th20 的指令集是所有旧表的**并集**：thmsg06.c 的 th06_find_format() 用
+# fallthrough 依次查 th19 → th185 → th18 → th16 → ... → th06，新表只增补不替换。
+# 所以这里 = th11 那份的全部名字 + th18/th185/th19 三张表的签名。
+
+# 签名逐字抄自 thtk thmsg/thmsg06.c，是一手数据；名字待逆向确认。
+# 没有名字的 opcode 会以 ins_N 显示——宁可显示编号，也不要编一个可能错的名字。
+
+!ins_names
+0 end
+1 playerShow
+2 bossShow
+3 textboxShow
+4 playerHide
+5 bossHide
+6 textboxHide
+7 speakerPlayer
+8 speakerBoss
+9 speakerNone
+10 skippable
+11 textPause
+12 eclResume
+13 playerFace
+14 bossFace
+15 textLine1
+16 textLine2
+17 textAdd
+18 textClear
+19 musicBoss
+20 intro
+21 stageEnd
+22 musicEnd
+23 playerShake
+24 bossShake
+25 textOffsetY
+27 musicFade
+28 bubblePos
+29 bubbleType
+30 routeSelect
+33 portraitDarken
+34 portraitHighlight
+35 lightsOut
+
+!ins_signatures
+# th18 起改了 4/7/13 的签名并新增 36（对 th20 生效）
+4 S
+7 S
+13 SS
+36
+
+# th18.5 新增
+37
+38
+39
+
+# th19 / th20 新增
+42 S
+43 S
+44 ff
+45 ff
+46 SS
+47 SS
+50 S
+51 S
+52
+53
+54
+55
+56

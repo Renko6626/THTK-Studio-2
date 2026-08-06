@@ -3,6 +3,8 @@
 pub mod cmd_runner;
 pub mod file_watcher;
 pub mod game_version;
+pub mod game_map;
+pub mod map_file;
 pub mod text_encoding;
 pub mod game_version_commands;
 pub mod fs_utils;

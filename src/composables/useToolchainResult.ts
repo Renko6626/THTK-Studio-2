@@ -11,6 +11,8 @@ export type ResultOperation =
   | 'extract'
   | 'pack'
   | 'generate'
+  /** 导出不含 IDE 方言的原始 .dmsg / .dstd，供命令行使用 */
+  | 'export-raw'
 
 export interface PublishToolchainResultArgs {
   tool: ResultTool
@@ -29,8 +31,8 @@ export interface PublishToolchainResultArgs {
 // 单一来源:(tool, operation) → 卡片标题动词部分
 const ACTION_LABELS: Record<ResultTool, Partial<Record<ResultOperation, string>>> = {
   thecl: { compile: '编译 .ecl', decompile: '反编译 .ecl', header: '生成 ECL 头文件' },
-  thmsg: { compile: '编译 .msg', decompile: '反编译 .msg' },
-  thstd: { compile: '编译 .std', decompile: '反编译 .std' },
+  thmsg: { compile: '打包 .msg', decompile: '解包 .msg', 'export-raw': '导出原始 .dmsg' },
+  thstd: { compile: '编译 .std', decompile: '反编译 .std', 'export-raw': '导出原始 .dstd' },
   thdat: { extract: '解包 .dat', pack: '打包 .dat' },
   ai:    { generate: '生成 AI 辅助包' }
 }

@@ -1,44 +1,68 @@
-use serde::{Deserialize, Serialize};
+//! MSG 语义数据的加载。
+//!
+//! 数据是外挂的 `.msgm`（eclmap 家族格式，与 ExpHP/truth 的 `map/` 互换），
+//! 版本→表的映射由 `any.msgm` 这个 gamemap 决定。
+//!
+//! **为什么 th19/th20 单独一份表**：`thmsg06.c` 的 `th06_find_format()` 用
+//! fallthrough 依次查 th19 → th185 → th18 → th16 → ... → th06，所以 th20 的
+//! 指令集是所有旧表的**并集**——新表只增补不替换。`th19.msgm` 因此 = th11 的
+//! 全部名字 + th18/th185/th19 三张表的签名（签名抄自 thtk 源码，名字待逆向）。
+//!
+//! 未命名的 opcode 会原样显示为 `ins_N`：翻译器双向都对查不到的 opcode 保留
+//! 原文，所以**不可能显示错的名字**，只会少几个名字。
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MsgInstructionParameter {
-    pub name: String,
-    #[serde(rename = "type")]
-    pub type_name: String,
+use crate::common::{game_map, map_file};
+use std::collections::HashMap;
+
+const GAMEMAP: &str = include_str!("../../../assets/maps/any.msgm");
+const TH11: &str = include_str!("../../../assets/maps/th11.msgm");
+const TH11_ZH: &str = include_str!("../../../assets/maps/th11.msgm.zh.json");
+const TH19: &str = include_str!("../../../assets/maps/th19.msgm");
+const TH19_ZH: &str = include_str!("../../../assets/maps/th19.msgm.zh.json");
+
+/// 把旁挂的中文说明合并进指令表。
+///
+/// 中文不进 mapfile 本体——本体要与生态保持一致（只有 `opcode name`），
+/// 中文是我们的增量，放在 `<mapfile>.zh.json`。
+fn merge_descriptions(data: &mut map_file::MapFileData, zh_json: &str) {
+    let map: HashMap<String, String> = match serde_json::from_str(zh_json) {
+        Ok(m) => m,
+        // 说明缺失不该让整个语义加载失败——没有中文只是少一层注解
+        Err(_) => return,
+    };
+    for ins in &mut data.instructions {
+        if let Some(text) = map.get(&ins.opcode.to_string()) {
+            ins.description = Some(text.clone());
+        }
+    }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MsgInstructionSpec {
-    pub opcode: u32,
-    pub name: String,
-    #[serde(default)]
-    pub params: Vec<MsgInstructionParameter>,
-    #[serde(default)]
-    pub section: Option<String>,
-    #[serde(default)]
-    pub description: Option<String>,
-}
+/// 按版本取 MSG 语义数据。**查不到就报错**，不回退到任意一份表。
+pub fn parse_msg_semantics(version: &str) -> Result<map_file::MapFileData, String> {
+    let id: u32 = version
+        .trim()
+        .parse()
+        .map_err(|_| format!("版本号非法: {version:?}"))?;
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MsgSemanticData {
-    pub tool: String,
-    pub version: String,
-    pub instructions: Vec<MsgInstructionSpec>,
-}
+    let file = game_map::resolve_map_file(GAMEMAP, id).ok_or_else(|| {
+        format!("尚无 th{id} 的 MSG 指令表；本次解包的指令将以 ins_N 原样显示。")
+    })?;
 
-// 内嵌种子(目前只有 th17,后续按版本扩展时改成 LUT)
-const SEED_TH17: &str = include_str!("../../../assets/msg-th17.json");
-
-/// 按版本读取语义数据。找不到对应版本则回退到 th17 种子。
-/// 版本号已归一化(无 "th" 前缀,例如 "17")。
-pub fn parse_msg_semantics(version: &str) -> Result<MsgSemanticData, String> {
-    // 目前只内嵌了 th17;未来扩展按版本 match。任何输入都回退 th17。
-    let _ = version;
-    serde_json::from_str(SEED_TH17)
-        .map_err(|e| format!("Failed to parse embedded msg-th17.json: {e}"))
+    let mut data = match file.as_str() {
+        "th11.msgm" => {
+            let mut d = map_file::parse_map_content("th11.msgm", TH11)?;
+            merge_descriptions(&mut d, TH11_ZH);
+            d
+        }
+        "th19.msgm" => {
+            let mut d = map_file::parse_map_content("th19.msgm", TH19)?;
+            merge_descriptions(&mut d, TH19_ZH);
+            d
+        }
+        other => return Err(format!("gamemap 指向未内置的表: {other}")),
+    };
+    data.source_path = file;
+    Ok(data)
 }
 
 #[cfg(test)]
@@ -46,48 +70,80 @@ mod tests {
     use super::*;
 
     #[test]
-    fn seed_th17_parses_and_contains_known_instructions() {
-        let data = parse_msg_semantics("17").expect("parse");
-        assert_eq!(data.tool, "thmsg");
-        assert_eq!(data.version, "17");
-        assert!(!data.instructions.is_empty(), "seed must have entries");
+    fn th17_resolves_to_the_shared_table() {
+        let data = parse_msg_semantics("17").expect("th17 应有数据");
+        assert!(!data.instructions.is_empty());
 
-        // textboxShow opcode 3 is canonical for thmsg
         let textbox = data
             .instructions
             .iter()
             .find(|i| i.name == "textboxShow")
-            .expect("textboxShow must be in seed");
+            .expect("textboxShow 必须在表里");
         assert_eq!(textbox.opcode, 3);
-
-        // playerShow has one int param
-        let player = data
-            .instructions
-            .iter()
-            .find(|i| i.name == "playerShow")
-            .expect("playerShow must be in seed");
-        assert_eq!(player.opcode, 1);
-        assert_eq!(player.params.len(), 1);
-        assert_eq!(player.params[0].type_name, "int");
     }
 
     #[test]
-    fn unknown_version_falls_back_to_th17() {
-        let data = parse_msg_semantics("99").expect("parse");
-        // Falls back to embedded th17; same shape
-        assert_eq!(data.version, "17");
+    fn descriptions_are_merged_from_the_sidecar() {
+        let data = parse_msg_semantics("17").unwrap();
+        let textbox = data.instructions.iter().find(|i| i.opcode == 3).unwrap();
+        assert!(
+            textbox.description.is_some(),
+            "中文说明应从旁挂 .zh.json 合并进来"
+        );
+    }
+
+    /// th19/th20 用 th19.msgm：名字来自 th11 那份（fallthrough 决定了旧指令
+    /// 在新版本里依然有效），签名另外带上 th18/th185/th19 三张新表。
+    #[test]
+    fn th19_and_th20_get_legacy_names_plus_new_signatures() {
+        for version in ["19", "20"] {
+            let data = parse_msg_semantics(version)
+                .unwrap_or_else(|e| panic!("th{version} 应有数据: {e}"));
+
+            // 旧指令的名字照常可用
+            let textbox = data
+                .instructions
+                .iter()
+                .find(|i| i.opcode == 3)
+                .expect("textboxShow 应在表里");
+            assert_eq!(textbox.name, "textboxShow");
+
+            // th19 新增的 44 有签名但没名字——宁可显示 ins_44，不编名字
+            let new_ins = data
+                .instructions
+                .iter()
+                .find(|i| i.opcode == 44)
+                .expect("th19 新增的 44 应被收进来");
+            assert_eq!(new_ins.name, "", "没逆向出来就不该有名字");
+            assert_eq!(new_ins.params.len(), 2, "ff = 两个 float");
+        }
+    }
+
+    /// th17 不该看到 th19 才有的指令。
+    #[test]
+    fn th17_does_not_leak_th19_instructions() {
+        let data = parse_msg_semantics("17").unwrap();
+        assert!(
+            data.instructions.iter().all(|i| i.opcode != 44),
+            "th17 的表不该有 th19 才新增的 44"
+        );
     }
 
     #[test]
-    fn schema_tolerates_missing_optional_fields() {
-        let minimal = r#"{"tool":"thmsg","version":"17","instructions":[
-            {"opcode":42,"name":"foo"}
-        ]}"#;
-        let data: MsgSemanticData = serde_json::from_str(minimal).expect("parse");
-        let foo = &data.instructions[0];
-        assert_eq!(foo.opcode, 42);
-        assert!(foo.params.is_empty());
-        assert!(foo.section.is_none());
-        assert!(foo.description.is_none());
+    fn covered_versions_all_resolve() {
+        for version in [
+            "11", "12", "128", "13", "14", "143", "15", "16", "165", "17", "18", "185",
+        ] {
+            assert!(
+                parse_msg_semantics(version).is_ok(),
+                "th{version} 应该有数据"
+            );
+        }
+    }
+
+    #[test]
+    fn garbage_version_is_rejected() {
+        assert!(parse_msg_semantics("abc").is_err());
+        assert!(parse_msg_semantics("").is_err());
     }
 }

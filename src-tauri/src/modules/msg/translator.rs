@@ -2,18 +2,35 @@ use regex::Regex;
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
-use super::map_parser::{MsgInstructionSpec, MsgSemanticData};
+use crate::common::map_file::{MapFileData, MapInstruction};
 
-fn name_by_opcode(data: &MsgSemanticData) -> HashMap<u32, &MsgInstructionSpec> {
+fn name_by_opcode(data: &MapFileData) -> HashMap<u32, &MapInstruction> {
     data.instructions.iter().map(|i| (i.opcode, i)).collect()
 }
 
-fn opcode_by_name<'a>(data: &'a MsgSemanticData) -> HashMap<&'a str, u32> {
+fn opcode_by_name<'a>(data: &'a MapFileData) -> HashMap<&'a str, u32> {
     data.instructions
         .iter()
         .map(|i| (i.name.as_str(), i.opcode))
         .collect()
 }
+
+/// 写在可读 .dmsg 开头的方言声明。
+///
+/// `thmsg` **没有** `-m`，指令名映射是本 IDE 在它外面做的：解包时把 `ins_N`
+/// 换成名字写盘，打包时再换回来喂给 `thmsg`。因此磁盘上的 .dmsg **不是合法的
+/// `thmsg` 输入**——直接跑 `thmsg -c` 会在每条带名字的指令上失败。
+///
+/// 之所以仍在磁盘上存名字：`git diff` 里 `textboxShow(0)` 与 `ins_3(0)` 的
+/// 可读性差距是决定性的。代价就是必须把这件事写在文件里，而不是指望用户记得。
+pub const DIALECT_HEADER: &str = "# THTK-Studio dmsg 方言：指令名由 IDE 映射，thmsg 只认 ins_N；需要原始格式请用「导出原始 .dmsg」。\n";
+
+/// 方言头的识别前缀。反向翻译时必须**整行剥掉**——thmsg 不认识它，
+/// 原样透传会让它把这行当成指令而报错。
+///
+/// 头**必须是单行**：写成多行时只有第一行带得上这个前缀，后续行会漏网
+/// 一路送进 thmsg。这个 bug 被 compiler 层的剥离测试抓到过一次。
+pub const DIALECT_MARKER: &str = "# THTK-Studio ";
 
 /// thmsg 原始 dmsg(`ins_N` 形式)→ 可读 dmsg(`textboxShow` 等)。
 /// 行级文本变换:
@@ -21,7 +38,7 @@ fn opcode_by_name<'a>(data: &'a MsgSemanticData) -> HashMap<&'a str, u32> {
 ///     找到则替换为 name;找不到保留原 `ins_N`。
 ///   - with_comments=true 时,翻译成功的行末追加 ` // <description>`(若 description 存在)。
 ///   - 其他行(空行、注释、文本字符串、难度/时间标签、引号包裹等)原样透传。
-pub fn dmsg_to_readable(raw: &str, semantics: &MsgSemanticData, with_comments: bool) -> String {
+pub fn dmsg_to_readable(raw: &str, semantics: &MapFileData, with_comments: bool) -> String {
     let map = name_by_opcode(semantics);
 
     static RE: OnceLock<Regex> = OnceLock::new();
@@ -84,7 +101,7 @@ pub fn dmsg_to_readable(raw: &str, semantics: &MsgSemanticData, with_comments: b
 ///     找不到名字保留原文(让 thmsg 自己报错)。
 ///   - 行末的 ` // ...` 注释 strip。
 ///   - 其他行原样透传。
-pub fn readable_to_dmsg(readable: &str, semantics: &MsgSemanticData) -> String {
+pub fn readable_to_dmsg(readable: &str, semantics: &MapFileData) -> String {
     let map = opcode_by_name(semantics);
 
     static RE: OnceLock<Regex> = OnceLock::new();
@@ -143,7 +160,7 @@ mod tests {
     use super::*;
     use crate::modules::msg::map_parser::parse_msg_semantics;
 
-    fn data() -> MsgSemanticData {
+    fn data() -> MapFileData {
         parse_msg_semantics("17").expect("seed")
     }
 
@@ -212,4 +229,5 @@ mod tests {
         let back = readable_to_dmsg(readable, &data());
         assert_eq!(back, "0:ins_999(42)\n");
     }
+
 }

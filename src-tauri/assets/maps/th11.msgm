@@ -1,0 +1,61 @@
+!msgmap
+
+# MSG - TH11 to TH18.5
+
+# 格式与 ExpHP/truth 的 map/ 一致，两边可互换。
+# 中文说明在旁挂的 .zh.json，不进本文件。
+
+!ins_names
+0 end
+1 playerShow
+2 bossShow
+3 textboxShow
+4 playerHide
+5 bossHide
+6 textboxHide
+7 speakerPlayer
+8 speakerBoss
+9 speakerNone
+10 skippable
+11 textPause
+12 eclResume
+13 playerFace
+14 bossFace
+15 textLine1
+16 textLine2
+17 textAdd
+18 textClear
+19 musicBoss
+20 intro
+21 stageEnd
+22 musicEnd
+23 playerShake
+24 bossShake
+25 textOffsetY
+27 musicFade
+28 bubblePos
+29 bubbleType
+30 routeSelect
+33 portraitDarken
+34 portraitHighlight
+35 lightsOut
+
+!ins_signatures
+1 S
+2 S
+5 S
+8 S
+10 S
+11 S
+13 S
+14 SS
+15 S
+16 S
+17 S
+20 S
+25 S
+27 f
+28 ff
+29 S
+33 SS
+34 SS

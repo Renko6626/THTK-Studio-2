@@ -1,0 +1,47 @@
+!stdmap
+
+# STD - TH14 to TH20
+
+# 格式与 ExpHP/truth 的 map/ 一致，两边可互换。
+# 中文说明在旁挂的 .zh.json，不进本文件。
+
+!ins_names
+0 stop
+1 jmp
+2 pos
+3 posTime
+4 facing
+5 facingTime
+6 up
+7 fov
+8 fog
+9 fogTime
+10 posBezier
+11 facingBezier
+12 rockingMode
+13 bgColor
+14 sprite
+16 interruptLabel
+17 distortion
+18 upTime
+21 fovTime
+
+!ins_signatures
+1 SS
+2 fff
+3 SSfff
+4 fff
+5 SSfff
+6 fff
+7 f
+8 Sff
+9 SSSff
+10 SSfffffffff
+11 SSfffffffff
+12 S
+13 S
+14 SSS
+16 S
+17 S
+18 SSfff
+21 SSf

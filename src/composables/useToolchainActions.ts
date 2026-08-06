@@ -11,7 +11,9 @@ import {
   decompileStdFile,
   compileStdFile,
   extractDatFile,
-  packDatFile
+  packDatFile,
+  exportRawDmsg,
+  exportRawDstd
 } from '../api'
 import type { MessageApi } from 'naive-ui'
 import type { EditorTab } from '../stores/editor'
@@ -311,6 +313,45 @@ export function useToolchainActions({ message }: ToolchainActionsOptions = {}) {
     }
   }
 
+  /**
+   * 导出原始格式：把磁盘上的方言文件翻译回 ins_N 形式。
+   *
+   * 存在的理由是 thmsg / thstd 没有 -m，指令名是 IDE 加的——项目里的
+   * .dmsg / .dstd 直接跑命令行会在每条带名字的指令上失败。
+   */
+  async function runExportRaw(kind: 'msg' | 'std', path: string | null | undefined) {
+    if (!path) return
+    const ext = kind === 'msg' ? 'dmsg' : 'dstd'
+    const outputPath = await saveDialog({
+      defaultPath: path.replace(new RegExp(`\\.${ext}$`), `.raw.${ext}`),
+      filters: [{ name: `原始 ${ext}`, extensions: [ext] }]
+    })
+    if (!outputPath) return
+    try {
+      const written =
+        kind === 'msg'
+          ? await exportRawDmsg(path, outputPath)
+          : await exportRawDstd(path, outputPath)
+      publishToolchainResult({
+        tool: kind === 'msg' ? 'thmsg' : 'thstd',
+        operation: 'export-raw',
+        inputPath: path,
+        outputPath: written,
+        success: true,
+        message: `已导出原始格式，可直接用命令行编译：${written}`
+      })
+    } catch (error) {
+      publishToolchainResult({
+        tool: kind === 'msg' ? 'thmsg' : 'thstd',
+        operation: 'export-raw',
+        inputPath: path,
+        outputPath: null,
+        success: false,
+        message: String(error)
+      })
+    }
+  }
+
   async function runPackDat() {
     const sourceDir = await openDialog({ directory: true })
     if (!sourceDir) return
@@ -351,6 +392,7 @@ export function useToolchainActions({ message }: ToolchainActionsOptions = {}) {
     // MSG
     runDecompileMsg,
     runCompileMsg,
+    runExportRaw,
     // STD
     runDecompileStd,
     runCompileStd,
