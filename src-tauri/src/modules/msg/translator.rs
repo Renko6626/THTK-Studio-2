@@ -2,13 +2,13 @@ use regex::Regex;
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
-use super::map_parser::{MsgInstructionSpec, MsgSemanticData};
+use crate::common::map_file::{MapFileData, MapInstruction};
 
-fn name_by_opcode(data: &MsgSemanticData) -> HashMap<u32, &MsgInstructionSpec> {
+fn name_by_opcode(data: &MapFileData) -> HashMap<u32, &MapInstruction> {
     data.instructions.iter().map(|i| (i.opcode, i)).collect()
 }
 
-fn opcode_by_name<'a>(data: &'a MsgSemanticData) -> HashMap<&'a str, u32> {
+fn opcode_by_name<'a>(data: &'a MapFileData) -> HashMap<&'a str, u32> {
     data.instructions
         .iter()
         .map(|i| (i.name.as_str(), i.opcode))
@@ -21,7 +21,7 @@ fn opcode_by_name<'a>(data: &'a MsgSemanticData) -> HashMap<&'a str, u32> {
 ///     找到则替换为 name;找不到保留原 `ins_N`。
 ///   - with_comments=true 时,翻译成功的行末追加 ` // <description>`(若 description 存在)。
 ///   - 其他行(空行、注释、文本字符串、难度/时间标签、引号包裹等)原样透传。
-pub fn dmsg_to_readable(raw: &str, semantics: &MsgSemanticData, with_comments: bool) -> String {
+pub fn dmsg_to_readable(raw: &str, semantics: &MapFileData, with_comments: bool) -> String {
     let map = name_by_opcode(semantics);
 
     static RE: OnceLock<Regex> = OnceLock::new();
@@ -84,7 +84,7 @@ pub fn dmsg_to_readable(raw: &str, semantics: &MsgSemanticData, with_comments: b
 ///     找不到名字保留原文(让 thmsg 自己报错)。
 ///   - 行末的 ` // ...` 注释 strip。
 ///   - 其他行原样透传。
-pub fn readable_to_dmsg(readable: &str, semantics: &MsgSemanticData) -> String {
+pub fn readable_to_dmsg(readable: &str, semantics: &MapFileData) -> String {
     let map = opcode_by_name(semantics);
 
     static RE: OnceLock<Regex> = OnceLock::new();
@@ -143,7 +143,7 @@ mod tests {
     use super::*;
     use crate::modules::msg::map_parser::parse_msg_semantics;
 
-    fn data() -> MsgSemanticData {
+    fn data() -> MapFileData {
         parse_msg_semantics("17").expect("seed")
     }
 

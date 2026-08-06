@@ -197,11 +197,16 @@ fn run_decompile(tool_path: &str, request: &MsgRequest) -> MsgResult {
         text_encoding::decode_with_warning(&output.stdout, &encoding);
 
     // 3. 语义加载 + 翻译
-    let semantics = match super::map_parser::parse_msg_semantics(&version) {
-        Ok(s) => s,
-        Err(e) => return fail(request, format!("Failed to load msg semantics: {e}")),
+    // 拿不到语义不该让整个解包失败——用户仍然需要看到 ins_N 形式的内容。
+    // 但必须说清楚为什么没有名字（th19/th20 的 MSG 正处于这个状态）。
+    let (semantics, semantics_note) = match super::map_parser::parse_msg_semantics(&version) {
+        Ok(s) => (Some(s), None),
+        Err(e) => (None, Some(e)),
     };
-    let readable = super::translator::dmsg_to_readable(&raw_dmsg, &semantics, request.with_comments);
+    let readable = match &semantics {
+        Some(s) => super::translator::dmsg_to_readable(&raw_dmsg, s, request.with_comments),
+        None => raw_dmsg.clone(),
+    };
 
     // 4. 写 UTF-8 到目标 .dmsg
     if let Err(e) = utils::write_file_utf8(&output_path, &readable) {
@@ -217,6 +222,12 @@ fn run_decompile(tool_path: &str, request: &MsgRequest) -> MsgResult {
     if let Some(warning) = mojibake_warning {
         message.push_str("\n\n⚠ ");
         message.push_str(&warning);
+    }
+    // 语义表缺失是"能用但没名字"，属于提示不是错误——必须让用户看见，
+    // 否则他会以为这些 ins_N 就是本来的样子。
+    if let Some(note) = semantics_note {
+        message.push_str("\n\nℹ ");
+        message.push_str(&note);
     }
 
     MsgResult {

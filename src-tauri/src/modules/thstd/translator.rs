@@ -2,13 +2,13 @@ use regex::Regex;
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
-use super::map_parser::{StdInstructionSpec, StdSemanticData};
+use crate::common::map_file::{MapFileData, MapInstruction};
 
-fn name_by_opcode(data: &StdSemanticData) -> HashMap<u32, &StdInstructionSpec> {
+fn name_by_opcode(data: &MapFileData) -> HashMap<u32, &MapInstruction> {
     data.instructions.iter().map(|i| (i.opcode, i)).collect()
 }
 
-fn opcode_by_name<'a>(data: &'a StdSemanticData) -> HashMap<&'a str, u32> {
+fn opcode_by_name<'a>(data: &'a MapFileData) -> HashMap<&'a str, u32> {
     data.instructions
         .iter()
         .map(|i| (i.name.as_str(), i.opcode))
@@ -33,7 +33,7 @@ fn swap_first_two_args(args: &str) -> String {
 ///   - opcode == 1 (jmp) 特例:在 name 替换后交换前两个实参。
 ///   - with_comments=true 时,翻译成功的行末追加 ` // <description>`(若 description 存在)。
 ///   - 其他行(空行、注释、段标签如 SCRIPT:、文本字符串等)原样透传。
-pub fn dstd_to_readable(raw: &str, semantics: &StdSemanticData, with_comments: bool) -> String {
+pub fn dstd_to_readable(raw: &str, semantics: &MapFileData, with_comments: bool) -> String {
     let map = name_by_opcode(semantics);
 
     static RE: OnceLock<Regex> = OnceLock::new();
@@ -103,7 +103,7 @@ pub fn dstd_to_readable(raw: &str, semantics: &StdSemanticData, with_comments: b
 ///     (time, offset) 还原为 thstd 二进制约定的 (offset, time)。
 ///   - 行末的 ` // ...` 注释 strip。
 ///   - 其他行原样透传。
-pub fn readable_to_dstd(readable: &str, semantics: &StdSemanticData) -> String {
+pub fn readable_to_dstd(readable: &str, semantics: &MapFileData) -> String {
     let map = opcode_by_name(semantics);
 
     static RE: OnceLock<Regex> = OnceLock::new();
@@ -167,7 +167,7 @@ mod tests {
     use super::*;
     use crate::modules::thstd::map_parser::parse_std_semantics;
 
-    fn data() -> StdSemanticData {
+    fn data() -> MapFileData {
         parse_std_semantics("17").expect("seed")
     }
 

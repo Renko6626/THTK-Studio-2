@@ -1,0 +1,17 @@
+!gamemap
+!game_files
+
+# thstd.c 把版本映射为三档 formats_v0/v1/v2 且**无 per-version 分支**，
+# 其中 formats_v2 覆盖 th14–th20——所以这一档共用一份表是有源码依据的，
+# 不是猜的。th06–th13 的表尚未迁移，需要时从 ExpHP/truth 的 map/ 取。
+
+14  th14.stdm
+143 th14.stdm
+15  th14.stdm
+16  th14.stdm
+165 th14.stdm
+17  th14.stdm
+18  th14.stdm
+185 th14.stdm
+19  th14.stdm
+20  th14.stdm

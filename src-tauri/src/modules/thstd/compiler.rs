@@ -175,23 +175,33 @@ fn run_decompile(tool_path: &str, request: &StdRequest) -> StdResult {
     };
     let _ = std::fs::remove_file(&temp_path);
 
-    let semantics = match super::map_parser::parse_std_semantics(&version) {
-        Ok(s) => s,
-        Err(e) => return fail(request, format!("Failed to load std semantics: {e}")),
+    // 拿不到语义不该让整个解包失败——用户仍然需要看到 ins_N 形式的内容。
+    // 但必须说清楚为什么没有名字（例如 th13 及更早属于 formats_v1，尚未迁移）。
+    let (semantics, semantics_note) = match super::map_parser::parse_std_semantics(&version) {
+        Ok(s) => (Some(s), None),
+        Err(e) => (None, Some(e)),
     };
-    let readable =
-        super::translator::dstd_to_readable(&raw_dstd, &semantics, request.with_comments);
+    let readable = match &semantics {
+        Some(s) => super::translator::dstd_to_readable(&raw_dstd, s, request.with_comments),
+        None => raw_dstd.clone(),
+    };
 
     if let Err(e) = utils::write_file_utf8(&output_path, &readable) {
         return fail(request, format!("Failed to write {output_path}: {e}"));
     }
 
     let stderr_trim = exec.stderr.trim();
-    let message = if stderr_trim.is_empty() {
+    let mut message = if stderr_trim.is_empty() {
         format!("Decompiled {} → {}", request.input_path, output_path)
     } else {
         stderr_trim.to_string()
     };
+    // 语义表缺失是"能用但没名字"，属于提示不是错误——必须让用户看见，
+    // 否则他会以为这些 ins_N 就是本来的样子。
+    if let Some(note) = semantics_note {
+        message.push_str("\n\nℹ ");
+        message.push_str(&note);
+    }
 
     StdResult {
         success: true,
