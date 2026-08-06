@@ -10,6 +10,7 @@ import { useWorkbenchPanelsStore } from '../../stores/workbenchPanels'
 import { useWorkbenchReportsStore } from '../../stores/workbenchReports'
 import { useMessage } from 'naive-ui'
 import { ensureEclLanguageRegistered, eclThemeName, inferMonacoLanguageId } from '../../services/languages/ecl/register'
+import { ensureStdLanguageRegistered } from '../../services/languages/std/register'
 import {
   clearEclStaticDiagnostics,
   createEclStaticProblemEntries,
@@ -118,6 +119,7 @@ onMounted(() => {
   if (!container.value) return
 
   ensureEclLanguageRegistered()
+  ensureStdLanguageRegistered()
 
   // 1. 创建编辑器实例 (注意 model 设为 null，稍后设置)
   editorInstance.value = monaco.editor.create(container.value, {

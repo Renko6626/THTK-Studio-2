@@ -12,6 +12,13 @@ import vue from '@vitejs/plugin-vue'
  */
 export default defineConfig({
   plugins: [vue()],
+  resolve: {
+    alias: {
+      // 真包在 happy-dom 里加载不了；替身只提供语言服务注册用到的 API，
+      // 好让 services/languages/** 的纯逻辑可测。见 tests/stubs/monaco-editor.ts
+      'monaco-editor': new URL('./tests/stubs/monaco-editor.ts', import.meta.url).pathname
+    }
+  },
   test: {
     environment: 'happy-dom',
     globals: true,

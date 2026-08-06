@@ -4,6 +4,7 @@ import {
   clearEclSemanticVocabulary,
   updateEclSemanticVocabulary
 } from '../services/languages/ecl/register'
+import { setStdGameVersion } from '../services/languages/std/register'
 import type { useProjectStore } from '../stores/project'
 
 export interface EclSemanticVocabularyDeps {
@@ -65,11 +66,15 @@ export function useEclSemanticVocabulary({
         clearEclSemanticVocabulary(previousScopeKey)
       }
       previousScopeKey = nextScopeKey
+      // STD 的跳转导航也随项目版本走：不同版本的跳转 opcode 与偏移含义不同
+      // （v0 存指令序号、v1+ 存字节偏移），版本不对会指向不相干的行。
+      setStdGameVersion(projectStore.gameVersion)
       void refreshSemanticVocabulary()
     }
   )
 
   onMounted(() => {
+    setStdGameVersion(projectStore.gameVersion)
     window.addEventListener('thtk:toolchain-settings-saved', handleToolchainSettingsChanged)
     void refreshSemanticVocabulary()
   })

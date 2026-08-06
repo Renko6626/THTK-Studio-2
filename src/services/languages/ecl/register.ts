@@ -1,4 +1,5 @@
 import * as monaco from 'monaco-editor'
+import { stdLanguageId } from '../std/register'
 import { createEclCompletionProvider } from './completion-provider'
 import { createEclDefinitionProvider } from './definition-provider'
 import { createEclHoverProvider } from './hover-provider'
@@ -143,6 +144,8 @@ export function inferMonacoLanguageId(
   const language = String(tab?.language || '').toLowerCase()
 
   if (path.endsWith('.decl') || path.endsWith('.tecl')) return eclLanguageId
+  // .dstd 有自己的语言服务（只做跳转导航，见 services/languages/std/）
+  if (path.endsWith('.dstd')) return stdLanguageId
   if (language === 'json' || path.endsWith('.json')) return 'json'
   if (language === 'js' || path.endsWith('.js')) return 'javascript'
   if (language === 'ts' || path.endsWith('.ts')) return 'typescript'
