@@ -186,10 +186,12 @@ const menus = computed(() => [
       toolItem('thmsg', '解包当前 .msg(高级…)', 'script.decompileMsgAdvanced', !activeIsMsg.value),
       toolItem('thmsg', '打包当前 .dmsg', 'script.compileMsg', !activeIsDmsg.value),
       toolItem('thmsg', '打包当前 .dmsg(高级…)', 'script.compileMsgAdvanced', !activeIsDmsg.value),
+      toolItem('thmsg', '导出原始 .dmsg（供命令行）', 'script.exportRawDmsg', !activeIsDmsg.value),
       { type: 'divider', key: 'script-std-div' },
       // STD
       toolItem('thstd', '反编译当前 .std', 'script.decompileStd', !activeIsStd.value),
       toolItem('thstd', '编译当前 .dstd', 'script.compileStd', !activeIsDstd.value),
+      toolItem('thstd', '导出原始 .dstd（供命令行）', 'script.exportRawDstd', !activeIsDstd.value),
       { type: 'divider', key: 'script-dat-div' },
       // DAT
       toolItem('thdat', '解包当前 .dat', 'script.extractDat', false),
@@ -384,6 +386,12 @@ async function handleSelect(key: string) {
       break
     case 'script.compileMsgAdvanced':
       openMsgBuildDialog('compile')
+      break
+    case 'script.exportRawDmsg':
+      tcActions.runExportRaw('msg', editorStore.activeTab?.path)
+      break
+    case 'script.exportRawDstd':
+      tcActions.runExportRaw('std', editorStore.activeTab?.path)
       break
     case 'script.compileMsg':
       tcActions.runCompileMsg(editorStore.activeTab)

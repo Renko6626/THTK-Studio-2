@@ -120,6 +120,27 @@ pub fn run(config: &AppConfig, request: &StdRequest) -> StdResult {
     }
 }
 
+/// 写盘前给可读 dstd 加上方言声明；读入时再剥掉。
+///
+/// 放在 compiler 而不是 translator：方言头是**文件级**关注点（跟编码一样），
+/// 而 translator 是纯粹的 `ins_N ↔ 名字` 行变换。混在一起会让 translator 的
+/// 每个测试都要迁就一段与它无关的文本。
+fn with_dialect_header(readable: &str) -> String {
+    let mut out = String::with_capacity(readable.len() + 160);
+    out.push_str(super::translator::DIALECT_HEADER);
+    out.push_str(readable);
+    out
+}
+
+/// 剥掉方言声明。用户自己写的 `#` 注释不受影响——只认我们的标记。
+fn strip_dialect_header(content: &str) -> String {
+    content
+        .lines()
+        .filter(|line| !line.trim_start().starts_with(super::translator::DIALECT_MARKER))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 fn run_decompile(tool_path: &str, request: &StdRequest) -> StdResult {
     let version = normalize_thstd_version(&request.version);
     let output_path = infer_output_path(request);
@@ -186,7 +207,7 @@ fn run_decompile(tool_path: &str, request: &StdRequest) -> StdResult {
         None => raw_dstd.clone(),
     };
 
-    if let Err(e) = utils::write_file_utf8(&output_path, &readable) {
+    if let Err(e) = utils::write_file_utf8(&output_path, &with_dialect_header(&readable)) {
         return fail(request, format!("Failed to write {output_path}: {e}"));
     }
 
@@ -235,7 +256,7 @@ fn run_compile(tool_path: &str, request: &StdRequest) -> StdResult {
         Ok(s) => s,
         Err(e) => return fail(request, format!("Failed to load std semantics: {e}")),
     };
-    let raw_dstd = super::translator::readable_to_dstd(&content, &semantics);
+    let raw_dstd = super::translator::readable_to_dstd(&strip_dialect_header(&content), &semantics);
 
     // 3. 写 UTF-8 临时文件
     let stem = Path::new(&request.input_path)
@@ -350,5 +371,28 @@ mod tests {
         assert_eq!(result.tool, "thstd");
         assert_eq!(result.mode, "decompile");
         assert_eq!(result.script_kind, "std");
+    }
+
+    // ---- 方言声明（文件级关注点，故在 compiler 层测）----
+
+    #[test]
+    fn written_file_carries_a_dialect_header() {
+        let out = with_dialect_header("jmp(60, 1200)\n");
+        assert!(out.starts_with("# THTK-Studio dstd"), "got: {out}");
+        assert!(out.contains("thstd"));
+        assert!(out.contains("jmp(60, 1200)"));
+    }
+
+    #[test]
+    fn dialect_header_is_stripped_before_reaching_thstd() {
+        let round = strip_dialect_header(&with_dialect_header("jmp(60, 1200)\n"));
+        assert!(!round.contains("THTK-Studio"));
+        assert_eq!(round.trim(), "jmp(60, 1200)");
+    }
+
+    #[test]
+    fn user_comments_survive_stripping() {
+        let kept = strip_dialect_header("# 我自己的注释\npos(0f, 0f, 0f)\n");
+        assert!(kept.contains("# 我自己的注释"));
     }
 }

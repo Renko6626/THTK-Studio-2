@@ -92,3 +92,38 @@ pub async fn compile_msg_file(
     };
     Ok(compiler::run(&config, &req))
 }
+
+/// 导出不含方言声明的原始 .dmsg（`thmsg` 可直接编译的形式）。
+///
+/// 磁盘上的 .dmsg 是 IDE 方言：指令名由本 IDE 映射，`thmsg` 只认 `ins_N`。
+/// 需要脱离 IDE 走命令行 / CI 时用这个入口。
+#[tauri::command]
+pub async fn export_raw_dmsg(
+    state: State<'_, AppState>,
+    input_path: String,
+    output_path: String,
+) -> Result<String, String> {
+    let root = state
+        .current_project_root
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone();
+    let ctx = toolchain::effective_context(&state.config_manager.get_config(), root.as_deref());
+    let version =
+        crate::common::game_version::resolve_from(ctx.project.as_ref(), &ctx.config, "thmsg")?
+            .to_string();
+    let semantics = super::map_parser::parse_msg_semantics(&version)?;
+
+    let content = crate::utils::read_text_file(&input_path, "utf-8")
+        .map_err(|e| format!("读取 {input_path} 失败: {e}"))?;
+    // 方言头必须先剥掉——它不是指令，thmsg 会把它当语法错误
+    let stripped: String = content
+        .lines()
+        .filter(|line| !line.trim_start().starts_with(super::translator::DIALECT_MARKER))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let raw = super::translator::readable_to_dmsg(&stripped, &semantics);
+    crate::utils::write_file_utf8(&output_path, &raw)
+        .map_err(|e| format!("写入 {output_path} 失败: {e}"))?;
+    Ok(output_path)
+}

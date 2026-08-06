@@ -26,6 +26,23 @@ fn swap_first_two_args(args: &str) -> String {
     }
 }
 
+/// 写在可读 .dstd 开头的方言声明。
+///
+/// `thstd` **没有** `-m`，指令名映射是本 IDE 在它外面做的：解包时把 `ins_N`
+/// 换成名字写盘，打包时再换回来喂给 `thstd`。因此磁盘上的 .dstd **不是合法的
+/// `thstd` 输入**——直接跑 `thstd -c` 会在每条带名字的指令上失败。
+///
+/// 之所以仍在磁盘上存名字：`git diff` 里 `textboxShow(0)` 与 `ins_3(0)` 的
+/// 可读性差距是决定性的。代价就是必须把这件事写在文件里，而不是指望用户记得。
+pub const DIALECT_HEADER: &str = "# THTK-Studio dstd 方言：指令名由 IDE 映射，thstd 只认 ins_N；需要原始格式请用「导出原始 .dstd」。\n";
+
+/// 方言头的识别前缀。反向翻译时必须**整行剥掉**——thstd 不认识它，
+/// 原样透传会让它把这行当成指令而报错。
+///
+/// 头**必须是单行**：写成多行时只有第一行带得上这个前缀，后续行会漏网
+/// 一路送进 thstd。这个 bug 被 compiler 层的剥离测试抓到过一次。
+pub const DIALECT_MARKER: &str = "# THTK-Studio ";
+
 /// thstd 原始 dstd(`ins_N` 形式)→ 可读 dstd(`jmp`、`pos` 等)。
 /// 行级文本变换:
 ///   - 形如 `[time_label:]ins_<opcode>(<args>)` 的行:opcode 查 semantics,
@@ -243,4 +260,5 @@ mod tests {
         let out = dstd_to_readable(raw, &data(), false);
         assert_eq!(out, "0:jmp(60, 100)\n");
     }
+
 }

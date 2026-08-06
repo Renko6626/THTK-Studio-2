@@ -163,6 +163,27 @@ fn effective_encoding(request: &MsgRequest) -> String {
     }
 }
 
+/// 写盘前给可读 dmsg 加上方言声明；读入时再剥掉。
+///
+/// 放在 compiler 而不是 translator：方言头是**文件级**关注点（跟编码一样），
+/// 而 translator 是纯粹的 `ins_N ↔ 名字` 行变换。混在一起会让 translator 的
+/// 每个测试都要迁就一段与它无关的文本。
+fn with_dialect_header(readable: &str) -> String {
+    let mut out = String::with_capacity(readable.len() + 160);
+    out.push_str(super::translator::DIALECT_HEADER);
+    out.push_str(readable);
+    out
+}
+
+/// 剥掉方言声明。用户自己写的 `#` 注释不受影响——只认我们的标记。
+fn strip_dialect_header(content: &str) -> String {
+    content
+        .lines()
+        .filter(|line| !line.trim_start().starts_with(super::translator::DIALECT_MARKER))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 fn run_decompile(tool_path: &str, request: &MsgRequest) -> MsgResult {
     let version = normalize_thmsg_version(&request.version);
     let output_path = infer_output_path(request);
@@ -209,7 +230,7 @@ fn run_decompile(tool_path: &str, request: &MsgRequest) -> MsgResult {
     };
 
     // 4. 写 UTF-8 到目标 .dmsg
-    if let Err(e) = utils::write_file_utf8(&output_path, &readable) {
+    if let Err(e) = utils::write_file_utf8(&output_path, &with_dialect_header(&readable)) {
         return fail(request, format!("Failed to write {output_path}: {e}"));
     }
 
@@ -263,7 +284,7 @@ fn run_compile(tool_path: &str, request: &MsgRequest) -> MsgResult {
         Ok(s) => s,
         Err(e) => return fail(request, format!("Failed to load msg semantics: {e}")),
     };
-    let raw_dmsg = super::translator::readable_to_dmsg(&content, &semantics);
+    let raw_dmsg = super::translator::readable_to_dmsg(&strip_dialect_header(&content), &semantics);
 
     // 3. UTF-8 → 目标编码。装不下**必须失败**：encoding_rs 的 encode 对无法映射的
     //    字符不报错，而是写入 HTML 数字实体（"你" → "&#20320;"），打包会"成功"
@@ -454,5 +475,32 @@ mod tests {
     #[test]
     fn packing_chinese_as_gbk_succeeds() {
         assert!(crate::common::text_encoding::encode_strict("博丽灵梦", "gbk").is_ok());
+    }
+
+    // ---- 方言声明（文件级关注点，故在 compiler 层测）----
+
+    /// 磁盘上的 .dmsg 不是合法的 thmsg 输入——指令名是 IDE 加的。
+    /// 这件事必须写在文件里，不能指望用户记得。
+    #[test]
+    fn written_file_carries_a_dialect_header() {
+        let out = with_dialect_header("textboxShow(0)\n");
+        assert!(out.starts_with("# THTK-Studio dmsg"), "got: {out}");
+        assert!(out.contains("thmsg"), "要说明它不能直接喂给 thmsg");
+        assert!(out.contains("textboxShow(0)"), "正文要保留");
+    }
+
+    /// 方言头绝不能进 thmsg 的输入——它会被当成指令而报错。
+    #[test]
+    fn dialect_header_is_stripped_before_reaching_thmsg() {
+        let round = strip_dialect_header(&with_dialect_header("textboxShow(0)\n"));
+        assert!(!round.contains("THTK-Studio"));
+        assert_eq!(round.trim(), "textboxShow(0)");
+    }
+
+    /// 用户自己写的 # 注释不该被误删——只认我们的标记。
+    #[test]
+    fn user_comments_survive_stripping() {
+        let kept = strip_dialect_header("# 我自己的注释\ntextboxShow(0)\n");
+        assert!(kept.contains("# 我自己的注释"));
     }
 }

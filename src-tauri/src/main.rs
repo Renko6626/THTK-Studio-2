@@ -345,6 +345,8 @@ fn main() {
             get_toolchain_status,
             get_toolchain_statuses,
             common::game_version_commands::list_game_versions,
+            modules::msg::commands::export_raw_dmsg,
+            modules::thstd::commands::export_raw_dstd,
             read_file,
             save_file,
             open_project,

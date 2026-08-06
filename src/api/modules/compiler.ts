@@ -142,3 +142,17 @@ export function extractDatFile({ archivePath, targetDir }: ExtractDatParams): Pr
 export function packDatFile({ sourceDir, archivePath }: PackDatParams): Promise<ThdatResult> {
   return invoke('pack_dat_file', { sourceDir, archivePath })
 }
+
+/**
+ * 导出不含方言声明的原始 .dmsg / .dstd。
+ *
+ * 磁盘上的 .dmsg / .dstd 是 IDE 方言（指令名由 IDE 映射，thmsg / thstd 只认
+ * ins_N），无法直接喂给命令行。这个入口产出它们认识的形式，供 CI / 脚本使用。
+ */
+export function exportRawDmsg(inputPath: string, outputPath: string): Promise<string> {
+  return invoke('export_raw_dmsg', { inputPath, outputPath })
+}
+
+export function exportRawDstd(inputPath: string, outputPath: string): Promise<string> {
+  return invoke('export_raw_dstd', { inputPath, outputPath })
+}
