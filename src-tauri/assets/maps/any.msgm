@@ -5,9 +5,10 @@
 # 签名表按版本组分开，th19/th20 有独立的 th19_msg_fmts[]（新增 42–47、50–56）、
 # th18.5 有 th185_msg_fmts[]（新增 37、38、39）。
 #
-# 因此 th19 / th20 **故意不在此列** —— 我们还没有那 16 条的名字，
-# 列上去等于谎称覆盖。缺表时 map_parser 会如实报告，指令以 ins_N 显示。
-# 补全计划见 docs/superpowers/plans/2026-08-05-msg-std-ergonomics.md Task 5。
+# th19 / th20 指向 th19.msgm：它含 th11 的全部名字 + 三张新表的签名。
+# 未命名的新指令（42–47、50–56 等）会原样显示为 ins_N —— 翻译器双向都对
+# 查不到的 opcode 保留原文，所以**不可能显示错的名字**，只会少几个名字。
+# 名字补全见 docs/superpowers/plans/2026-08-05-msg-std-ergonomics.md Task 5。
 
 11  th11.msgm
 12  th11.msgm
@@ -21,3 +22,5 @@
 17  th11.msgm
 18  th11.msgm
 185 th11.msgm
+19  th19.msgm
+20  th19.msgm
