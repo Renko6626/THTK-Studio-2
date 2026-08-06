@@ -39,7 +39,28 @@ Rust unit tests exist and run with:
 ```bash
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
-132 unit tests cover: mcp_config (20), project_config (12), fs_ops (12), wire_format (9), msg/translator (9), thstd/translator (9), recent_projects (8), msg/compiler (7), thdat/compiler (6), fs_utils (6), mcp/tools (5), thstd/compiler (4), pty (4), config (3), toolchain (3), ecl/map_parser (3), ecl/ai_pack (3), mcp/server (3), msg/map_parser (3), thstd/map_parser (3). On Linux the GTK/WebKit dev headers must be visible to compile the Tauri crate — install them via apt, or without sudo use the conda `tauri-dev` environment (exports `PKG_CONFIG_PATH` / `LD_LIBRARY_PATH`); both paths are documented in README "Linux 服务器开发".
+212 unit tests cover the backend modules; run the command above for the current breakdown. On Linux the GTK/WebKit dev headers must be visible to compile the Tauri crate — install them via apt, or without sudo use the conda `tauri-dev` environment (exports `PKG_CONFIG_PATH` / `LD_LIBRARY_PATH`); both paths are documented in README "Linux 服务器开发".
+
+### Rust build pipeline — two rules, learned the hard way
+
+Measured on this machine (112 cores): a steady-state incremental `cargo test`
+rebuild takes **~15 seconds**. If you are waiting minutes, something is wrong,
+and it is almost certainly one of these two — not the machine.
+
+**1. Never `kill` a running `cargo`.** If you see `Blocking waiting for file lock
+on build directory`, that is normal — two cargo invocations are competing, so
+wait. Killing one leaves a **corrupted artifact**, and the symptom is a test
+binary that segfaults on `--list` (which only enumerates tests, running none).
+That looks exactly like a code bug and costs far more to diagnose than the wait.
+Recovery is `cargo clean -p thtk-studio` plus a full rebuild.
+
+**2. Do not add `.cargo/config.toml` or custom `[profile]` settings to "speed
+things up".** Any change to rustflags or profile invalidates the fingerprint and
+forces a **full rebuild of all 567 dependencies**. This was measured: switching
+the linker to `lld` — a plausible-sounding fix, since the debug test binary is
+~153 MB and GNU `ld` links it single-threaded — made the incremental rebuild
+**10× slower** (323 s vs 31 s) on top of the one-time full rebuild. It was
+reverted. The default configuration is the fast one here.
 
 `src-tauri/target/` is a Rust debug build cache and grows to several GB (the `windows` crate + incremental cache dominate); it and `node_modules/`, `dist/` are gitignored and regenerated locally.
 
