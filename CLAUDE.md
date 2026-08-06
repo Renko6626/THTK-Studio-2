@@ -65,6 +65,23 @@ Before implementing, identify whether the task is a frontend view/panel, editor 
 - `modules/thdat/` — fourth toolchain (container manager): `compiler` (thdat -xd extract with auto-detect / -c{ver} pack via `cmd_runner::run_tool`), `commands` (`extract_dat_file` / `pack_dat_file`). **No `map_parser` or `translator`** — thdat is a packing/unpacking tool with no script semantics. Pack guards against the Windows 32KB command-line limit by precomputing argument byte length and erroring above 28KB (.dat archives can contain hundreds of files; batching not implemented this round).
 - `modules/mcp/` — in-process MCP server (rmcp 1.7, Streamable HTTP, random port on 127.0.0.1, Bearer token rotated each launch). Six tools: `get_workspace_info`, `check_ecl`, `compile_ecl`, `decompile_ecl`, `lookup_ecl_semantics`, `report_to_user`. Blocking work runs via `spawn_blocking`.
 
+### Why MSG / STD have a translator but ECL / ANM don't
+
+thtk's `-m` mapfile support is **asymmetric**: `thecl` and `thanm` have it, `thmsg` and
+`thstd` do not. So ECL/ANM instruction naming is done by the tool itself (we just pass
+`-m`), while MSG/STD naming is done by our own `translator` layer sitting outside the tool.
+
+The consequence is that **`.dmsg` / `.dstd` on disk are an IDE dialect, not valid thmsg /
+thstd input** — those tools only ever see `ins_N` (we translate into a temp file before
+invoking them). Running `thmsg -c 20 file.dmsg out.msg` by hand fails on every named
+instruction. This is a deliberate trade: `git diff` readability of `textboxShow(0)` over
+`ins_3(0)` is worth it, but it must be declared in the file and an export path provided.
+
+`.decl` has no such problem — thecl understands eclmap names natively.
+
+Full decision record with the evidence (thtk source version tables, truth's coverage,
+thcrap's Unicode statement): `docs/toolchain-ecosystem.md`.
+
 **Encoding matters**: `save_file`'s `is_source` flag decides UTF-8 (`.decl`/`.dmsg` source) vs Shift-JIS (raw game text). Don't lose this distinction.
 
 ## Frontend structure (`src/`)
