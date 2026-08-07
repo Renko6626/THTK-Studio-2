@@ -10,7 +10,7 @@ function maxBottomPanelHeight(): number {
 }
 
 export type BottomPanelKey = 'terminal' | 'output' | 'problems'
-export type RightPanelKey = 'outline' | 'references'
+export type RightPanelKey = 'outline' | 'references' | 'timeline'
 
 /**
  * 持久化快照的入参。字段类型比 state 宽松，因为它来自 localStorage：

@@ -18,6 +18,7 @@
 
     <div class="flex-1 min-h-0 min-w-0 overflow-hidden p-3">
       <EclOutlinePanel v-if="workbenchPanelsStore.activeRightPanel === 'outline'" />
+      <TimelinePanel v-else-if="workbenchPanelsStore.activeRightPanel === 'timeline'" />
       <EclReferencesPanel v-else />
     </div>
   </div>
@@ -28,12 +29,17 @@ import { useWorkbenchPanelsStore } from '../../stores/workbenchPanels'
 import type { RightPanelKey } from '../../stores/workbenchPanels'
 import EclOutlinePanel from './EclOutlinePanel.vue'
 import EclReferencesPanel from './EclReferencesPanel.vue'
+import TimelinePanel from './TimelinePanel.vue'
 
 const workbenchPanelsStore = useWorkbenchPanelsStore()
 
 const panels: { key: RightPanelKey; label: string }[] = [
   { key: 'references', label: '引用' },
-  { key: 'outline', label: '大纲' }
+  { key: 'outline', label: '大纲' },
+  // 不替换 outline，并列即可：各面板自己判断适用性（outline 只认 .decl、
+  // timeline 只认 .dstd/.dmsg）。按文件类型换面板的分支逻辑会越堆越乱，
+  // 而 ANM 进来又是另一种结构。
+  { key: 'timeline', label: '时间线' }
 ]
 
 function panelClasses(key: RightPanelKey) {
