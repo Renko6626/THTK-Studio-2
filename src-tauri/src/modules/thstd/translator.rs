@@ -118,6 +118,14 @@ pub fn dstd_to_readable(raw: &str, semantics: &MapFileData, with_comments: bool)
 ///     找不到名字保留原文(让 thstd 自己报错)。
 ///   - opcode == 1 (jmp) 特例:在 ins_N 替换后再次交换前两个实参,把 ref 约定的
 ///     (time, offset) 还原为 thstd 二进制约定的 (offset, time)。
+///
+/// 为什么归一成 (time, offset)：依据是 **ECL 的既有约定**。truth 的核心签名表里
+/// ECL 是 `("to", Jmp)`（time 在前），而 ANM 与 STD 都是 `("ot", Jmp)`（offset 在前）
+/// ——三者里只有 ECL 反过来。让 STD 向 ECL 看齐，是为了让在 .decl 和 .dstd 之间
+/// 来回看的人不用切换心智模型；ECL 是模组作者的主力语言。
+///
+/// 代价是我们的 .dstd 与 truth 的渲染顺序相反（truth 保持原始的 ot）。这是有意的
+/// 取舍。接 ANM 时会撞上同一个选择——ANM 原始也是 ot。
 ///   - 行末的 ` // ...` 注释 strip。
 ///   - 其他行原样透传。
 pub fn readable_to_dstd(readable: &str, semantics: &MapFileData) -> String {

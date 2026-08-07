@@ -27,6 +27,24 @@
  * 于是 **8 + 4 × 参数个数**；参数个数直接数 dump 里括号内的逗号，不需要 mapfile。
  */
 
+/// ## 跳转参数顺序：为什么 STD 要归一成 `jmp(time, offset)`
+///
+/// thstd 的原始输出是 `ins_1(offset, time)`，而我们的 translator 把它交换成
+/// `jmp(time, offset)`。依据是 **ECL 的既有约定**——truth 的核心签名表里：
+///
+/// ```text
+/// ECL:  (Th06,  2, ("to", Jmp))   ← time, offset
+/// ANM:  (Th07,  4, ("ot", Jmp))   ← offset, time
+/// STD:  (Th095, 1, ("ot", Jmp))   ← offset, time
+/// ```
+///
+/// 三者里**只有 ECL 是 `to`**。归一成 ECL 的顺序，是为了让在 `.decl` 和 `.dstd`
+/// 之间来回看的人不用切换心智模型——ECL 是模组作者的主力语言。
+///
+/// 代价是我们的 `.dstd` 与 truth 的渲染顺序相反（truth 保持 STD 原始的 `ot`）。
+/// 这是有意的取舍，不是笔误。**将来接 ANM 时会撞上同一个选择**：ANM 原始也是
+/// `ot`，届时要么同样向 ECL 看齐（一致但都与上游相反），要么保持原样（与 ECL 不一致）。
+
 /** 某一档 STD 的跳转规格。null 表示该版本没有跳转指令。 */
 export interface StdJumpSpec {
   opcode: number
@@ -146,9 +164,8 @@ export function analyzeStd(text: string, version: number): StdAnalysis {
 
     if (isJump && argCount >= 2) {
       const parts = args.split(',').map((a) => Number(a.trim()))
-      // 原始 `ins_N(offset, time)` 与翻译后的 `jmp(time, offset)` 顺序相反。
-      // truth 的签名是 `ot`（offset 在前），与 thstd 的原始顺序一致；
-      // 我们的 translator 对该 opcode 做了双向交换，故两种都要认。
+      // 原始 `ins_N(offset, time)` 与翻译后的 `jmp(time, offset)` 顺序相反
+      // （依据见文件头「跳转参数顺序」一节），两种都要认。
       const translated = name === spec!.mnemonic
       const rawOffset = translated ? parts[1] : parts[0]
       const time = translated ? parts[0] : parts[1]
