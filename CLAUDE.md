@@ -81,8 +81,8 @@ Before implementing, identify whether the task is a frontend view/panel, editor 
 - `config.rs` — app config read/write (still uses `Result<_, String>` + some unwrap; MVP-era).
 - `common/` — shared capabilities: `fs_utils` (lazy shallow file-tree scan + `get_dir_children` on-demand + `validate_project_dir`), `fs_ops` (file CRUD), `file_watcher` (notify + debounce → Tauri event emit), `cmd_runner` (external process exec with Shift-JIS decode + hidden console on Windows), `toolchain` (tool path resolution + version detection + `effective_config` applying the project-level `thtkDir` override), `system_clipboard`, `project_config` (three-state load — absent/loaded/invalid — plus atomic temp+rename save), `recent_projects` (dedupe/promote/cap-10, path normalization mirroring the frontend's `pathNormalize.js`), `pty` (PTY session management: portable-pty, cross-platform shell detection, ConPTY-safe waiter-thread exit detection, 16ms output batching), `mcp_config` (non-destructive `.mcp.json` merge — preserves existing entries, updates thtk-studio port/token on each launch).
 - `modules/ecl/` — the one fully-wired toolchain: `commands` (Tauri commands), `compiler` (builds `thecl` args, runs it), `error_parser` (thecl stderr → `Diagnostic` with normalized absolute paths), `map_parser` (eclmap parsing + global register parsing via `!gvar_names`/`!gvar_types`). New toolchains (thmsg/thstd/thanm) should follow this module shape and reuse the structured-result pattern.
-- `modules/msg/` — second toolchain (basic workflow only): `compiler` (thmsg -d/-c with SJIS↔UTF-8 bridge), `translator` (line-level `ins_N` ↔ name using the JSON semantic data; preserves time labels and unknown opcodes), `map_parser` (loads embedded `assets/msg-th{ver}.json`, currently only th17 with fallback), `commands`. No Monaco language service, no MCP tools, no AI assist pack — see the spec's "不做花活" section.
-- `modules/thstd/` — third toolchain (basic workflow only): `compiler` (thstd -d/-c, fully UTF-8 — thstd files have no Japanese text, so no SJIS bridge needed), `translator` (line-level `ins_N` ↔ name with special handling for opcode 1 (jmp) — thstd binary uses `ins_1(offset, time)` while ref/ECL ecosystem uses `jmp(time, offset)`, so the translator swaps args on both directions), `map_parser` (loads embedded `assets/std-th17.json`, 19 instructions, falls back across versions), `commands`. Same scope discipline as `modules/msg/` — no Monaco language service, no MCP tools, no AI assist pack.
+- `modules/msg/` — second toolchain (basic workflow only): `compiler` (thmsg -d/-c with SJIS↔UTF-8 bridge), `translator` (line-level `<opcode>;<args>` ↔ `name(args)` — thmsg's own shape, see the format table below; preserves `@time` labels, `header(...)`/`entry` lines and unknown opcodes), `map_parser` (loads embedded `assets/maps/*.msgm`), `commands`. No Monaco language service, no MCP tools, no AI assist pack — see the spec's "不做花活" section.
+- `modules/thstd/` — third toolchain (basic workflow only): `compiler` (thstd -d/-c, fully UTF-8 — thstd files have no Japanese text, so no SJIS bridge needed), `translator` (line-level `ins_N(args);` ↔ `name(args);` — the trailing `;` is thstd's and must survive the round trip; special handling for opcode 1 (jmp), since thstd binary uses `ins_1(offset, time)` while the ref/ECL ecosystem uses `jmp(time, offset)`, so args swap on both directions), `map_parser` (loads embedded `assets/maps/*.stdm`), `commands`. Same scope discipline as `modules/msg/` — no Monaco language service, no MCP tools, no AI assist pack.
 - `modules/thdat/` — fourth toolchain (container manager): `compiler` (thdat -xd extract with auto-detect / -c{ver} pack via `cmd_runner::run_tool`), `commands` (`extract_dat_file` / `pack_dat_file`). **No `map_parser` or `translator`** — thdat is a packing/unpacking tool with no script semantics. Pack guards against the Windows 32KB command-line limit by precomputing argument byte length and erroring above 28KB (.dat archives can contain hundreds of files; batching not implemented this round).
 - `modules/mcp/` — in-process MCP server (rmcp 1.7, Streamable HTTP, random port on 127.0.0.1, Bearer token rotated each launch). Six tools: `get_workspace_info`, `check_ecl`, `compile_ecl`, `decompile_ecl`, `lookup_ecl_semantics`, `report_to_user`. Blocking work runs via `spawn_blocking`.
 
@@ -93,10 +93,30 @@ thtk's `-m` mapfile support is **asymmetric**: `thecl` and `thanm` have it, `thm
 `-m`), while MSG/STD naming is done by our own `translator` layer sitting outside the tool.
 
 The consequence is that **`.dmsg` / `.dstd` on disk are an IDE dialect, not valid thmsg /
-thstd input** — those tools only ever see `ins_N` (we translate into a temp file before
-invoking them). Running `thmsg -c 20 file.dmsg out.msg` by hand fails on every named
-instruction. This is a deliberate trade: `git diff` readability of `textboxShow(0)` over
-`ins_3(0)` is worth it, but it must be declared in the file and an export path provided.
+thstd input** (we translate into a temp file before invoking them). Running
+`thmsg -c 20 file.dmsg out.msg` by hand fails on every named instruction. This is a
+deliberate trade: `git diff` readability of `textboxShow(0)` over `3` is worth it, but it
+must be declared in the file and an export path provided.
+
+**The two tools' text formats are NOT the same shape** — read the dump function before
+touching either translator, and write tests against real output, never a convenient
+made-up string:
+
+| | 时间标签 | 指令行 | 参数分隔 | 出处 |
+| --- | --- | --- | --- | --- |
+| thstd | `720:` 顶格独占一行 | `    ins_1(a, b);` 4 空格缩进、**行尾分号** | `,` | `thstd/thstd.c` |
+| thmsg | `@120` | `\t17;文本` TAB 缩进、**裸操作号、无括号** | `;` | `thmsg/thmsg06.c` |
+
+Both translators were once written against an imagined `ins_N(args)` shape that thmsg
+never emits and that thstd only emits *with* a trailing `;`. Result: both were identity
+functions on real tool output — the readable dialect never existed on disk — while 22
+unit tests stayed green because their inputs used the imagined shape too. The regression
+tests now quote the C `fprintf` calls they encode.
+
+MSG keeps `;` as the argument separator *inside* the parens (`textAdd(a;b)`). That is not
+an oversight: `util/value.c` dumps MSG dialogue (`case 'm'`) as a raw byte copy with no
+quoting or escaping, so a line may contain commas. Splitting on `,` would silently cut a
+line of dialogue in half — and dialogue is the whole point of a MSG file.
 
 `.decl` has no such problem — thecl understands eclmap names natively.
 

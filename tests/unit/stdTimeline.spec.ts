@@ -4,17 +4,24 @@ import {
   dialectForPath
 } from '../../src/services/languages/std/timeline'
 
+/**
+ * thstd 真实输出的形状：时间标签顶格独占一行、指令 4 空格缩进、**行尾带分号**
+ * （`thstd.c`: `fprintf(stream, ");\n")`）。
+ *
+ * 这个分号曾让 `timeline.ts` 与 `jumpNavigation.ts` 对真实 .dstd 一行都匹配不上。
+ * 所以样例一律照抄真实 dump，不写"方便断言"的简化形状。
+ */
 const STD = [
-  'SCRIPT:',                        // 1
-  '0:',                             // 2
-  '    pos(0f, 0f, 0f)',            // 3  instant
-  '    posTime(60, 0, 1f, 2f, 3f)', // 4  span，持续 60 帧
-  '60:',                            // 5
-  '    interruptLabel(3)',          // 6  外部入口
-  '    fog(#ff000000, 1f, 2f)',     // 7  instant
-  '180:',                           // 8
-  '    jmp(0, 20)',                 // 9  倒带到 time 0
-  '    stop()'                      // 10 无限等待
+  'SCRIPT:',                         // 1
+  '0:',                              // 2
+  '    pos(0f, 0f, 0f);',            // 3  instant
+  '    posTime(60, 0, 1f, 2f, 3f);', // 4  span，持续 60 帧
+  '60:',                             // 5
+  '    interruptLabel(3);',          // 6  外部入口
+  '    fog(#ff000000, 1f, 2f);',     // 7  instant
+  '180:',                            // 8
+  '    jmp(0, 20);',                 // 9  倒带到 time 0
+  '    stop();'                      // 10 无限等待
 ].join('\n')
 
 describe('analyzeTimeline（STD）', () => {
@@ -73,7 +80,7 @@ describe('插值非阻塞', () => {
    * 后果：插值会跨过后续的时间标签。这一点光看文本发现不了，必须由视图指出。
    */
   it('给出插值的结束时间', () => {
-    const { groups } = analyzeTimeline('0:\n  posTime(60, 0, 1f, 2f, 3f)', 'std')
+    const { groups } = analyzeTimeline('0:\n    posTime(60, 0, 1f, 2f, 3f);', 'std')
     const span = groups[0].events[0]
     expect(span.endTime).toBe(60)
   })
@@ -81,28 +88,28 @@ describe('插值非阻塞', () => {
   it('标出越过后续时间标签的插值', () => {
     const text = [
       '0:',
-      '  posTime(100, 0, 1f, 2f, 3f)', // 0 → 100，越过了 30
+      '    posTime(100, 0, 1f, 2f, 3f);', // 0 → 100，越过了 30
       '30:',
-      '  pos(0f, 0f, 0f)'
+      '    pos(0f, 0f, 0f);'
     ].join('\n')
     const { groups } = analyzeTimeline(text, 'std')
     expect(groups[0].events[0].crossesNextLabel).toBe(true)
   })
 
   it('恰好在下一个时间点结束的不算越过', () => {
-    const text = ['0:', '  posTime(30, 0, 1f, 2f, 3f)', '30:', '  pos(0f, 0f, 0f)'].join('\n')
+    const text = ['0:', '    posTime(30, 0, 1f, 2f, 3f);', '30:', '    pos(0f, 0f, 0f);'].join('\n')
     const { groups } = analyzeTimeline(text, 'std')
     expect(groups[0].events[0].crossesNextLabel).toBe(false)
   })
 
   it('最后一个时间点上的插值不判越过（后面没有标签了）', () => {
-    const { groups } = analyzeTimeline('0:\n  posTime(999, 0, 1f, 2f, 3f)', 'std')
+    const { groups } = analyzeTimeline('0:\n    posTime(999, 0, 1f, 2f, 3f);', 'std')
     expect(groups[0].events[0].crossesNextLabel).toBe(false)
   })
 
   /** 非阻塞意味着可以重叠——两条插值在同一时间点启动，各自独立跑 */
   it('同一时间点的多条插值各自独立', () => {
-    const text = ['0:', '  posTime(60, 0, 1f, 2f, 3f)', '  fogTime(30, 0, 1f, 2f, 3f)'].join('\n')
+    const text = ['0:', '    posTime(60, 0, 1f, 2f, 3f);', '    fogTime(30, 0, 1f, 2f, 3f);'].join('\n')
     const { groups } = analyzeTimeline(text, 'std')
     expect(groups[0].events.map((e) => e.endTime)).toEqual([60, 30])
   })
@@ -110,41 +117,57 @@ describe('插值非阻塞', () => {
 
 describe('时间标签', () => {
   it('相对标签累加', () => {
-    const { groups } = analyzeTimeline('10:\n  pos(0f)\n+30:\n  pos(1f)', 'std')
+    const { groups } = analyzeTimeline('10:\n    pos(0f);\n+30:\n    pos(1f);', 'std')
     expect(groups.map((g) => g.time)).toEqual([10, 40])
   })
 
   it('符号标签不推进时间', () => {
-    const { groups } = analyzeTimeline('20:\n  pos(0f)\n@sub:\n  pos(1f)', 'std')
+    const { groups } = analyzeTimeline('20:\n    pos(0f);\n@sub:\n    pos(1f);', 'std')
     expect(groups).toHaveLength(1)
     expect(groups[0].time).toBe(20)
   })
 
   it('同一时间点的指令合并成一组', () => {
-    const { groups } = analyzeTimeline('0:\n  pos(0f)\n0:\n  fov(1f)', 'std')
+    const { groups } = analyzeTimeline('0:\n    pos(0f);\n0:\n    fov(1f);', 'std')
     expect(groups).toHaveLength(1)
     expect(groups[0].events).toHaveLength(2)
   })
 
   it('没有时间标签时默认时间 0', () => {
-    const { groups } = analyzeTimeline('  pos(0f)', 'std')
+    const { groups } = analyzeTimeline('    pos(0f);', 'std')
     expect(groups[0].time).toBe(0)
   })
 
   it('注释与空行不产生事件', () => {
-    const { groups } = analyzeTimeline('// 注释\n\n# 方言头\n0:\n  pos(0f)', 'std')
+    const { groups } = analyzeTimeline('// 注释\n\n# 方言头\n0:\n    pos(0f);', 'std')
     expect(groups).toHaveLength(1)
     expect(groups[0].events).toHaveLength(1)
   })
 })
 
 describe('MSG 方言', () => {
-  const MSG = ['0:', '    textboxShow(0)', '30:', '    textAdd("hi")'].join('\n')
+  /**
+   * thmsg 真实输出的形状（`thmsg06.c`）：时间标签是 `@120` 而**不是** `120:`，
+   * 指令行 TAB 缩进、参数用**分号**分隔、没有行尾分号。
+   *
+   * 此前这里写的是 `'0:'` + `textboxShow(0)`——那是 thmsg 从不产生的写法，
+   * 于是测试绿着，而真实 .dmsg 的时间线是空的。
+   */
+  const MSG = ['header(0, 0)', 'entry 0', '@0', '\ttextboxShow()', '@30', '\ttextAdd(hi)'].join('\n')
 
   it('同样按时间分组', () => {
     const { groups } = analyzeTimeline(MSG, 'msg')
     expect(groups.map((g) => g.time)).toEqual([0, 30])
     expect(groups[0].delta).toBe(30)
+  })
+
+  /**
+   * `header(0, 0)` 是 thmsg 在文件开头输出的一行，顶格、长得也像调用。
+   * 要求指令行有缩进正好把它挡在外面——否则它会变成 t=0 的一个假事件。
+   */
+  it('不把文件级的 header / entry 行当成指令', () => {
+    const { groups } = analyzeTimeline(MSG, 'msg')
+    expect(groups[0].events.map((e) => e.name)).toEqual(['textboxShow'])
   })
 
   /** MSG 没有 jmp / 中断 / 插值区间，全是瞬时事件 */
@@ -156,7 +179,7 @@ describe('MSG 方言', () => {
 
   /** STD 的指令名不该在 MSG 里被当成特殊语义 */
   it('不把 STD 的特殊指令名套用到 MSG', () => {
-    const { groups } = analyzeTimeline('0:\n    jmp(0, 20)', 'msg')
+    const { groups } = analyzeTimeline('@0\n\tjmp(0;20)', 'msg')
     expect(groups[0].events[0].kind).toBe('instant')
   })
 })

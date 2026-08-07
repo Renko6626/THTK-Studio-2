@@ -9,6 +9,6 @@
     "core:default",
     "opener:default",
     "dialog:default",
-    "core:webview:allow-set-zoom"
+    "core:webview:allow-set-webview-zoom"
   ]
 }

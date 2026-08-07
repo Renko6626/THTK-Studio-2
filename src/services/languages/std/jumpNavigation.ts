@@ -112,9 +112,15 @@ export interface StdAnalysis {
 const INSTR_HEADER_BYTES = 8
 const ARG_BYTES = 4
 
-/** `[时间标签:] name(args)` 或 `[时间标签:] ins_N(args)`，可带行尾注释 */
+/**
+ * `[时间标签:] name(args);` 或 `[时间标签:] ins_N(args);`，可带行尾注释。
+ *
+ * **行尾分号是 thstd 输出的一部分**（`thstd.c`: `fprintf(stream, ");\n")`）。
+ * 少了 `;?`，这条正则对真实 .dstd 一行都匹配不上——指令列表为空、偏移全是 0、
+ * 跳转一个都找不到，而且是静默的。
+ */
 const INSTR_RE =
-  /^\s*(?:(?:[+-]?\d+|@\w+)\s*:)?\s*(?:ins_(\d+)|([A-Za-z_]\w*))\s*\((.*)\)\s*(?:\/\/.*)?$/
+  /^\s*(?:(?:[+-]?\d+|@\w+)\s*:)?\s*(?:ins_(\d+)|([A-Za-z_]\w*))\s*\((.*)\)\s*;?\s*(?:\/\/.*)?$/
 
 function isSkippable(line: string): boolean {
   const trimmed = line.trimStart()
