@@ -31,6 +31,7 @@ import { useWorkbenchPanelsStore } from '../../stores/workbenchPanels'
 import { useProjectSettingsStore } from '../../stores/projectSettings'
 import { useToolchainSettingsStore } from '../../stores/toolchainSettings'
 import { useBuildDialogStore } from '../../stores/buildDialog'
+import { useWorkbenchZoomStore } from '../../stores/workbenchZoom'
 import { useWorkbenchReportsStore } from '../../stores/workbenchReports'
 import { dispatchEditorAction } from '../../composables/useEditorActionBridge'
 import { useFileOperations } from '../../composables/useFileOperations'
@@ -47,6 +48,7 @@ const workbenchPanelsStore = useWorkbenchPanelsStore()
 const projectSettingsStore = useProjectSettingsStore()
 const toolchainSettingsStore = useToolchainSettingsStore()
 const buildDialogStore = useBuildDialogStore()
+const zoomStore = useWorkbenchZoomStore()
 const reportsStore = useWorkbenchReportsStore()
 const { handleCreate } = useFileOperations()
 const message = useMessage()
@@ -165,6 +167,11 @@ const menus = computed(() => [
       { label: workbenchPanelsStore.rightVisible ? '隐藏右侧边栏' : '显示右侧边栏', key: 'view.toggleRightSidebar' },
       { label: workbenchPanelsStore.minimapVisible ? '隐藏代码缩略图' : '显示代码缩略图', key: 'view.toggleMinimap' },
       { type: 'divider', key: 'view.divider.1' },
+      { type: 'divider', key: 'view.divider.zoom' },
+      { label: `放大  (${zoomStore.label})`, key: 'view.zoomIn', disabled: !zoomStore.canZoomIn },
+      { label: '缩小', key: 'view.zoomOut', disabled: !zoomStore.canZoomOut },
+      { label: '重置缩放', key: 'view.zoomReset', disabled: zoomStore.level === 0 },
+      { type: 'divider', key: 'view.divider.2' },
       { label: '显示终端', key: 'view.showTerminal' },
       { label: '显示输出', key: 'view.showOutput' },
       { label: '显示问题', key: 'view.showProblems' }
@@ -353,6 +360,15 @@ async function handleSelect(key: string) {
       break
     case 'view.toggleMinimap':
       workbenchPanelsStore.toggleMinimap()
+      break
+    case 'view.zoomIn':
+      void zoomStore.zoomIn()
+      break
+    case 'view.zoomOut':
+      void zoomStore.zoomOut()
+      break
+    case 'view.zoomReset':
+      void zoomStore.reset()
       break
     case 'view.showTerminal':
       workbenchPanelsStore.showBottomPanel('terminal')

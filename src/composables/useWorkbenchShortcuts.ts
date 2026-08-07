@@ -1,3 +1,4 @@
+import { useWorkbenchZoomStore } from '../stores/workbenchZoom'
 import { onMounted, onBeforeUnmount } from 'vue'
 import { dispatchEditorAction } from './useEditorActionBridge'
 import type { useEditorStore } from '../stores/editor'
@@ -29,6 +30,7 @@ export function useWorkbenchShortcuts({
   showReloadNotice,
   openFolder
 }: WorkbenchShortcutsDeps) {
+  const zoomStore = useWorkbenchZoomStore()
 
   function handleGlobalKeydown(event: KeyboardEvent) {
     const key = event.key.toLowerCase()
@@ -69,6 +71,28 @@ export function useWorkbenchShortcuts({
       event.preventDefault()
       void openFolder()
       return
+    }
+
+    // 缩放：Ctrl +/- /0，同 VS Code。
+    //
+    // 键名要多认几个：主键盘的 `+` 需要 Shift，所以 event.key 常是 '='；
+    // 小键盘给 'Add'/'Subtract'；部分布局给 '＋'。只认 '+' 会让大多数键盘失灵。
+    if (event.ctrlKey || event.metaKey) {
+      if (key === '=' || key === '+' || key === 'add') {
+        event.preventDefault()
+        void zoomStore.zoomIn()
+        return
+      }
+      if (key === '-' || key === '_' || key === 'subtract') {
+        event.preventDefault()
+        void zoomStore.zoomOut()
+        return
+      }
+      if (key === '0' && !event.shiftKey) {
+        event.preventDefault()
+        void zoomStore.reset()
+        return
+      }
     }
 
     if ((event.ctrlKey || event.metaKey) && event.key === '`') {

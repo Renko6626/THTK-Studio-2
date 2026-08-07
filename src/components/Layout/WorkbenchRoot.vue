@@ -64,6 +64,7 @@ import { useEditorStore } from '../../stores/editor'
 import { useProjectStore } from '../../stores/project'
 import { useTerminalStore } from '../../stores/terminal'
 import { useWorkbenchPanelsStore } from '../../stores/workbenchPanels'
+import { useWorkbenchZoomStore } from '../../stores/workbenchZoom'
 import { useBeforeUnloadGuard } from '../../composables/useBeforeUnloadGuard'
 import { useEclSemanticVocabulary } from '../../composables/useEclSemanticVocabulary'
 import { useFileWatcher } from '../../composables/useFileWatcher'
@@ -76,6 +77,8 @@ const editorStore = useEditorStore()
 const projectStore = useProjectStore()
 const terminalStore = useTerminalStore()
 const workbenchPanelsStore = useWorkbenchPanelsStore()
+// 恢复上次的缩放。放这里而不是各组件里，避免多处重复恢复
+void useWorkbenchZoomStore().restore()
 
 const message = useMessage()
 const dialog = useDialog()
