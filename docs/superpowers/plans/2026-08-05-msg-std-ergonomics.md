@@ -683,13 +683,53 @@ thstd 的跳转是裸偏移。在文本里生成 goto label 需要复刻 thstd �
 
 ---
 
-## Task 5：补全 th19 / th20 的 MSG 指令表
+## Task 5：补全 th19 / th20 的 MSG 指令表 —— ⏸ 暂缓（2026-08-09 决定）
 
 **Files:**
 - Modify: `src-tauri/assets/maps/th19.msgm`（新建）
 - Modify: `src-tauri/assets/maps/any.msgm`
 
 **这个 Task 需要逆向工作，不能纯靠代码完成。** 它被排在最后，因为前四个 Task 都不依赖它。
+
+> **状态（2026-08-09）：名字已从上游取得，本 Task 关闭。Step 2 的逆向不必做了。**
+>
+> 原计划假定「没有二手来源，只能从零逆向」。先查 ExpHP/truth 证实了这一半：
+> `map/` 里最新的 MSG 表是 `th11.msgm`，没有 `th19.msgm`；`any.msgm` 的 gamemap
+> 停在 `185`（末尾标记 `# NEWHU: 185`）；MSG 侧自 2022-08-18 的
+> `add missing gamemap entries for BM`（BM = th185）起再无变动。
+>
+> 但 **zero318/TouhouMaps** 有（Unlicense，公有领域）：`th18/th185/th19/th20.msgm`
+> 齐全，另有 `th20.stdm`、`th20.anmm`、`any.endm`/`th20.endm`。缺的 16 条名字全在
+> 那里，他为 th20 提交过两次（2025-08-25 / 08-31）。
+>
+> 实际落地时与原计划有三处偏离，都记在这里：
+>
+> 1. **只取名字，不取签名。** zero318 用的是 truth 的扩展签名语法
+>    （`S(enum="PortraitIndex")`、`z(bs=4;mask=0x77,7,16;furibug)`），我们的解析器
+>    不认；而且他的签名与 thtk 有冲突（他说 th18/th20 的 opcode 19 无参，thmsg 的
+>    `th16_msg_fmts` 说是 `S`）。签名改为**按 `th06_find_format()` 的 fallthrough 链
+>    逐条算出来**，一手数据，且「表里的 opcode 集合」= 「thmsg 解得动的集合」。
+>
+> 2. **名字原样保留 snake_case 与 `__` 前缀**，不改写成我们的 camelCase。`__` 是
+>    zero318 自己的「未坐实」标记，保留它等于把可信度写进名字：`textboxShow` 是
+>    确认过的，`__focus_current_side` 是工作假设，用户一眼能分辨。代价是同一张表里
+>    两种命名风格并存——可以接受，因为风格差异恰好对应可信度差异。
+>
+> 3. **th19 与 th20 拆成两张表**，与原计划的「19/20 共用一份」相反。thtk 的
+>    `th06_find_format()` 把 `case 20:` 和 `case 19:` 并成一个分支，但那是
+>    `/* NEWHU: 20 */` 加新版本时的顺手分组，没验证过——对 thmsg 无害，因为 th20
+>    文件里根本不出现那些 opcode。zero318 逐条整理的 th20 表只到 36：42–56 是 th19
+>    作为对战作特有的左右阵营指令（`__focus_current_side` / `__opposite_side`），
+>    常规 STG 用不上。冲突时取窄的一边：th20 真出现 42–56 就显示 `ins_N`，不显示一个
+>    可能张冠李戴的名字。
+>
+> **顺带发现的 thtk 缺口（可提 issue）：** zero318 的表里有 opcode 40、41、48、49
+> （40/41 是字符串，48/49 是 `S`），thmsg 的**任何**格式表都没有它们。所以 th19 /
+> th185 的 `.msg` 里一旦出现 48，`thmsg -d` 会直接报
+> `id 48 was not found in the format table` 而失败。这是 thtk 的问题，不是我们的。
+>
+> Step 4「回馈上游」仍然成立，但对象变了：给 ExpHP/truth 提的应当是 zero318 已有的
+> th19/th20 数据（两人格式同源），或者干脆只提 thtk 那四条缺失的格式表项。
 
 **已知条件**（来自 `thmsg/thmsg06.c`，无需再查）：
 

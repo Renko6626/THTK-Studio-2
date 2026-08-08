@@ -67,7 +67,9 @@ case 185:
 - **全部工具支持 `-m`**，另有 `TRUTH_MAP_PATH` 自动发现
 - 有**符号跳转标签**：`goto lol;` / `goto lol @ 123;`（快照测试可证）
 - mapfile 用 **gamemap 间接**：`any.msgm` 把版本映射到共享表，`th11.msgm` 一份服务 th11–th185
-- **不支持 th19/th20**（代码库搜索 0 结果，gamemap 顶到 `# NEWHU: 185`）
+- **不支持 th19/th20**（代码库搜索 0 结果，gamemap 顶到 `# NEWHU: 185`；2026-08-09
+  复查仍然如此，`map/` 的 MSG 部分自 2022-08 起未动）——这一缺口由 §3 的第三个
+  数据源补上
 - 最后 release **2022-08-18**，但主干活跃（2026-03 仍在做 `trumsg --ending`）；`CHANGELOG.md` 主干留有未解决的合并冲突标记
 
 **我们的指令命名与 truth 逐条一致**（两边都源自 ExpHP 的 thpages 文档），所以格式迁移无损。
@@ -110,7 +112,7 @@ trustd 反编译 → goto lol @ 123;     只能喂回 trustd
 | 编解码 | thtk | th06–th20 五种格式完整 |
 | 语义数据 | `.msgm` / `.stdm` / `.eclm` / `.anmm`，外挂文件 | eclmap 家族格式 + gamemap 间接 |
 | 可读性 | **IDE** | 名字映射、跳转导航、悬停签名、补全 |
-| 回馈 | 提给 truth | 我们补的 th19/th20 表 |
+| 回馈 | 提给 thtk | thmsg 格式表缺的 opcode 40/41/48/49（见 §3） |
 
 **ECL / ANM 用 thtk 原生 `-m`，MSG / STD 用 IDE 自己的翻译层。** 这不是妥协，是对 §1.1 那张表的正确响应。
 
@@ -148,16 +150,44 @@ thstd 的跳转是裸偏移。要在文本里生成 `goto label`，必须复刻 
 
 ---
 
-## 3. 我们独有的资产
+## 3. 第三个数据源：zero318/TouhouMaps
 
-两个生态都没有 **th19/th20 的 MSG 指令名**：
+> 本节修订于 2026-08-09。此前这里写着「两个生态都没有 th19/th20 的 MSG 指令名，
+> 补全这 16 条是填真空」——**前半句对，后半句错**：只查了 thtk 和 truth，漏了第三家。
 
-- thtk 有**签名**（`th19_msg_fmts[]` 白纸黑字）但无名字
-- truth 有名字但只到 th185
+[zero318/TouhouMaps](https://github.com/zero318/TouhouMaps)（**Unlicense，公有领域**）
+是 thcrap 维护者 zero318 的私人 mapfile 集，格式与 truth 同源。它覆盖到 th20：
+`th18/th185/th19/th20.msgm`、`th20.stdm`、`th20.anmm`，另有 truth 和 thtk 都没有的
+`any.endm`/`th20.endm`（结局 msg 单独一套）。
 
-我们的 `assets/msg-th17.json` 有 33 条（opcode 0–35），改 th20 时**有 16 条会显示成裸 `ins_N`**（37/38/39 + 42–47 + 50–56）。
+三家的分工因此是：
 
-补全这 16 条是**填真空而非重复劳动**，且是可以提给 truth 的硬通货——ExpHP 2026-03 仍在做 MSG，而 thtk 的 msg/std 已八年无人问津（issue #49「Notes and suggestions on thstd」2018 年提出，零评论）。
+| 来源 | 提供 | 覆盖 | 可信度 |
+| --- | --- | --- | --- |
+| thtk `thmsg06.c` | **签名**（`id_format_pair_t` 表） | th06–th20 | 一手，是解码器本身 |
+| ExpHP/truth `map/` | 名字（camelCase） | 至 th185 | 高，与 thpages 文档同源 |
+| zero318/TouhouMaps | 名字（snake_case） | 至 th20 | **他自己用 `__` 前缀标未坐实** |
+
+我们的 `th19.msgm` / `th20.msgm` 就是这么拼出来的：**签名按 `th06_find_format()` 的
+fallthrough 链逐条算**（于是「表里的 opcode 集合」= 「thmsg 解得动的集合」），
+opcode 0–36 的名字用 truth 体系，37 起用 zero318 的并**原样保留 `__` 前缀**——
+可信度写在名字里，比写在注释里更难被忽略。
+
+两处需要判断的冲突，以及我们的取舍：
+
+- **th20 是否与 th19 共表。** thtk 的 `case 20:` / `case 19:` 是同一分支，zero318 的
+  th20 表只到 36。取 zero318：42–56 是 th19 作为对战作特有的左右阵营指令，常规 STG
+  用不上；thtk 那个分组是 `/* NEWHU: 20 */` 加版本时的顺手之举，对它自己无害。
+  取窄的一边，宁可显示 `ins_N`。
+- **签名不采用 zero318 的。** 他的 th18/th20 opcode 19 标成无参，而 thmsg 的
+  `th16_msg_fmts` 说是 `S`；且他用 truth 的扩展语法（`S(enum="PortraitIndex")`、
+  `z(bs=4;mask=0x77,7,16;furibug)`），我们的解析器不认。签名一律以 thtk 为准。
+
+**thtk 的真缺口（可提 issue）：** zero318 的表里有 opcode 40、41、48、49
+（40/41 是字符串，48/49 是 `S`），thmsg 的任何格式表都没有。th19/th185 的 `.msg`
+里一旦出现 48，`thmsg -d` 会报 `id 48 was not found in the format table` 直接失败。
+这比补名字更值得回馈——thtk 的 msg/std 已八年无人问津（issue #49「Notes and
+suggestions on thstd」2018 年提出，零评论），但格式表缺项是硬 bug。
 
 ---
 

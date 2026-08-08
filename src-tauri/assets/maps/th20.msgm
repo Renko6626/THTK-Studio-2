@@ -1,0 +1,92 @@
+!msgmap
+
+# MSG - TH20（东方锦上京）
+
+# **th20 不与 th19 共表**，尽管 thtk 的 th06_find_format() 把 `case 20:` 和
+# `case 19:` 并成了一个分支。那是 `/* NEWHU: 20 */` 加新版本时的顺手分组，
+# 没有验证过——对 thmsg 无害，因为 th20 文件里根本不出现 th19 的那些 opcode，
+# 多余的表项永远查不到。
+#
+# zero318/TouhouMaps 逐条整理的 th20 表只到 36。42–56 是 th19 作为对战作特有的
+# 左右阵营指令（__focus_current_side / __opposite_side 等），常规 STG 用不上。
+#
+# 两边冲突时取窄的一边：th20 真出现 42–56，我们显示 ins_N，而不是显示一个
+# 可能张冠李戴的名字。
+#
+# 于是本表 = fallthrough 链跳过 th19 / th185 两张表的结果，即
+#   th18 → th16 → th143 → th14 → th13 → th128 → th12 → th11 → th10 → th09 → th08 → th06
+# 名字全部来自 ExpHP/truth 体系；26 不存在；31/32 无公认名字，只给签名。
+
+!ins_names
+0 end
+1 playerShow
+2 bossShow
+3 textboxShow
+4 playerHide
+5 bossHide
+6 textboxHide
+7 speakerPlayer
+8 speakerBoss
+9 speakerNone
+10 skippable
+11 textPause
+12 eclResume
+13 playerFace
+14 bossFace
+15 textLine1
+16 textLine2
+17 textAdd
+18 textClear
+19 musicBoss
+20 intro
+21 stageEnd
+22 musicEnd
+23 playerShake
+24 bossShake
+25 textOffsetY
+27 musicFade
+28 bubblePos
+29 bubbleType
+30 routeSelect
+33 portraitDarken
+34 portraitHighlight
+35 lightsOut
+36 store
+
+!ins_signatures
+0
+1 S
+2 S
+3
+4 S
+5 S
+6
+7 S
+8 S
+9
+10 S
+11 S
+12
+13 SS
+14 SS
+15 SSS
+16 m
+17 m
+18
+19 S
+20 S
+21
+22
+23
+24
+25 S
+27 f
+28 ff
+29 S
+30
+31 S
+32 S
+33 S
+34 SS
+35
+36

@@ -1,13 +1,23 @@
 !msgmap
 
-# MSG - TH19 / TH20
+# MSG - TH19（东方兽王园）
 
-# th20 的指令集是所有旧表的**并集**：thmsg06.c 的 th06_find_format() 用
-# fallthrough 依次查 th19 → th185 → th18 → th16 → ... → th06，新表只增补不替换。
-# 所以这里 = th11 那份的全部名字 + th18/th185/th19 三张表的签名。
-
-# 签名逐字抄自 thtk thmsg/thmsg06.c，是一手数据；名字待逆向确认。
-# 没有名字的 opcode 会以 ins_N 显示——宁可显示编号，也不要编一个可能错的名字。
+# 本表 = thmsg 的 th06_find_format() 对 version 19 的 fallthrough 链逐条算出来的：
+#   th19 → th185 → th18 → th16 → th143 → th14 → th13 → th128 → th12
+#        → th11 → th10 → th09 → th08 → th06（先命中先赢）
+# 因此「表里的 opcode 集合」= 「thmsg 解得动的 opcode 集合」，签名是一手数据。
+#
+# 名字有两个来源，可信度不同：
+#   0–36  ExpHP/truth 的 map/th11.msgm —— 与我们其余版本同一体系。
+#   37+   zero318/TouhouMaps（Unlicense）—— `__` 前缀是他自己的「未坐实」标记，
+#         我们**原样保留**：可信度写在名字里，用户一眼能分辨。
+#         其中 __unknown_* 那几条他也只判断出参数形状，没判断出语义。
+#
+# thtk 缺 40 / 41 / 48 / 49：zero318 的表里有（40/41 是字符串，48/49 是 S），
+# 但 thmsg 的任何格式表都没有它们，所以 .msg 里一旦出现，thmsg -d 会直接报
+# "id 48 was not found in the format table" 而失败。这是 thtk 的缺口，不是我们的。
+#
+# 26 在 thmsg 的任何表里都不存在；30/31/32 存在但无公认名字，故只给签名。
 
 !ins_names
 0 end
@@ -43,20 +53,64 @@
 33 portraitDarken
 34 portraitHighlight
 35 lightsOut
+36 store
+37 __initialize_infobox
+38 __focus_infobox
+39 __delete_infobox
+42 __focus_current_side
+43 __focus_opposite_side
+44 __unknown_position_A
+45 __unknown_position_B
+46 __portrait_current_side
+47 __portrait_opposite_side
+50 __delete_current_side
+51 __delete_opposite_side
+52 __gui_unknown_A
+53 __player_unknown_A
+54 __player_unknown_B
+55 __spawn_msg_boss_enemy
+56 __gui_unknown_B
 
 !ins_signatures
-# th18 起改了 4/7/13 的签名并新增 36（对 th20 生效）
+0
+1 S
+2 S
+3
 4 S
+5 S
+6
 7 S
+8 S
+9
+10 S
+11 S
+12
 13 SS
+14 SS
+15 SSS
+16 m
+17 m
+18
+19 S
+20 S
+21
+22
+23
+24
+25 S
+27 f
+28 ff
+29 S
+30
+31 S
+32 S
+33 S
+34 SS
+35
 36
-
-# th18.5 新增
 37
 38
 39
-
-# th19 / th20 新增
 42 S
 43 S
 44 ff
