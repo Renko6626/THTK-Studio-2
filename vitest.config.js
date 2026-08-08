@@ -13,11 +13,19 @@ import vue from '@vitejs/plugin-vue'
 export default defineConfig({
   plugins: [vue()],
   resolve: {
-    alias: {
+    alias: [
       // 真包在 happy-dom 里加载不了；替身只提供语言服务注册用到的 API，
       // 好让 services/languages/** 的纯逻辑可测。见 tests/stubs/monaco-editor.ts
-      'monaco-editor': new URL('./tests/stubs/monaco-editor.ts', import.meta.url).pathname
-    }
+      //
+      // find 用**带 $ 锚的正则**而不是字符串：字符串是前缀匹配，会把
+      // `monaco-editor/esm/vs/...` 这样的深层路径一起劫持到替身上。而
+      // Monarch 的编译器与词法器是纯逻辑、可以 headless 跑，语法高亮的测试
+      // 正是靠直接引它们来跑**真的 tokenizer**，而不是只验正则。
+      {
+        find: /^monaco-editor$/,
+        replacement: new URL('./tests/stubs/monaco-editor.ts', import.meta.url).pathname
+      }
+    ]
   },
   test: {
     environment: 'happy-dom',

@@ -9,7 +9,10 @@ import { useEditorStore } from '../../stores/editor'
 import { useWorkbenchPanelsStore } from '../../stores/workbenchPanels'
 import { useWorkbenchReportsStore } from '../../stores/workbenchReports'
 import { useMessage } from 'naive-ui'
-import { ensureEclLanguageRegistered, eclThemeName, inferMonacoLanguageId } from '../../services/languages/ecl/register'
+import { ensureEclLanguageRegistered } from '../../services/languages/ecl/register'
+import { inferMonacoLanguageId } from '../../services/languages/dispatch'
+import { ensureMsgLanguageRegistered } from '../../services/languages/msg/register'
+import { workbenchThemeName } from '../../services/languages/theme'
 import { ensureStdLanguageRegistered } from '../../services/languages/std/register'
 import {
   clearEclStaticDiagnostics,
@@ -120,11 +123,12 @@ onMounted(() => {
 
   ensureEclLanguageRegistered()
   ensureStdLanguageRegistered()
+  ensureMsgLanguageRegistered()
 
   // 1. 创建编辑器实例 (注意 model 设为 null，稍后设置)
   editorInstance.value = monaco.editor.create(container.value, {
     model: null, 
-    theme: eclThemeName,
+    theme: workbenchThemeName,
     automaticLayout: true, // 关键：自动适应父容器 flex 变化
     fontSize: 13,
     fontFamily: "'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace",

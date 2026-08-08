@@ -1,5 +1,4 @@
 import * as monaco from 'monaco-editor'
-import { stdLanguageId } from '../std/register'
 import { createEclCompletionProvider } from './completion-provider'
 import { createEclDefinitionProvider } from './definition-provider'
 import { createEclHoverProvider } from './hover-provider'
@@ -15,7 +14,7 @@ import {
   updateScopedEclSemanticData
 } from './semantic-state'
 import { buildEclMonarchLanguage } from './tokenizer'
-import { eclThemeDefinition, eclThemeName } from './theme'
+import { workbenchThemeDefinition, workbenchThemeName } from '../theme'
 
 /**
  * Monaco 的 provider 注册是全局的，而 Vite 的 HMR 会重复执行本模块。
@@ -83,7 +82,7 @@ export function ensureEclLanguageRegistered() {
     eclLanguageId,
     buildEclMonarchLanguage(getActiveEclSemanticData())
   )
-  monaco.editor.defineTheme(eclThemeName, eclThemeDefinition)
+  monaco.editor.defineTheme(workbenchThemeName, workbenchThemeDefinition)
   disposeRegisteredProviders(state)
   state.completionProviderDisposable = monaco.languages.registerCompletionItemProvider(
     eclLanguageId,
@@ -110,7 +109,7 @@ export function ensureEclLanguageRegistered() {
   return eclLanguageId
 }
 
-export { eclThemeName }
+export { workbenchThemeName }
 
 export function updateEclSemanticVocabulary(
   scopeKey: string | null | undefined,
@@ -135,23 +134,4 @@ export function clearEclSemanticVocabulary(scopeKey: string = '__global__'): voi
     eclLanguageId,
     buildEclMonarchLanguage(getActiveEclSemanticData() || createEmptyEclSemanticData())
   )
-}
-
-export function inferMonacoLanguageId(
-  tab: { path?: string | null; language?: string | null } | null | undefined
-): string {
-  const path = String(tab?.path || '').toLowerCase()
-  const language = String(tab?.language || '').toLowerCase()
-
-  if (path.endsWith('.decl') || path.endsWith('.tecl')) return eclLanguageId
-  // .dstd 有自己的语言服务（只做跳转导航，见 services/languages/std/）
-  if (path.endsWith('.dstd')) return stdLanguageId
-  if (language === 'json' || path.endsWith('.json')) return 'json'
-  if (language === 'js' || path.endsWith('.js')) return 'javascript'
-  if (language === 'ts' || path.endsWith('.ts')) return 'typescript'
-  if (language === 'html' || path.endsWith('.vue') || path.endsWith('.html')) return 'html'
-  if (language === 'c' || path.endsWith('.c')) return 'c'
-  if (language === 'cpp' || path.endsWith('.cpp') || path.endsWith('.h')) return 'cpp'
-
-  return 'plaintext'
 }

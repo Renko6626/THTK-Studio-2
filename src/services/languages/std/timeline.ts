@@ -101,6 +101,8 @@ interface StdTimelineSpec {
   jump: string | null
   /** 中断标签指令名；该方言没有则为 null */
   interrupt: string | null
+  /** 无限等待指令名；该方言没有则为 null */
+  halt: string | null
   /** 带 duration 的指令名 → duration 在第几个实参（0 起） */
   spans: Record<string, number>
   /**
@@ -157,6 +159,7 @@ const LINE_MSG: TimelineLineSpec = {
 const SPEC_095_PLUS: StdTimelineSpec = {
   jump: 'jmp',
   interrupt: 'interruptLabel',
+  halt: 'stop',
   spans: {
     posTime: 0,
     facingTime: 0,
@@ -173,16 +176,26 @@ const SPEC_095_PLUS: StdTimelineSpec = {
 const SPEC_MSG: StdTimelineSpec = {
   jump: null,
   interrupt: null,
+  halt: null,
   spans: {},
   line: LINE_MSG
 }
-
-const HALT_NAME = 'stop'
 
 export type TimelineDialect = 'std' | 'msg'
 
 export function specFor(dialect: TimelineDialect): StdTimelineSpec {
   return dialect === 'std' ? SPEC_095_PLUS : SPEC_MSG
+}
+
+/**
+ * 该方言里**带时间线语义**的指令名。语法高亮拿它把这些指令标成 builtin，
+ * 与时间线面板共用同一份来源——不再各存一份名字列表。
+ */
+export function timelineKeywords(dialect: TimelineDialect): string[] {
+  const spec = specFor(dialect)
+  return [spec.jump, spec.interrupt, spec.halt, ...Object.keys(spec.spans)].filter(
+    (name): name is string => Boolean(name)
+  )
 }
 
 function parseArgs(args: string, sep: string): number[] {
@@ -245,7 +258,7 @@ export function analyzeTimeline(text: string, dialect: TimelineDialect): Timelin
     } else if (name === spec.interrupt && values.length >= 1) {
       kind = 'interrupt'
       interruptId = values[0]
-    } else if (name === HALT_NAME) {
+    } else if (name === spec.halt) {
       kind = 'halt'
       hasHalt = true
     } else if (name in spec.spans) {

@@ -1,8 +1,10 @@
 import * as monaco from 'monaco-editor'
+import { dialectLanguageConfiguration } from '../dialect-config'
 import { analyzeStd, jumpSpecFor } from './jumpNavigation'
+import { buildStdMonarchLanguage } from './tokenizer'
 
 /**
- * STD 语言服务：只做**跳转导航**，不做补全 / 高亮 / 诊断。
+ * STD 语言服务：语法高亮 + 跳转导航，不做补全 / 诊断。
  *
  * 为什么只有导航：thstd 的跳转目标是裸字节偏移，看着 `jmp(0, 1200)` 完全不知道
  * 跳去哪。生成真 `goto label` 需要把 label 写进 `.dstd`，而那样文件就喂不回
@@ -132,6 +134,10 @@ export function ensureStdLanguageRegistered(): string {
   if (state.registered) return stdLanguageId
 
   monaco.languages.register({ id: stdLanguageId, extensions: ['.dstd'] })
+  // 此前只有这一行 register：语言 id 存在，但没有配置也没有 tokenizer，
+  // 于是既无高亮，Ctrl+/ 与括号匹配也不工作。注册语言 ≠ 配好语言。
+  monaco.languages.setLanguageConfiguration(stdLanguageId, dialectLanguageConfiguration)
+  monaco.languages.setMonarchTokensProvider(stdLanguageId, buildStdMonarchLanguage())
   state.disposables.push(
     monaco.languages.registerDefinitionProvider(stdLanguageId, createDefinitionProvider()),
     monaco.languages.registerCodeLensProvider(stdLanguageId, createCodeLensProvider())
