@@ -218,6 +218,31 @@ mod tests {
         assert_eq!(readable_to_dmsg(&readable, &data()), RAW);
     }
 
+    /// th19 的新指令名带 `__` 前缀（zero318 的「未坐实」标记，我们原样保留）。
+    /// 反向正则是 `[A-Za-z_]\w*`，前导双下划线必须能被吃回去——否则打包时
+    /// 这些指令会当成「无法解析的行」，而它们恰恰是 th19 最常改的那批。
+    #[test]
+    fn double_underscore_names_survive_roundtrip() {
+        let th19 = parse_msg_semantics("19").expect("th19 seed");
+        let raw = "\t44;1.0;2.0\n";
+
+        let out = dmsg_to_readable(raw, &th19, false);
+        assert_eq!(out, "\t__unknown_position_A(1.0;2.0)\n");
+        assert_eq!(readable_to_dmsg(&out, &th19), raw);
+    }
+
+    /// th20 没有 42–56（见 `th20.msgm` 抬头的取舍说明），所以同一行在 th20 下
+    /// 必须退回 `ins_44` 而不是借用 th19 的名字。
+    #[test]
+    fn th20_falls_back_to_ins_n_for_th19_only_opcodes() {
+        let th20 = parse_msg_semantics("20").expect("th20 seed");
+        let raw = "\t44;1.0;2.0\n";
+
+        let out = dmsg_to_readable(raw, &th20, false);
+        assert_eq!(out, "\tins_44(1.0;2.0)\n");
+        assert_eq!(readable_to_dmsg(&out, &th20), raw);
+    }
+
     /// 无参指令在 thmsg 里是**裸操作号**，不带分号。多写一个 `;` 会变成一个空参数。
     #[test]
     fn no_args_emits_bare_opcode_without_semicolon() {
