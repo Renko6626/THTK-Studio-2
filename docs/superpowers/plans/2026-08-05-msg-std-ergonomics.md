@@ -774,7 +774,7 @@ th19_msg_fmts[]:   42 "S"  43 "S"  44 "ff"  45 "ff"  46 "SS"  47 "SS"
 
 - [ ] **Step 2: 逆向确认名字**
 
-沿用 `research/msg/` 的方法：在 Ghidra 里定位 th19/th20 的 `GuiMsgVm::run`，对照 opcode 分支的行为命名。每确认一条就往 `!ins_names` 加一行。
+沿用 renkolab 仓库 `engine/msg/` 的方法（原 `research/msg/`，已迁出）：在 Ghidra 里定位 th19/th20 的 `GuiMsgVm::run`，对照 opcode 分支的行为命名。每确认一条就往 `!ins_names` 加一行。
 
 **证据链纪律**（见项目记忆）：每条结论记录 发现 → 推测 → 验证 → 结论（可信度 + 版本）→ 证据（地址 / 出处）。一手反汇编 > 推断 > 社区单源。
 

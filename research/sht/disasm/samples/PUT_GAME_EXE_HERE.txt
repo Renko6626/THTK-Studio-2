@@ -1,0 +1,1 @@
+把合法持有的游戏 exe 放这里(th18.exe / th19.exe)。本目录已 gitignore,不会入库。

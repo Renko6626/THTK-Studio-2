@@ -196,4 +196,4 @@ suggestions on thstd」2018 年提出，零评论），但格式表缺项是硬 
 - 实施计划：`superpowers/plans/2026-08-05-msg-std-ergonomics.md`
 - 版本权威表：`src-tauri/src/common/game_version.rs`
 - 编码处理：`src-tauri/src/common/text_encoding.rs`
-- TH16 MSG 逆向：`research/msg/`
+- TH16 MSG 逆向：renkolab 仓库的 `engine/msg/`（已迁出本仓库）
