@@ -37,9 +37,9 @@ Cross-boundary types live in `src/types/` and are written field-by-field against
 
 Rust unit tests exist and run with:
 ```bash
-cargo test --manifest-path src-tauri/Cargo.toml
+tauri-env linux cargo test --manifest-path src-tauri/Cargo.toml
 ```
-212 unit tests cover the backend modules; run the command above for the current breakdown. On Linux the GTK/WebKit dev headers must be visible to compile the Tauri crate — install them via apt, or without sudo use the conda `tauri-dev` environment (exports `PKG_CONFIG_PATH` / `LD_LIBRARY_PATH`); both paths are documented in README "Linux 服务器开发".
+212 unit tests cover the backend modules; run the command above for the current breakdown. Compiling the Tauri crate needs the GTK/WebKit dev headers, which this box only has inside the conda `tauri-dev` env — that is what `tauri-env linux` sets up (see `/data/sunyunbo/www/tauri-build-handbook.md`). To actually see the window, `tauri-env vnc npx tauri dev` runs it on the VNC desktop `:2`; for a Windows installer, `tauri-env win pnpm tauri build --runner cargo-xwin --target x86_64-pc-windows-msvc --bundles nsis`.
 
 ### Rust build pipeline — two rules, learned the hard way
 

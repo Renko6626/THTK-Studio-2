@@ -158,8 +158,39 @@ export PATH=$P/bin:$PATH
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
-注意：headless 服务器上 `tauri dev` 能编译但弹不出窗口（需 `ssh -X` 转发）；
-交叉打包 Windows 安装包用 `cargo-xwin`（`npm run tauri build -- --runner cargo-xwin --target x86_64-pc-windows-msvc`），该路径不依赖 GTK。
+交叉打包 Windows 安装包用 `cargo-xwin`
+（`npm run tauri build -- --runner cargo-xwin --target x86_64-pc-windows-msvc`），
+该路径走 WebView2，完全不依赖 GTK。
+
+#### headless 服务器上怎么看界面
+
+`ssh -X` 不是唯一选择，也不是好选择。开一个 VNC 虚拟桌面，把 `tauri dev` 跑在上面，
+会话是持久的，断开 SSH 不影响：
+
+```bash
+vncserver :2 -localhost yes -geometry 1680x1050 -depth 24
+DISPLAY=:2 <上面那套环境> npx tauri dev
+```
+
+两个坑（都会表现为「窗口开了但一片空白」，很容易误判成跑不起来）：
+
+1. **conda-forge 的 `webkit2gtk4.1` 2.48.5 渲染不出网页内容**——`WebKitWebProcess`
+   会 100% 空转。GTK 外壳（窗口、标题栏）却正常，所以看着像白板。换一个能用的
+   webkit 4.1 运行时（比如从发行版的 .deb 里解出 2.50.x，只在运行时用
+   `LD_LIBRARY_PATH` 指过去，**不要**和 conda 的 lib 混在一起）。
+2. **系统设了 `http_proxy` 却没有 `no_proxy`**——webview 会把
+   `http://localhost:1420`（vite dev server）也发给代理，结果白屏。设
+   `no_proxy=localhost,127.0.0.1`。
+
+在 zhustation 这台开发机上，以上全部已经配好并封装成 `tauri-env`：
+
+```bash
+tauri-env vnc   npx tauri dev     # 窗口出现在 VNC 桌面 :2 上
+tauri-env linux cargo test --manifest-path src-tauri/Cargo.toml
+tauri-env win   npm run tauri build -- --runner cargo-xwin --target x86_64-pc-windows-msvc
+```
+
+细节见 `/data/sunyunbo/www/tauri-build-handbook.md`。
 
 ### 2. 拉取后初始化
 
