@@ -17,6 +17,8 @@ import {
 } from '../api'
 import type { MessageApi } from 'naive-ui'
 import type { EditorTab } from '../stores/editor'
+import type { MsgScriptKind } from '../types'
+import { inferMsgScriptKind } from '../services/toolchains/msgMetadata'
 
 export interface ToolchainActionsOptions {
   /**
@@ -161,18 +163,22 @@ export function useToolchainActions({ message }: ToolchainActionsOptions = {}) {
 
   async function runDecompileMsg(
     path: string | null | undefined,
-    encoding: string | null = null
+    encoding: string | null = null,
+    scriptKind?: MsgScriptKind
   ) {
     if (!path) return
+    const kind = scriptKind ?? inferMsgScriptKind(path)
     try {
-      const result = await decompileMsgFile({ inputPath: path, encoding })
+      const result = await decompileMsgFile({ inputPath: path, encoding, scriptKind: kind })
       publishToolchainResult({
         tool: 'thmsg',
         operation: 'decompile',
         inputPath: path,
         outputPath: result?.outputPath || null,
         success: Boolean(result?.success),
-        message: result?.message || ''
+        message: result?.message || '',
+        diagnostics: result?.diagnostics || [],
+        extra: kind === 'ending' ? '（结局/staff）' : ''
       })
       if (result?.success && result.outputPath && result.outputPath !== path) {
         await autoOpen(result.outputPath)
@@ -190,19 +196,27 @@ export function useToolchainActions({ message }: ToolchainActionsOptions = {}) {
 
   async function runCompileMsg(
     tab: EditorTab | null | undefined,
-    encoding: string | null = null
+    encoding: string | null = null,
+    scriptKind?: MsgScriptKind
   ) {
     if (!tab?.path) return
     if (!(await ensureSavedIfDirty(tab))) return
+    const kind = scriptKind ?? inferMsgScriptKind(tab.path)
     try {
-      const result = await compileMsgFile({ inputPath: tab.path, encoding })
+      const result = await compileMsgFile({
+        inputPath: tab.path,
+        encoding,
+        scriptKind: kind
+      })
       publishToolchainResult({
         tool: 'thmsg',
         operation: 'compile',
         inputPath: tab.path,
         outputPath: result?.outputPath || null,
         success: Boolean(result?.success),
-        message: result?.message || ''
+        message: result?.message || '',
+        diagnostics: result?.diagnostics || [],
+        extra: kind === 'ending' ? '（结局/staff）' : ''
       })
     } catch (error) {
       publishToolchainResult({
@@ -330,7 +344,7 @@ export function useToolchainActions({ message }: ToolchainActionsOptions = {}) {
     try {
       const written =
         kind === 'msg'
-          ? await exportRawDmsg(path, outputPath)
+          ? await exportRawDmsg(path, outputPath, inferMsgScriptKind(path))
           : await exportRawDstd(path, outputPath)
       publishToolchainResult({
         tool: kind === 'msg' ? 'thmsg' : 'thstd',

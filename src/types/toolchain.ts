@@ -108,10 +108,13 @@ export interface EclResult {
   outputPath: string | null
 }
 
+/** MSG 的两套消费者。结局/staff 走 `thmsg -e`，opcode 表与关卡对话不同。 */
+export type MsgScriptKind = 'stage' | 'ending'
+
 /**
  * MSG 与 STD 的结果结构与 `EclResult` 完全一致（都 `rename_all = "camelCase"`）。
- * 两者的 `diagnostics` 在 Rust 侧注明「始终为空」——复用 ECL 的 Diagnostic 只是
- * 为了让前端的问题面板能同一套代码处理，别指望能从里面拿到 thmsg/thstd 的报错。
+ * MSG 的 `diagnostics` 现在会包含预检查与 thmsg stderr 的结构化错误；
+ * STD 仍为空，只是复用同一类型。
  */
 export type MsgResult = EclResult
 export type StdResult = EclResult
@@ -175,6 +178,8 @@ export interface MsgBuildPayload {
   outputPath: string
   /** 游戏文本编码；留空 = 跟随项目配置 */
   encoding: string
+  /** 关卡对话 / 结局-staff；结局会走 thmsg -e */
+  scriptKind: MsgScriptKind
   /** 仅 decompile：在每行末尾追加指令说明 */
   withComments: boolean
 }

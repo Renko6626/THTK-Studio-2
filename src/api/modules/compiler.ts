@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core'
 import type {
   EclResult,
   MsgResult,
+  MsgScriptKind,
   StdResult,
   TheclRequest,
   ThdatResult
@@ -20,6 +21,8 @@ export interface ScriptFileParams {
   withComments?: boolean
   /** 游戏文本编码；仅 msg 路径使用，留空走项目配置 */
   encoding?: string | null
+  /** 仅 msg 路径使用；不传时后端按文件名推断 */
+  scriptKind?: MsgScriptKind | null
 }
 
 export interface ExtractDatParams {
@@ -90,9 +93,16 @@ export function decompileMsgFile({
   inputPath,
   outputPath = null,
   withComments = true,
-  encoding = null
+  encoding = null,
+  scriptKind = null
 }: ScriptFileParams): Promise<MsgResult> {
-  return invoke('decompile_msg_file', { inputPath, outputPath, withComments, encoding })
+  return invoke('decompile_msg_file', {
+    inputPath,
+    outputPath,
+    withComments,
+    encoding,
+    scriptKind
+  })
 }
 
 /**
@@ -102,9 +112,10 @@ export function decompileMsgFile({
 export function compileMsgFile({
   inputPath,
   outputPath = null,
-  encoding = null
+  encoding = null,
+  scriptKind = null
 }: ScriptFileParams): Promise<MsgResult> {
-  return invoke('compile_msg_file', { inputPath, outputPath, encoding })
+  return invoke('compile_msg_file', { inputPath, outputPath, encoding, scriptKind })
 }
 
 /**
@@ -149,8 +160,12 @@ export function packDatFile({ sourceDir, archivePath }: PackDatParams): Promise<
  * 磁盘上的 .dmsg / .dstd 是 IDE 方言（指令名由 IDE 映射，thmsg / thstd 只认
  * ins_N），无法直接喂给命令行。这个入口产出它们认识的形式，供 CI / 脚本使用。
  */
-export function exportRawDmsg(inputPath: string, outputPath: string): Promise<string> {
-  return invoke('export_raw_dmsg', { inputPath, outputPath })
+export function exportRawDmsg(
+  inputPath: string,
+  outputPath: string,
+  scriptKind: MsgScriptKind | null = null
+): Promise<string> {
+  return invoke('export_raw_dmsg', { inputPath, outputPath, scriptKind })
 }
 
 export function exportRawDstd(inputPath: string, outputPath: string): Promise<string> {

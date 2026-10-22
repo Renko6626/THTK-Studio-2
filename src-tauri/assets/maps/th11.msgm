@@ -36,6 +36,11 @@
 28 bubblePos
 29 bubbleType
 30 routeSelect
+# 31 是 TH13 新增的 show-enemy-1；32 是 TH14 新增的 modern-32。
+# truth 的 th11.msgm 只留了注释，没有名字；这里补上，否则真实 th13/th14
+# 文件会在预检查里被当成未知指令。
+31 showEnemy1
+32 modern32
 33 portraitDarken
 34 portraitHighlight
 35 lightsOut

@@ -40,6 +40,7 @@ import {
   createDefaultBuildPayload,
   getToolchainDescriptor
 } from '../../services/toolchains/registry'
+import { inferMsgScriptKind } from '../../services/toolchains/msgMetadata'
 
 const buildDialogStore = useBuildDialogStore()
 const editorStore = useEditorStore()
@@ -110,6 +111,13 @@ function syncForm(payload: Partial<BuildDialogPayload> | null | undefined) {
     // 只有 thecl 的载荷有 mapPaths；其余工具没有构建对话框
     mapPaths: [...((payload as Partial<TheclBuildPayload>)?.mapPaths || [])]
   })
+
+  // 菜单打开对话框时只带 inputPath；结局/staff 的类型按文件名补上。
+  // 用户在表单里手动改过（payload 显式带 scriptKind）则不覆盖。
+  if (formModel.tool === 'thmsg' && !(payload && 'scriptKind' in payload)) {
+    const msgModel = formModel as unknown as { scriptKind: string }
+    msgModel.scriptKind = inferMsgScriptKind(formModel.inputPath)
+  }
 }
 
 function updateFormModel(nextModel: TheclBuildPayload) {

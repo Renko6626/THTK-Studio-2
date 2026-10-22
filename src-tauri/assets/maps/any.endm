@@ -1,0 +1,28 @@
+!gamemap
+!game_files
+
+# 结局 / staff MSG 的版本 → 表映射。
+#
+# thtk 的 -e 分支只覆盖 th10–th20：
+#   th20 → th20_msg_ed_fmts（op9 覆盖为 SS）→ th10_msg_ed_fmts
+#   th10–th19 → th10_msg_ed_fmts
+# 更早的作品是另一套格式，不在这里冒充支持。
+#
+# th19 的关卡对话有 0x50 额外头，但结局/staff 没有（thmsg 的 header_extra
+# 条件带 `!thmsg_opt_end`），所以不需要单独的 th19 结局表。
+
+10  th10.endm
+11  th10.endm
+12  th10.endm
+128 th10.endm
+13  th10.endm
+14  th10.endm
+143 th10.endm
+15  th10.endm
+16  th10.endm
+165 th10.endm
+17  th10.endm
+18  th10.endm
+185 th10.endm
+19  th10.endm
+20  th20.endm

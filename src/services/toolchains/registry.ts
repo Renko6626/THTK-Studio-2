@@ -13,6 +13,7 @@ import {
 import type {
   BuildDialogPayload,
   EclResult,
+  MsgScriptKind,
   TheclBuildPayload,
   TheclMode,
   TheclRequest,
@@ -29,8 +30,16 @@ export interface ToolchainExecuteContext {
     options?: { requireSave?: boolean; openOutput?: boolean; successMessage?: string }
   ) => Promise<EclResult | null>
   /** thmsg 走 runFromPayload，不经过 thecl 的 request 形状 */
-  runDecompileMsg?: (path: string, encoding: string | null) => Promise<unknown>
-  runCompileMsg?: (tab: EditorTab | null, encoding: string | null) => Promise<unknown>
+  runDecompileMsg?: (
+    path: string,
+    encoding: string | null,
+    scriptKind?: MsgScriptKind
+  ) => Promise<unknown>
+  runCompileMsg?: (
+    tab: EditorTab | null,
+    encoding: string | null,
+    scriptKind?: MsgScriptKind
+  ) => Promise<unknown>
 }
 
 /**
@@ -133,12 +142,17 @@ export const TOOLCHAIN_REGISTRY: Record<ToolchainId, ToolchainDescriptor> = {
       const encoding = payload.encoding || null
       const outputPath = payload.outputPath.trim() || null
       if (payload.mode === 'decompile') {
-        const result = await context.runDecompileMsg?.(payload.inputPath, encoding)
+        const result = await context.runDecompileMsg?.(
+          payload.inputPath,
+          encoding,
+          payload.scriptKind
+        )
         return { success: Boolean((result as { success?: boolean } | null)?.success) }
       }
       const result = await context.runCompileMsg?.(
         { path: payload.inputPath, outputPath } as unknown as EditorTab,
-        encoding
+        encoding,
+        payload.scriptKind
       )
       return { success: Boolean((result as { success?: boolean } | null)?.success) }
     },

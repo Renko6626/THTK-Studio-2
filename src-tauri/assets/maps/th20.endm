@@ -1,0 +1,40 @@
+!endmap
+
+# ENDING / STAFF - TH20
+
+# 与 th10.endm 的唯一签名差异：op9 text-color 在 TH20 变成两个 int
+# （thmsg 的 th20_msg_ed_fmts 覆盖为 SS）。其余条目继续沿用 th10 表。
+# 社区还记录 TH20 的 op3 支持注音、op12 开始读文件名参数，但这两条不改变
+# 参数形状（仍是 m / z），因此不需要单独的表项。
+#
+# 与 th10.endm 一样，op4 / op13 故意不收录：thtk 的结局格式表没有它们。
+
+!ins_names
+0 end
+3 textAdd
+5 wait
+6 waitClear
+7 anmSourceLoad
+8 anmSetSlot
+9 textColor
+10 music
+11 musicFade
+12 switchToStaff
+14 screenEffectB
+15 anmSetSlotNormal
+16 anmSetSlotHard
+17 anmSetSlotLunatic
+
+!ins_signatures
+3 m
+5 S
+6 S
+7 Sz
+8 SSS
+9 SS
+10 z
+12 z
+14 S
+15 SSS
+16 SSS
+17 SSS

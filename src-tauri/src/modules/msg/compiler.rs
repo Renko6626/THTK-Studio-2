@@ -3,6 +3,9 @@ use crate::config::AppConfig;
 use crate::modules::ecl::error_parser::Diagnostic;
 use crate::utils;
 use crate::common::text_encoding;
+
+use super::check;
+use super::MsgScriptKind;
 use encoding_rs::SHIFT_JIS;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -42,6 +45,9 @@ pub struct MsgRequest {
     pub version: String,
     pub input_path: String,
     pub output_path: Option<String>,
+    /// 关卡对话 / 结局-staff。结局模式给 thmsg 加 `-e`，并使用另一套 opcode 表。
+    #[serde(default)]
+    pub script_kind: MsgScriptKind,
     /// decompile 时是否在每行末尾追加 ` // <description>`;compile 路径忽略此字段
     #[serde(default = "default_with_comments")]
     pub with_comments: bool,
@@ -100,15 +106,23 @@ fn swap_or_append_extension(path: &str, from: &str, to: &str) -> String {
 }
 
 fn fail(request: &MsgRequest, msg: impl Into<String>) -> MsgResult {
+    fail_with_diagnostics(request, msg, Vec::new())
+}
+
+fn fail_with_diagnostics(
+    request: &MsgRequest,
+    msg: impl Into<String>,
+    diagnostics: Vec<Diagnostic>,
+) -> MsgResult {
     MsgResult {
         success: false,
         tool: "thmsg".to_string(),
         mode: request.mode.as_str().to_string(),
-        script_kind: "msg".to_string(),
+        script_kind: request.script_kind.as_str().to_string(),
         input_path: request.input_path.clone(),
         output_path: None,
         message: msg.into(),
-        diagnostics: Vec::new(),
+        diagnostics,
     }
 }
 
@@ -168,29 +182,63 @@ fn effective_encoding(request: &MsgRequest) -> String {
 /// 放在 compiler 而不是 translator：方言头是**文件级**关注点（跟编码一样），
 /// 而 translator 是纯粹的 `ins_N ↔ 名字` 行变换。混在一起会让 translator 的
 /// 每个测试都要迁就一段与它无关的文本。
-fn with_dialect_header(readable: &str) -> String {
-    let mut out = String::with_capacity(readable.len() + 160);
-    out.push_str(super::translator::DIALECT_HEADER);
+fn with_dialect_header(readable: &str, kind: MsgScriptKind) -> String {
+    let mut out = String::with_capacity(readable.len() + 200);
+    out.push_str(super::translator::dialect_header(kind));
     out.push_str(readable);
     out
 }
 
-/// 剥掉方言声明。用户自己写的 `#` 注释不受影响——只认我们的标记。
-fn strip_dialect_header(content: &str) -> String {
-    content
-        .lines()
-        .filter(|line| !line.trim_start().starts_with(super::translator::DIALECT_MARKER))
-        .collect::<Vec<_>>()
-        .join("\n")
+/// 剥掉方言声明，并返回被剥掉的行数。
+///
+/// 返回行数是为了把 thmsg 的 stderr 行号映射回原始 `.dmsg`：喂给 thmsg 的
+/// 临时文件没有方言头，行号会整体上移。
+fn strip_dialect_header(content: &str) -> (String, u32) {
+    let mut removed = 0;
+    let mut kept = Vec::new();
+    let mut leading = true;
+
+    for line in content.lines() {
+        if leading && line.trim_start().starts_with(super::translator::DIALECT_MARKER) {
+            removed += 1;
+            continue;
+        }
+        leading = false;
+        kept.push(line);
+    }
+
+    (kept.join("\n"), removed)
+}
+
+/// thmsg 的参数顺序是固定的：`-e` 必须在 `-d` / `-c` 之前。
+fn command_args<'a>(
+    mode: &'a str,
+    version: &'a str,
+    kind: MsgScriptKind,
+    input: &'a str,
+    output: Option<&'a str>,
+) -> Vec<&'a str> {
+    let mut args = Vec::with_capacity(5);
+    if kind == MsgScriptKind::Ending {
+        args.push("-e");
+    }
+    args.push(mode);
+    args.push(version);
+    args.push(input);
+    if let Some(output) = output {
+        args.push(output);
+    }
+    args
 }
 
 fn run_decompile(tool_path: &str, request: &MsgRequest) -> MsgResult {
     let version = normalize_thmsg_version(&request.version);
+    let kind = request.script_kind;
     let output_path = infer_output_path(request);
     let input_parent = Path::new(&request.input_path).parent();
 
-    // 1. 跑 `thmsg -d <ver> <input>`,抓 raw stdout bytes(SJIS dmsg 文本)+ stderr string。
-    let args = ["-d", version.as_str(), request.input_path.as_str()];
+    // 1. 跑 `thmsg [-e] -d <ver> <input>`,抓 raw stdout bytes(SJIS dmsg 文本)+ stderr string。
+    let args = command_args("-d", &version, kind, &request.input_path, None);
     let output = match build_command(tool_path, &args, input_parent).output() {
         Ok(o) => o,
         Err(e) => return fail(request, format!("Failed to launch thmsg: {e}")),
@@ -203,7 +251,13 @@ fn run_decompile(tool_path: &str, request: &MsgRequest) -> MsgResult {
             msg.push_str(&format!("thmsg exited with code {code}\n"));
         }
         msg.push_str(&stderr_str);
-        return fail(request, msg);
+        let diagnostics = check::parse_thmsg_stderr(
+            &stderr_str,
+            &request.input_path,
+            "",
+            0,
+        );
+        return fail_with_diagnostics(request, msg, diagnostics);
     }
     if output.stdout.is_empty() {
         let mut msg = String::from("thmsg returned empty stdout\n");
@@ -220,7 +274,7 @@ fn run_decompile(tool_path: &str, request: &MsgRequest) -> MsgResult {
     // 3. 语义加载 + 翻译
     // 拿不到语义不该让整个解包失败——用户仍然需要看到 ins_N 形式的内容。
     // 但必须说清楚为什么没有名字（th19/th20 的 MSG 正处于这个状态）。
-    let (semantics, semantics_note) = match super::map_parser::parse_msg_semantics(&version) {
+    let (semantics, semantics_note) = match super::map_parser::parse_msg_semantics(&version, kind) {
         Ok(s) => (Some(s), None),
         Err(e) => (None, Some(e)),
     };
@@ -230,12 +284,17 @@ fn run_decompile(tool_path: &str, request: &MsgRequest) -> MsgResult {
     };
 
     // 4. 写 UTF-8 到目标 .dmsg
-    if let Err(e) = utils::write_file_utf8(&output_path, &with_dialect_header(&readable)) {
+    if let Err(e) = utils::write_file_utf8(&output_path, &with_dialect_header(&readable, kind)) {
         return fail(request, format!("Failed to write {output_path}: {e}"));
     }
 
     let mut message = if stderr_str.trim().is_empty() {
-        format!("Decompiled {} → {}（编码 {encoding}）", request.input_path, output_path)
+        format!(
+            "Decompiled {} → {}（{}，编码 {encoding}）",
+            request.input_path,
+            output_path,
+            kind.label_zh()
+        )
     } else {
         stderr_str
     };
@@ -255,7 +314,7 @@ fn run_decompile(tool_path: &str, request: &MsgRequest) -> MsgResult {
         success: true,
         tool: "thmsg".to_string(),
         mode: request.mode.as_str().to_string(),
-        script_kind: "msg".to_string(),
+        script_kind: kind.as_str().to_string(),
         input_path: request.input_path.clone(),
         output_path: Some(output_path),
         message,
@@ -279,12 +338,37 @@ fn run_compile(tool_path: &str, request: &MsgRequest) -> MsgResult {
         }
     };
 
-    // 2. 翻译回 raw dmsg
-    let semantics = match super::map_parser::parse_msg_semantics(&version) {
+    // 2. 确定脚本类型。显式请求优先；但如果请求是默认的 stage、方言头却写着
+    //    ending（用户改过文件名），以头为准——否则会把结局文件按 stage 表翻译。
+    let kind = match (request.script_kind, super::translator::dialect_kind(&content)) {
+        (MsgScriptKind::Stage, Some(MsgScriptKind::Ending)) => MsgScriptKind::Ending,
+        _ => request.script_kind,
+    };
+    let version_id: u32 = version.parse().unwrap_or(0);
+
+    // 3. 翻译回 raw dmsg，并先做一次不依赖 thmsg 的预检查。
+    let semantics = match super::map_parser::parse_msg_semantics(&version, kind) {
         Ok(s) => s,
         Err(e) => return fail(request, format!("Failed to load msg semantics: {e}")),
     };
-    let raw_dmsg = super::translator::readable_to_dmsg(&strip_dialect_header(&content), &semantics);
+    let (stripped, removed_header_lines) = strip_dialect_header(&content);
+    // 预检查读**原始**内容：它自己会跳过 `#` 方言头，但行号必须按用户看到的
+    // 文件算。stderr 回查则用 stripped + removed_header_lines（thmsg 看到的是
+    // 去掉头之后的临时文件）。
+    let mut diagnostics =
+        check::check_readable(&content, &request.input_path, &semantics, kind, version_id);
+
+    if diagnostics.iter().any(|d| d.severity == "error") {
+        return fail_with_diagnostics(
+            request,
+            "MSG 预检查失败；未调用 thmsg。请先修复问题面板中的错误。",
+            diagnostics,
+        );
+    }
+
+    let raw_dmsg = super::translator::readable_to_dmsg(&stripped, &semantics);
+    let (raw_dmsg, quirk_patches) =
+        super::translator::apply_thtk_quirks(&raw_dmsg, version_id, kind);
 
     // 3. UTF-8 → 目标编码。装不下**必须失败**：encoding_rs 的 encode 对无法映射的
     //    字符不报错，而是写入 HTML 数字实体（"你" → "&#20320;"），打包会"成功"
@@ -313,15 +397,19 @@ fn run_compile(tool_path: &str, request: &MsgRequest) -> MsgResult {
         );
     }
 
-    // 4. 跑 `thmsg -c <ver> <temp> <out>`
+    // 4. 跑 `thmsg [-e] -c <ver> <temp> <out>`
     let temp_str = temp_path.to_string_lossy().to_string();
-    let args = ["-c", version.as_str(), temp_str.as_str(), output_path.as_str()];
+    let args = command_args("-c", &version, kind, &temp_str, Some(&output_path));
     let work_dir = Path::new(&output_path).parent();
     let output = match build_command(tool_path, &args, work_dir).output() {
         Ok(o) => o,
         Err(e) => {
             let _ = std::fs::remove_file(&temp_path);
-            return fail(request, format!("Failed to launch thmsg: {e}"));
+            return fail_with_diagnostics(
+                request,
+                format!("Failed to launch thmsg: {e}"),
+                diagnostics,
+            );
         }
     };
     let _ = std::fs::remove_file(&temp_path); // best-effort cleanup
@@ -336,25 +424,57 @@ fn run_compile(tool_path: &str, request: &MsgRequest) -> MsgResult {
             msg.push_str(&format!("thmsg exited with code {code}\n"));
         }
         msg.push_str(&combined);
-        return fail(request, msg);
+
+        diagnostics.extend(check::parse_thmsg_stderr(
+            &stderr_str,
+            &request.input_path,
+            &stripped,
+            removed_header_lines,
+        ));
+        dedup_diagnostics(&mut diagnostics);
+        return fail_with_diagnostics(request, msg, diagnostics);
     }
 
-    let message = if combined.is_empty() {
-        format!("Compiled {} → {}", request.input_path, output_path)
+    let mut message = if combined.is_empty() {
+        format!(
+            "Compiled {} → {}（{}）",
+            request.input_path,
+            output_path,
+            kind.label_zh()
+        )
     } else {
         combined
     };
+
+    if quirk_patches > 0 {
+        message.push_str(&format!(
+            "\n\nℹ thtk 的 th16–th18 格式表要求 musicBoss 带参数；已在临时文件中为 {quirk_patches} 条指令补 1（引擎不读该参数）。产物会比输入多 {} 字节。",
+            quirk_patches * 4
+        ));
+    }
+
+    dedup_diagnostics(&mut diagnostics);
 
     MsgResult {
         success: true,
         tool: "thmsg".to_string(),
         mode: request.mode.as_str().to_string(),
-        script_kind: "msg".to_string(),
+        script_kind: kind.as_str().to_string(),
         input_path: request.input_path.clone(),
         output_path: Some(output_path),
         message,
-        diagnostics: Vec::new(),
+        diagnostics,
     }
+}
+
+fn dedup_diagnostics(diagnostics: &mut Vec<Diagnostic>) {
+    let mut seen = std::collections::HashSet::new();
+    diagnostics.retain(|diagnostic| {
+        seen.insert(format!(
+            "{}:{}:{}",
+            diagnostic.line, diagnostic.severity, diagnostic.message
+        ))
+    });
 }
 
 #[cfg(test)]
@@ -367,9 +487,39 @@ mod tests {
             version: "17".to_string(),
             input_path: input.to_string(),
             output_path: output.map(|s| s.to_string()),
+            script_kind: MsgScriptKind::Stage,
             with_comments: true,
             encoding: String::new(),
         }
+    }
+
+    #[test]
+    fn ending_mode_puts_dash_e_before_the_mode_flag() {
+        assert_eq!(
+            command_args("-d", "18", MsgScriptKind::Ending, "/p/e01.msg", None),
+            vec!["-e", "-d", "18", "/p/e01.msg"]
+        );
+        assert_eq!(
+            command_args("-c", "20", MsgScriptKind::Ending, "/p/e01.dmsg", Some("/p/e01.msg")),
+            vec!["-e", "-c", "20", "/p/e01.dmsg", "/p/e01.msg"]
+        );
+        assert_eq!(
+            command_args("-d", "18", MsgScriptKind::Stage, "/p/st01.msg", None),
+            vec!["-d", "18", "/p/st01.msg"]
+        );
+    }
+
+    #[test]
+    fn stripping_dialect_header_reports_the_number_of_removed_lines() {
+        let (stripped, removed) = strip_dialect_header(
+            "# THTK-Studio dmsg 方言（关卡对话）：x\nentry 0 (256)\n@0\n",
+        );
+        assert_eq!(removed, 1);
+        assert_eq!(stripped, "entry 0 (256)\n@0");
+
+        let (stripped, removed) = strip_dialect_header("entry 0 (256)\n");
+        assert_eq!(removed, 0);
+        assert_eq!(stripped, "entry 0 (256)");
     }
 
     #[test]
@@ -414,6 +564,7 @@ mod tests {
         assert_eq!(parsed.input_path, "/x.msg");
         assert!(parsed.output_path.is_none());
         assert!(parsed.with_comments, "default should be true");
+        assert_eq!(parsed.script_kind, MsgScriptKind::Stage);
 
         // 反向再序列化 + 再反序列化应保持语义。
         let s = serde_json::to_string(&parsed).expect("ser");
@@ -438,6 +589,12 @@ mod tests {
         assert_eq!(result.tool, "thmsg");
         assert_eq!(result.mode, "decompile");
         assert_eq!(result.script_kind, "msg");
+
+        let mut ending = req(MsgMode::Decompile, "/proj/e01.msg", None);
+        ending.script_kind = MsgScriptKind::Ending;
+        let result = run(&cfg, &ending);
+        assert!(!result.success);
+        assert_eq!(result.script_kind, "ending");
     }
 
     // ---- 编码：本轮修复的核心行为 ----
@@ -483,7 +640,7 @@ mod tests {
     /// 这件事必须写在文件里，不能指望用户记得。
     #[test]
     fn written_file_carries_a_dialect_header() {
-        let out = with_dialect_header("textboxShow(0)\n");
+        let out = with_dialect_header("textboxShow(0)\n", MsgScriptKind::Stage);
         assert!(out.starts_with("# THTK-Studio dmsg"), "got: {out}");
         assert!(out.contains("thmsg"), "要说明它不能直接喂给 thmsg");
         assert!(out.contains("textboxShow(0)"), "正文要保留");
@@ -492,7 +649,9 @@ mod tests {
     /// 方言头绝不能进 thmsg 的输入——它会被当成指令而报错。
     #[test]
     fn dialect_header_is_stripped_before_reaching_thmsg() {
-        let round = strip_dialect_header(&with_dialect_header("textboxShow(0)\n"));
+        let (round, removed) =
+            strip_dialect_header(&with_dialect_header("textboxShow(0)\n", MsgScriptKind::Stage));
+        assert_eq!(removed, 1);
         assert!(!round.contains("THTK-Studio"));
         assert_eq!(round.trim(), "textboxShow(0)");
     }
@@ -500,7 +659,172 @@ mod tests {
     /// 用户自己写的 # 注释不该被误删——只认我们的标记。
     #[test]
     fn user_comments_survive_stripping() {
-        let kept = strip_dialect_header("# 我自己的注释\ntextboxShow(0)\n");
+        let (kept, removed) = strip_dialect_header("# 我自己的注释\ntextboxShow(0)\n");
+        assert_eq!(removed, 0);
         assert!(kept.contains("# 我自己的注释"));
+    }
+
+    /// 真实 thmsg + 真实关卡 MSG 的往返验证（预检查会跑在真实的 `.dmsg` 上）。
+    ///
+    /// ```bash
+    /// THTK_MSG_TEST_BIN=.../thmsg \
+    /// THTK_MSG_TEST_STAGE=.../st01a.msg \
+    /// cargo test --manifest-path src-tauri/Cargo.toml manual_stage_roundtrip -- --ignored
+    /// ```
+    #[test]
+    #[ignore = "requires THTK_MSG_TEST_BIN / THTK_MSG_TEST_STAGE"]
+    fn manual_stage_roundtrip_against_real_thmsg() {
+        let Ok(bin) = std::env::var("THTK_MSG_TEST_BIN") else {
+            return;
+        };
+        let Ok(sample) = std::env::var("THTK_MSG_TEST_STAGE") else {
+            return;
+        };
+
+        let mut config = AppConfig::default();
+        config.tool_overrides.insert("thmsg".to_string(), bin);
+
+        let dmsg = unique_temp_path("stage-it", "dmsg");
+        let msg = unique_temp_path("stage-it", "msg");
+        let dmsg_str = dmsg.to_string_lossy().to_string();
+        let msg_str = msg.to_string_lossy().to_string();
+
+        let decompile = MsgRequest {
+            mode: MsgMode::Decompile,
+            version: "18".to_string(),
+            input_path: sample.clone(),
+            output_path: Some(dmsg_str.clone()),
+            script_kind: MsgScriptKind::Stage,
+            with_comments: false,
+            encoding: "shift-jis".to_string(),
+        };
+        let result = run(&config, &decompile);
+        assert!(result.success, "{}: {:?}", result.message, result.diagnostics);
+        assert_eq!(result.script_kind, "msg");
+        assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+
+        let readable = std::fs::read_to_string(&dmsg).expect("read dmsg");
+        assert!(readable.starts_with("# THTK-Studio dmsg 方言（关卡对话）"));
+        assert!(readable.contains("playerShow(0)"), "{readable}");
+        assert!(readable.contains("playerFace(2;0)"), "{readable}");
+        assert!(readable.contains("bubblePos("), "{readable}");
+
+        // TH18 的 musicBoss 在真实文件里是零参数，thmsg -c 却要求一个。
+        // 编译端会补 1，因此产物比输入多 4 字节，但应仍可被 thmsg 重新解包。
+        let op19_count = readable
+            .lines()
+            .filter(|line| line.trim() == "musicBoss()")
+            .count();
+        assert!(op19_count > 0, "样本应包含 musicBoss");
+
+        let compile = MsgRequest {
+            mode: MsgMode::Compile,
+            version: "18".to_string(),
+            input_path: dmsg_str,
+            output_path: Some(msg_str.clone()),
+            script_kind: MsgScriptKind::Stage,
+            with_comments: false,
+            encoding: "shift-jis".to_string(),
+        };
+        let result = run(&config, &compile);
+        assert!(
+            result.success,
+            "{}: {:?}",
+            result.message, result.diagnostics
+        );
+        assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+
+        let original = std::fs::read(&sample).expect("read sample");
+        let roundtrip = std::fs::read(&msg).expect("read roundtrip");
+        assert_eq!(
+            roundtrip.len(),
+            original.len() + 4 * op19_count,
+            "只有 musicBoss 的补齐应改变字节数"
+        );
+
+        // 补过参数的产物必须还能被 thmsg 解包，且显示为 musicBoss(1)。
+        let dmsg2 = unique_temp_path("stage-it2", "dmsg");
+        let dmsg2_str = dmsg2.to_string_lossy().to_string();
+        let redecompile = MsgRequest {
+            mode: MsgMode::Decompile,
+            version: "18".to_string(),
+            input_path: msg_str,
+            output_path: Some(dmsg2_str),
+            script_kind: MsgScriptKind::Stage,
+            with_comments: false,
+            encoding: "shift-jis".to_string(),
+        };
+        let result = run(&config, &redecompile);
+        assert!(result.success, "{}", result.message);
+        let readable2 = std::fs::read_to_string(&dmsg2).expect("read dmsg2");
+        assert!(readable2.contains("musicBoss(1)"), "{readable2}");
+
+        let _ = std::fs::remove_file(dmsg);
+        let _ = std::fs::remove_file(dmsg2);
+        let _ = std::fs::remove_file(msg);
+    }
+
+    /// 真实 thmsg + 真实结局文件的往返验证。默认不跑，避免测试依赖本机游戏资产：
+    ///
+    /// ```bash
+    /// THTK_MSG_TEST_BIN=.../thmsg \
+    /// THTK_MSG_TEST_ENDING=.../e01.msg \
+    /// cargo test --manifest-path src-tauri/Cargo.toml manual_ending_roundtrip -- --ignored
+    /// ```
+    #[test]
+    #[ignore = "requires THTK_MSG_TEST_BIN / THTK_MSG_TEST_ENDING"]
+    fn manual_ending_roundtrip_against_real_thmsg() {
+        let Ok(bin) = std::env::var("THTK_MSG_TEST_BIN") else {
+            return;
+        };
+        let Ok(sample) = std::env::var("THTK_MSG_TEST_ENDING") else {
+            return;
+        };
+
+        let mut config = AppConfig::default();
+        config.tool_overrides.insert("thmsg".to_string(), bin);
+
+        let dmsg = unique_temp_path("ending-it", "dmsg");
+        let msg = unique_temp_path("ending-it", "msg");
+        let dmsg_str = dmsg.to_string_lossy().to_string();
+        let msg_str = msg.to_string_lossy().to_string();
+
+        let decompile = MsgRequest {
+            mode: MsgMode::Decompile,
+            version: "18".to_string(),
+            input_path: sample.clone(),
+            output_path: Some(dmsg_str.clone()),
+            script_kind: MsgScriptKind::Ending,
+            with_comments: false,
+            encoding: "shift-jis".to_string(),
+        };
+        let result = run(&config, &decompile);
+        assert!(result.success, "{}", result.message);
+        assert_eq!(result.script_kind, "ending");
+
+        let readable = std::fs::read_to_string(&dmsg).expect("read dmsg");
+        assert!(readable.starts_with("# THTK-Studio dmsg 方言（结局/staff）"));
+        assert!(readable.contains("anmSourceLoad(0;e01.anm)"), "{readable}");
+        assert!(readable.contains("textAdd("), "{readable}");
+        assert!(readable.contains("music(bgm/th18_15)"), "{readable}");
+
+        let compile = MsgRequest {
+            mode: MsgMode::Compile,
+            version: "18".to_string(),
+            input_path: dmsg_str,
+            output_path: Some(msg_str.clone()),
+            script_kind: MsgScriptKind::Ending,
+            with_comments: false,
+            encoding: "shift-jis".to_string(),
+        };
+        let result = run(&config, &compile);
+        assert!(result.success, "{}", result.message);
+
+        let original = std::fs::read(&sample).expect("read sample");
+        let roundtrip = std::fs::read(&msg).expect("read roundtrip");
+        assert_eq!(original, roundtrip, "结局 MSG 往返必须逐字节一致");
+
+        let _ = std::fs::remove_file(dmsg);
+        let _ = std::fs::remove_file(msg);
     }
 }

@@ -1,4 +1,5 @@
 use super::compiler;
+use super::MsgScriptKind;
 use crate::app_state::AppState;
 use crate::common::toolchain;
 use tauri::State;
@@ -30,6 +31,11 @@ fn ensure_thmsg_configured(config: &crate::config::AppConfig) -> Result<(), Stri
     Ok(())
 }
 
+/// 显式指定优先；否则按文件名推断（`e01.msg` / `staff1.msg` → ending）。
+fn effective_script_kind(explicit: Option<MsgScriptKind>, path: &str) -> MsgScriptKind {
+    explicit.unwrap_or_else(|| MsgScriptKind::infer_from_path(path))
+}
+
 /// 解包 .msg → .dmsg。`encoding` 是**游戏文本**的编码（不是 .dmsg 文件的，
 /// 那个始终是 UTF-8）；留空则用项目配置，再空则 shift-jis。
 #[tauri::command]
@@ -39,6 +45,7 @@ pub async fn decompile_msg_file(
     output_path: Option<String>,
     with_comments: Option<bool>,
     encoding: Option<String>,
+    script_kind: Option<MsgScriptKind>,
 ) -> Result<compiler::MsgResult, String> {
     let root = state
         .current_project_root
@@ -51,11 +58,13 @@ pub async fn decompile_msg_file(
     let version =
         crate::common::game_version::resolve_from(ctx.project.as_ref(), &config, "thmsg")?
             .to_string();
+    let script_kind = effective_script_kind(script_kind, &input_path);
     let req = compiler::MsgRequest {
         mode: compiler::MsgMode::Decompile,
         version,
         input_path,
         output_path,
+        script_kind,
         with_comments: with_comments.unwrap_or(true),
         encoding: effective_encoding(encoding, ctx.project.as_ref()),
     };
@@ -70,6 +79,7 @@ pub async fn compile_msg_file(
     input_path: String,
     output_path: Option<String>,
     encoding: Option<String>,
+    script_kind: Option<MsgScriptKind>,
 ) -> Result<compiler::MsgResult, String> {
     let root = state
         .current_project_root
@@ -82,11 +92,13 @@ pub async fn compile_msg_file(
     let version =
         crate::common::game_version::resolve_from(ctx.project.as_ref(), &config, "thmsg")?
             .to_string();
+    let script_kind = effective_script_kind(script_kind, &input_path);
     let req = compiler::MsgRequest {
         mode: compiler::MsgMode::Compile,
         version,
         input_path,
         output_path,
+        script_kind,
         with_comments: false,
         encoding: effective_encoding(encoding, ctx.project.as_ref()),
     };
@@ -102,6 +114,7 @@ pub async fn export_raw_dmsg(
     state: State<'_, AppState>,
     input_path: String,
     output_path: String,
+    script_kind: Option<MsgScriptKind>,
 ) -> Result<String, String> {
     let root = state
         .current_project_root
@@ -112,10 +125,15 @@ pub async fn export_raw_dmsg(
     let version =
         crate::common::game_version::resolve_from(ctx.project.as_ref(), &ctx.config, "thmsg")?
             .to_string();
-    let semantics = super::map_parser::parse_msg_semantics(&version)?;
 
     let content = crate::utils::read_text_file(&input_path, "utf-8")
         .map_err(|e| format!("读取 {input_path} 失败: {e}"))?;
+    // 方言头里的类型优先于文件名：用户可能把 e01.dmsg 改名后仍在编辑它。
+    let kind = script_kind
+        .or_else(|| super::translator::dialect_kind(&content))
+        .unwrap_or_else(|| MsgScriptKind::infer_from_path(&input_path));
+    let semantics = super::map_parser::parse_msg_semantics(&version, kind)?;
+
     // 方言头必须先剥掉——它不是指令，thmsg 会把它当语法错误
     let stripped: String = content
         .lines()
@@ -123,6 +141,8 @@ pub async fn export_raw_dmsg(
         .collect::<Vec<_>>()
         .join("\n");
     let raw = super::translator::readable_to_dmsg(&stripped, &semantics);
+    let version_id: u32 = version.parse().unwrap_or(0);
+    let (raw, _) = super::translator::apply_thtk_quirks(&raw, version_id, kind);
     crate::utils::write_file_utf8(&output_path, &raw)
         .map_err(|e| format!("写入 {output_path} 失败: {e}"))?;
     Ok(output_path)

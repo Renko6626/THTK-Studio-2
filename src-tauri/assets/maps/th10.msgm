@@ -1,0 +1,41 @@
+!msgmap
+
+# MSG - TH10（东方风神录）
+
+# TH10 的编号体系与 TH11+ 不同：TH11 在 9 号处插入了 focus-none，
+# 因此 TH10 的 9 以后整体比 TH11 小 1。名字来自 ExpHP/truth 的 map/th10.msgm。
+#
+# 签名不写在本文件里：逐版本签名由 modules/msg/signatures.rs 按 thmsg06.c
+# 的 fallthrough 覆盖，避免同一份表在不同版本上给出错误参数形状。
+
+!ins_names
+0 end
+1 playerShow
+2 bossShow
+3 textboxShow
+4 playerHide
+5 bossHide
+6 textboxHide
+7 speakerPlayer
+8 speakerBoss
+9 skippable
+10 textPause
+11 eclResume
+12 playerFace
+13 bossFace
+14 textLine1
+15 textLine2
+16 textAdd
+17 textClear
+18 musicBoss
+19 intro
+20 stageEnd
+21 musicEnd
+22 playerShake
+23 bossShake
+
+# thtk 的 th10 表里还有 25 S；truth 的 th10.msgm 没给它名字，THBWiki 说
+# y-offset 是 TH11 新增。保留为未命名条目：若真实 th10 文件出现 op25，
+# IDE 显示 ins_25 而不是直接拒绝。
+!ins_signatures
+25 S

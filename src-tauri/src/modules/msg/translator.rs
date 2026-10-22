@@ -4,6 +4,8 @@ use std::sync::OnceLock;
 
 use crate::common::map_file::{MapFileData, MapInstruction};
 
+use super::MsgScriptKind;
+
 fn name_by_opcode(data: &MapFileData) -> HashMap<u32, &MapInstruction> {
     data.instructions.iter().map(|i| (i.opcode, i)).collect()
 }
@@ -23,7 +25,35 @@ fn opcode_by_name<'a>(data: &'a MapFileData) -> HashMap<&'a str, u32> {
 ///
 /// 之所以仍在磁盘上存名字：`git diff` 里 `textboxShow()` 与 `3` 的可读性差距
 /// 是决定性的。代价就是必须把这件事写在文件里，而不是指望用户记得。
-pub const DIALECT_HEADER: &str = "# THTK-Studio dmsg 方言：指令名由 IDE 映射，thmsg 只认 `3;参数`；需要原始格式请用「导出原始 .dmsg」。\n";
+///
+/// 头的第二项是**脚本类型**。关卡对话与结局/staff 的 opcode 编号重叠但语义
+/// 完全不同，光看 `3 textAdd()` 无法判断它该走 stage 表还是 `-e` 表。
+pub const DIALECT_HEADER_STAGE: &str = "# THTK-Studio dmsg 方言（关卡对话）：指令名由 IDE 映射，thmsg 只认 `3;参数`；需要原始格式请用「导出原始 .dmsg」。\n";
+pub const DIALECT_HEADER_ENDING: &str = "# THTK-Studio dmsg 方言（结局/staff）：指令名由 IDE 映射，thmsg -e 只认 `3;参数`；需要原始格式请用「导出原始 .dmsg」。\n";
+
+pub fn dialect_header(kind: MsgScriptKind) -> &'static str {
+    match kind {
+        MsgScriptKind::Stage => DIALECT_HEADER_STAGE,
+        MsgScriptKind::Ending => DIALECT_HEADER_ENDING,
+    }
+}
+
+/// 从方言头读脚本类型。旧文件没有类型标记时返回 `None`，由调用方按文件名兜底。
+pub fn dialect_kind(content: &str) -> Option<MsgScriptKind> {
+    content.lines().take(8).find_map(|line| {
+        let trimmed = line.trim_start();
+        if !trimmed.starts_with(DIALECT_MARKER) {
+            return None;
+        }
+        if trimmed.contains("结局") || trimmed.contains("staff") || trimmed.contains("ending") {
+            Some(MsgScriptKind::Ending)
+        } else if trimmed.contains("关卡") || trimmed.contains("stage") {
+            Some(MsgScriptKind::Stage)
+        } else {
+            None
+        }
+    })
+}
 
 /// 方言头的识别前缀。反向翻译时必须**整行剥掉**——thmsg 不认识它，
 /// 原样透传会让它把这行当成指令而报错。
@@ -91,8 +121,10 @@ pub fn dmsg_to_readable(raw: &str, semantics: &MapFileData, with_comments: bool)
             let spec = map.get(&opcode);
             out.push_str(indent);
             match spec {
-                Some(s) => out.push_str(&s.name),
-                None => out.push_str(&format!("ins_{opcode}")),
+                Some(s) if !s.name.is_empty() => out.push_str(&s.name),
+                // 有名表项也可能是「只有签名、没有名字」的未命名条目
+                // （th20 的 37–56）；这种条目同样显示 ins_N。
+                Some(_) | None => out.push_str(&format!("ins_{opcode}")),
             }
             out.push('(');
             out.push_str(args);
@@ -175,8 +207,17 @@ pub fn readable_to_dmsg(readable: &str, semantics: &MapFileData) -> String {
                 }
             }
         } else {
-            // `@120`、`entry 0`、空行 → 原样透传
-            out.push_str(body);
+            // `@120`、`entry 0`、空行 → 原样透传。
+            //
+            // 但 `//` 注释必须**顶格**：thmsg 的 `th06_write` 用
+            // `strncmp(buffer, "//", 2)` 判注释，前面有缩进就不认。用户习惯
+            // 缩进写注释，这里在喂给 thmsg 的临时文本里去掉缩进。
+            let trimmed = body.trim_start();
+            if trimmed.starts_with("//") {
+                out.push_str(trimmed);
+            } else {
+                out.push_str(body);
+            }
         }
 
         if trailing_newline {
@@ -184,6 +225,51 @@ pub fn readable_to_dmsg(readable: &str, semantics: &MapFileData) -> String {
         }
     }
     out
+}
+
+/// 修补 thtk 自身的 dump/compile 不一致。
+///
+/// 目前只有一条：TH16–TH18 的 `musicBoss`（opcode 19）在真实文件里是 size 0，
+/// `thmsg -d` 输出裸 `19`；但 `thmsg -c` 按 `th16_msg_fmts` 要求一个 S 参数，
+/// 于是「thmsg 自己 dump 出来的文件，thmsg 自己编译不回去」。
+///
+/// 引擎在 TH16–18 不读这个参数。这里在喂给 thmsg 的临时文本里补一个 `1`
+/// （与 TH185 的真实曲目索引一致），让编译通过；代价是产物会多 4 字节，
+/// 不再与输入逐字节相同。
+///
+/// 返回 `(修补后的文本, 修补的行数)`。
+pub fn apply_thtk_quirks(raw: &str, version: u32, kind: MsgScriptKind) -> (String, usize) {
+    if kind != MsgScriptKind::Stage || !matches!(version, 16 | 17 | 165 | 18) {
+        return (raw.to_string(), 0);
+    }
+
+    let mut out = String::with_capacity(raw.len() + 8);
+    let mut patched = 0;
+
+    for line in raw.split_inclusive('\n') {
+        let trailing_newline = line.ends_with('\n');
+        let body = if trailing_newline {
+            &line[..line.len() - 1]
+        } else {
+            line
+        };
+
+        let trimmed = body.trim();
+        if trimmed == "19" || trimmed == "19;" {
+            let indent_len = body.len() - body.trim_start().len();
+            out.push_str(&body[..indent_len]);
+            out.push_str("19;1");
+            patched += 1;
+        } else {
+            out.push_str(body);
+        }
+
+        if trailing_newline {
+            out.push('\n');
+        }
+    }
+
+    (out, patched)
 }
 
 /// 测试输入一律用 **thmsg 真实吐出来的形状**（`@120` 时间标签 + `\t<opcode>;<args>`），
@@ -195,9 +281,10 @@ pub fn readable_to_dmsg(readable: &str, semantics: &MapFileData) -> String {
 mod tests {
     use super::*;
     use crate::modules::msg::map_parser::parse_msg_semantics;
+    use crate::modules::msg::MsgScriptKind;
 
     fn data() -> MapFileData {
-        parse_msg_semantics("17").expect("seed")
+        parse_msg_semantics("17", MsgScriptKind::Stage).expect("seed")
     }
 
     /// thmsg 原样 dump 的一段：文件头、entry、时间标签、无参指令、带参指令
@@ -223,7 +310,7 @@ mod tests {
     /// 这些指令会当成「无法解析的行」，而它们恰恰是 th19 最常改的那批。
     #[test]
     fn double_underscore_names_survive_roundtrip() {
-        let th19 = parse_msg_semantics("19").expect("th19 seed");
+        let th19 = parse_msg_semantics("19", MsgScriptKind::Stage).expect("th19 seed");
         let raw = "\t44;1.0;2.0\n";
 
         let out = dmsg_to_readable(raw, &th19, false);
@@ -235,7 +322,7 @@ mod tests {
     /// 必须退回 `ins_44` 而不是借用 th19 的名字。
     #[test]
     fn th20_falls_back_to_ins_n_for_th19_only_opcodes() {
-        let th20 = parse_msg_semantics("20").expect("th20 seed");
+        let th20 = parse_msg_semantics("20", MsgScriptKind::Stage).expect("th20 seed");
         let raw = "\t44;1.0;2.0\n";
 
         let out = dmsg_to_readable(raw, &th20, false);
@@ -244,6 +331,39 @@ mod tests {
     }
 
     /// 无参指令在 thmsg 里是**裸操作号**，不带分号。多写一个 `;` 会变成一个空参数。
+    #[test]
+    fn thtk_music_boss_quirk_is_patched_only_for_th16_to_th18() {
+        let raw = "@0\n\t19\n\t19;1\n";
+        let (patched, count) = apply_thtk_quirks(raw, 18, MsgScriptKind::Stage);
+        assert_eq!(patched, "@0\n\t19;1\n\t19;1\n");
+        assert_eq!(count, 1);
+
+        for version in [16, 17, 165] {
+            let (_, count) = apply_thtk_quirks(raw, version, MsgScriptKind::Stage);
+            assert_eq!(count, 1, "th{version}");
+        }
+
+        // TH185/19/20 的 op19 本来就是带参数的，不要动。
+        for version in [185, 19, 20] {
+            let (patched, count) = apply_thtk_quirks(raw, version, MsgScriptKind::Stage);
+            assert_eq!(patched, raw, "th{version}");
+            assert_eq!(count, 0);
+        }
+
+        // 结局模式没有这条指令。
+        let (patched, count) = apply_thtk_quirks(raw, 18, MsgScriptKind::Ending);
+        assert_eq!(patched, raw);
+        assert_eq!(count, 0);
+    }
+
+    #[test]
+    fn indented_slash_comments_are_flattened_for_thmsg() {
+        assert_eq!(
+            readable_to_dmsg("    // note\n\t3\n", &data()),
+            "// note\n\t3\n"
+        );
+    }
+
     #[test]
     fn no_args_emits_bare_opcode_without_semicolon() {
         assert_eq!(readable_to_dmsg("\ttextboxShow()\n", &data()), "\t3\n");
@@ -304,5 +424,37 @@ mod tests {
         let raw = "@0\n\n@120\nentry 3\n";
         assert_eq!(dmsg_to_readable(raw, &data(), true), raw);
         assert_eq!(readable_to_dmsg(raw, &data()), raw);
+    }
+
+    #[test]
+    fn dialect_header_records_the_script_kind() {
+        assert_eq!(
+            dialect_kind(dialect_header(MsgScriptKind::Stage)),
+            Some(MsgScriptKind::Stage)
+        );
+        assert_eq!(
+            dialect_kind(dialect_header(MsgScriptKind::Ending)),
+            Some(MsgScriptKind::Ending)
+        );
+    }
+
+    #[test]
+    fn old_dialect_header_has_no_kind_and_uses_filename_fallback() {
+        assert_eq!(
+            dialect_kind(&DIALECT_HEADER_STAGE.replace("（关卡对话）", "")),
+            None
+        );
+    }
+
+    #[test]
+    fn ending_names_translate_both_ways() {
+        let end = parse_msg_semantics("18", MsgScriptKind::Ending).expect("ending seed");
+        let raw = "\t7;0;e01.anm\n\t8;0;0;1\n";
+        let readable = dmsg_to_readable(raw, &end, false);
+        assert_eq!(
+            readable,
+            "\tanmSourceLoad(0;e01.anm)\n\tanmSetSlot(0;0;1)\n"
+        );
+        assert_eq!(readable_to_dmsg(&readable, &end), raw);
     }
 }

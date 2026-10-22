@@ -1,0 +1,43 @@
+!endmap
+
+# ENDING / STAFF - TH10 to TH19
+
+# 结局与 staff 共用这套指令集。名字对齐 ExpHP thpages 的 end.ts；
+# 签名以 thtk thmsg06.c 的 th10_msg_ed_fmts 为准。
+#
+# **故意不收录 op4 / op13**：一手反编译确认 TH16/TH18 引擎里有这两条分支
+# （text-clear、screen-effect-a 淡入），但 thtk 的 th10_msg_ed_fmts 没有它们，
+# `thmsg -e -c` 会报 "id 4/13 was not found in the format table"。IDE 若给它们
+# 起名字，用户写出来必然打包失败，因此保持 ins_N，并由预检查提示上游缺口。
+#
+# `m` = 掩码文本，`z` = 明文串。
+
+!ins_names
+0 end
+3 textAdd
+5 wait
+6 waitClear
+7 anmSourceLoad
+8 anmSetSlot
+9 textColor
+10 music
+11 musicFade
+12 switchToStaff
+14 screenEffectB
+15 anmSetSlotNormal
+16 anmSetSlotHard
+17 anmSetSlotLunatic
+
+!ins_signatures
+3 m
+5 S
+6 S
+7 Sz
+8 SSS
+9 S
+10 z
+12 z
+14 S
+15 SSS
+16 SSS
+17 SSS

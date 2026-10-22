@@ -21,6 +21,10 @@
             <span class="text-gray-100">{{ MSG_MODE_LABELS[model.mode] }}</span>
           </div>
           <div class="flex items-center justify-between">
+            <span class="text-gray-400">脚本类型</span>
+            <span class="text-gray-100">{{ scriptKindSummary }}</span>
+          </div>
+          <div class="flex items-center justify-between">
             <span class="text-gray-400">编码</span>
             <span class="text-gray-100">{{ encodingSummary }}</span>
           </div>
@@ -45,6 +49,14 @@
         />
       </n-form-item>
 
+      <n-form-item label="脚本类型">
+        <n-select
+          :value="model.scriptKind"
+          :options="MSG_SCRIPT_KIND_OPTIONS"
+          @update:value="updateField('scriptKind', $event)"
+        />
+      </n-form-item>
+
       <n-form-item label="输出路径" class="col-span-2">
         <n-input
           :value="model.outputPath"
@@ -62,6 +74,14 @@
         : 'border-[#cca700]/40 bg-[#cca700]/8 text-[#cca700]'"
     >
       {{ encodingHint }}
+    </div>
+
+    <div
+      v-if="model.scriptKind === 'ending'"
+      class="rounded border border-[#cca700]/40 bg-[#cca700]/8 px-3 py-2 text-xs leading-5 text-[#cca700]"
+    >
+      结局 / staff 会给 thmsg 加 <code>-e</code>，并使用另一套 opcode 表。文件名是
+      <code>e01.msg</code> 或 <code>staff1.msg</code> 时会自动识别。
     </div>
 
     <div v-if="isDecompileMode" class="build-option">
@@ -84,7 +104,8 @@ import { NCheckbox, NForm, NFormItem, NInput, NSelect } from 'naive-ui'
 import {
   MSG_ENCODING_OPTIONS,
   MSG_MODE_LABELS,
-  MSG_MODE_OPTIONS
+  MSG_MODE_OPTIONS,
+  MSG_SCRIPT_KIND_OPTIONS
 } from '../../../services/toolchains/msgMetadata'
 import type { MsgBuildPayload } from '../../../types'
 
@@ -102,6 +123,12 @@ const encodingSummary = computed(
   () =>
     MSG_ENCODING_OPTIONS.find((option) => option.value === props.model.encoding)?.label ||
     '跟随项目设置'
+)
+
+const scriptKindSummary = computed(
+  () =>
+    MSG_SCRIPT_KIND_OPTIONS.find((option) => option.value === props.model.scriptKind)?.label ||
+    '关卡对话'
 )
 
 /**

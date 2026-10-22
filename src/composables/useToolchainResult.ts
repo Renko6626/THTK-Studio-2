@@ -70,7 +70,9 @@ export function usePublishToolchainResult() {
 
     reports.publishToolResult({
       ownerKey: `${tool}:${operation}:${inputPath || ''}`,
-      source: 'toolchain',
+      // 用具体工具名而不是统一的 'toolchain'：Monaco 标记同步按 source 过滤，
+      // 混成一个名字后就分不出 thmsg / thecl 的诊断了。
+      source: tool,
       operation,
       scriptKind: SCRIPT_KIND[tool] || 'text',
       title,
@@ -80,7 +82,7 @@ export function usePublishToolchainResult() {
       diagnostics: diagnostics || []
     })
 
-    panels.showBottomPanel('output')
+    panels.showBottomPanel(diagnostics?.length ? 'problems' : 'output')
   }
 
   return { publishToolchainResult }

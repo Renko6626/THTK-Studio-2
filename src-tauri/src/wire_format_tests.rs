@@ -263,6 +263,25 @@ fn eclmap_parameter_type_field_is_renamed() {
 }
 
 #[test]
+fn msg_script_kind_serializes_as_lowercase_strings() {
+    use crate::modules::msg::MsgScriptKind;
+
+    assert_eq!(
+        serde_json::to_string(&MsgScriptKind::Stage).unwrap(),
+        "\"stage\""
+    );
+    assert_eq!(
+        serde_json::to_string(&MsgScriptKind::Ending).unwrap(),
+        "\"ending\""
+    );
+    // 前端 `src/types/toolchain.ts` 的 MsgScriptKind 必须同步。
+    assert_eq!(
+        serde_json::from_str::<MsgScriptKind>("\"ending\"").unwrap(),
+        MsgScriptKind::Ending
+    );
+}
+
+#[test]
 fn game_version_view_keys_are_pinned() {
     use crate::common::game_version_commands::GameVersionView;
 

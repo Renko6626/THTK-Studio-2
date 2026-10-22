@@ -2,7 +2,10 @@ import * as monaco from 'monaco-editor'
 import type { ProblemEntry } from '../../../stores/workbenchReports'
 
 
-const markerOwner = 'thtk-ecl-toolchain'
+const markerOwner = 'thtk-toolchain-diagnostics'
+
+/** 这些工具的 diagnostics 会画到 Monaco 上；thmsg 现在也会产出结构化诊断。 */
+const MARKER_SOURCES = new Set(['thecl', 'thmsg'])
 
 function toMarkerSeverity(severity: string): monaco.MarkerSeverity {
   if (severity === 'error') return monaco.MarkerSeverity.Error
@@ -53,7 +56,7 @@ export function syncToolchainDiagnosticsToModels(
   const markersByPath = new Map<string, ProblemEntry[]>()
 
   for (const problem of problemEntries || []) {
-    if (problem?.source !== 'thecl' || !problem?.path) continue
+    if (!problem?.path || !MARKER_SOURCES.has(problem.source)) continue
     const key = normalizePath(problem.path)
     const group = markersByPath.get(key) || []
     group.push(problem)

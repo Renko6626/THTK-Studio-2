@@ -13,6 +13,7 @@
 # （4/7/13 在 th18 变了，19 在 th16 变了，5/8/14/20 在 th14 变了）。
 # th19/th20 两张表则是按 thmsg 的 fallthrough 链算出来的，逐条精确。
 
+10  th10.msgm
 11  th11.msgm
 12  th11.msgm
 128 th11.msgm
