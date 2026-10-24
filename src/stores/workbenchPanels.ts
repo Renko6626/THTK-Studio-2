@@ -25,6 +25,8 @@ export interface WorkbenchPanelsSnapshot {
   activeBottomPanel?: string
   rightVisible?: boolean
   activeRightPanel?: string
+  wordWrap?: boolean
+  renderWhitespace?: boolean
   minimapVisible?: boolean
   bottomPanelHeight?: number
   leftSidebarWidth?: number
@@ -37,6 +39,8 @@ interface WorkbenchPanelsState {
   activeBottomPanel: BottomPanelKey
   rightVisible: boolean
   activeRightPanel: RightPanelKey
+  wordWrap: boolean
+  renderWhitespace: boolean
   minimapVisible: boolean
   bottomPanelHeight: number
   leftSidebarWidth: number
@@ -51,6 +55,8 @@ export const useWorkbenchPanelsStore = defineStore('workbenchPanels', {
     rightVisible: true,
     activeRightPanel: 'outline',
     minimapVisible: true,
+    wordWrap: false,
+    renderWhitespace: false,
     // ---- 可拖动尺寸(持久化)与最大化(会话内) ----
     bottomPanelHeight: 240,
     leftSidebarWidth: 280,
@@ -126,6 +132,14 @@ export const useWorkbenchPanelsStore = defineStore('workbenchPanels', {
       this.rightVisible = true
     },
 
+    toggleWordWrap() {
+      this.wordWrap = !this.wordWrap
+    },
+
+    toggleWhitespace() {
+      this.renderWhitespace = !this.renderWhitespace
+    },
+
     toggleMinimap() {
       this.minimapVisible = !this.minimapVisible
     },
@@ -148,6 +162,8 @@ export const useWorkbenchPanelsStore = defineStore('workbenchPanels', {
             ? 'outline'
             : (snapshot.activeRightPanel as RightPanelKey)
       }
+      if (typeof snapshot.wordWrap === 'boolean') this.wordWrap = snapshot.wordWrap
+      if (typeof snapshot.renderWhitespace === 'boolean') this.renderWhitespace = snapshot.renderWhitespace
       if (typeof snapshot.minimapVisible === 'boolean') {
         this.minimapVisible = snapshot.minimapVisible
       }
@@ -176,6 +192,8 @@ export const useWorkbenchPanelsStore = defineStore('workbenchPanels', {
         rightVisible: this.rightVisible,
         activeRightPanel: this.activeRightPanel,
         minimapVisible: this.minimapVisible,
+        wordWrap: this.wordWrap,
+        renderWhitespace: this.renderWhitespace,
         bottomPanelHeight: this.bottomPanelHeight,
         leftSidebarWidth: this.leftSidebarWidth,
         rightSidebarWidth: this.rightSidebarWidth

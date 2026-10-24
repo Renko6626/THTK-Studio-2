@@ -1,15 +1,17 @@
 <template>
-  <component
-    :is="resolvedView.component"
-    v-if="resolvedView"
-    class="w-full h-full"
-    @update-cursor="$emit('update-cursor', $event)"
-  />
+  <KeepAlive>
+    <component
+      :is="resolvedView.component"
+      v-if="resolvedView"
+      class="w-full h-full"
+      @update-cursor="$emit('update-cursor', $event)"
+    />
+  </KeepAlive>
 
   <!-- 没有工作区 → 欢迎页；有工作区但没开标签 → 轻量空状态，不重复欢迎页 -->
-  <WelcomeView v-else-if="!projectStore.rootPath" />
+  <WelcomeView v-if="!resolvedView && !projectStore.rootPath" />
 
-  <EmptyEditorState v-else />
+  <EmptyEditorState v-else-if="!resolvedView" />
 </template>
 
 <script setup lang="ts">

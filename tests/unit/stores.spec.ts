@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
+import { useWorkbenchPanelsStore } from '../../src/stores/workbenchPanels'
 import { useProjectStore } from '../../src/stores/project'
 import { useRecentProjectsStore } from '../../src/stores/recentProjects'
 import { useWorkbenchReportsStore } from '../../src/stores/workbenchReports'
@@ -210,5 +211,22 @@ describe('workbenchReports 容量上限', () => {
     for (const group of store.outputGroups) {
       expect(group.lines.length).toBeGreaterThan(0)
     }
+  })
+})
+
+
+describe('编辑器显示选项', () => {
+  it('从旧快照恢复时保留默认显示，新快照恢复用户选择', () => {
+    const store = useWorkbenchPanelsStore()
+    store.hydrate({ minimapVisible: false })
+    expect(store.wordWrap).toBe(false)
+    expect(store.renderWhitespace).toBe(false)
+    store.toggleWordWrap()
+    store.toggleWhitespace()
+    const snapshot = store.toSnapshot()
+    store.$reset()
+    store.hydrate(snapshot)
+    expect(store.wordWrap).toBe(true)
+    expect(store.renderWhitespace).toBe(true)
   })
 })

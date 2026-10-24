@@ -22,7 +22,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, h } from 'vue'
 import { NDropdown, useMessage, useDialog } from 'naive-ui'
 import { useEditorStore } from '../../stores/editor'
 import { useProjectStore } from '../../stores/project'
@@ -33,7 +33,7 @@ import { useToolchainSettingsStore } from '../../stores/toolchainSettings'
 import { useBuildDialogStore } from '../../stores/buildDialog'
 import { useWorkbenchZoomStore } from '../../stores/workbenchZoom'
 import { useWorkbenchReportsStore } from '../../stores/workbenchReports'
-import { dispatchEditorAction } from '../../composables/useEditorActionBridge'
+import { dispatchEditorAction, editorActionIds, type EditorAction } from '../../composables/useEditorActionBridge'
 import { useFileOperations } from '../../composables/useFileOperations'
 import { useProjectActions } from '../../composables/useProjectActions'
 import { useToolchainActions } from '../../composables/useToolchainActions'
@@ -119,6 +119,25 @@ function openMsgBuildDialog(mode: 'compile' | 'decompile') {
   buildDialogStore.openDialog({ tool: 'thmsg', mode, inputPath: path } as never)
 }
 
+// 快捷键采用 Monaco 默认绑定；入口始终通过既有动作桥交给编辑器执行。
+const isMac = navigator.userAgent.includes('Mac')
+const isLinux = navigator.userAgent.includes('Linux')
+const primaryKey = isMac ? '⌘' : 'Ctrl'
+function editorItem(label: string, action: EditorAction, shortcut = '') {
+  if (isLinux && action === 'copyLineDown') shortcut = 'Ctrl+Shift+Alt+↓'
+  if (isMac && action === 'gotoLine') shortcut = 'Control+G'
+  if (isMac && action === 'expandSelection') shortcut = 'Control+Shift+→'
+  if (isMac && action === 'shrinkSelection') shortcut = 'Control+Shift+←'
+  return {
+    key: `editor.${action}`,
+    disabled: !hasEditableTab.value,
+    label: () => h('span', { class: 'flex items-center justify-between gap-8 w-full' }, [
+      h('span', label),
+      shortcut ? h('span', { class: 'text-[11px] text-gray-500' }, shortcut.replaceAll('Ctrl', primaryKey)) : null
+    ])
+  }
+}
+
 const menus = computed(() => [
   {
     key: 'file',
@@ -143,20 +162,45 @@ const menus = computed(() => [
     key: 'edit',
     label: '编辑',
     options: [
-      { label: '撤销', key: 'edit.undo', disabled: !hasActiveTab.value },
-      { label: '重做', key: 'edit.redo', disabled: !hasEditableTab.value },
-      { type: 'divider', key: 'edit.divider.1' },
-      { label: '查找', key: 'edit.find', disabled: !hasEditableTab.value },
-      { label: '替换', key: 'edit.replace', disabled: !hasEditableTab.value },
-      { label: '查找下一个', key: 'edit.findNext', disabled: !hasEditableTab.value },
-      { label: '查找上一个', key: 'edit.findPrevious', disabled: !hasEditableTab.value }
+      editorItem('撤销', 'undo', 'Ctrl+Z'),
+      editorItem('重做', 'redo', 'Ctrl+Shift+Z'),
+      { type: 'divider', key: 'edit.divider.clipboard' },
+      editorItem('剪切', 'cut', 'Ctrl+X'),
+      editorItem('复制', 'copy', 'Ctrl+C'),
+      editorItem('粘贴', 'paste', 'Ctrl+V'),
+      { type: 'divider', key: 'edit.divider.find' },
+      editorItem('查找', 'find', 'Ctrl+F'),
+      editorItem('替换', 'replace', 'Ctrl+H'),
+      editorItem('查找下一个', 'findNext', 'F3'),
+      editorItem('查找上一个', 'findPrevious', 'Shift+F3'),
+      { type: 'divider', key: 'edit.divider.lines' },
+      editorItem('切换行注释', 'lineComment', 'Ctrl+/'),
+      {
+        label: '行操作', key: 'edit.lines', disabled: !hasEditableTab.value,
+        children: [
+          editorItem('增加缩进', 'indent', 'Ctrl+]'),
+          editorItem('减少缩进', 'outdent', 'Ctrl+['),
+          editorItem('向上移动行', 'moveLineUp', 'Alt+↑'),
+          editorItem('向下移动行', 'moveLineDown', 'Alt+↓'),
+          editorItem('向下复制行', 'copyLineDown', 'Shift+Alt+↓'),
+          editorItem('删除行', 'deleteLine', 'Ctrl+Shift+K')
+        ]
+      }
     ]
   },
   {
     key: 'selection',
     label: '选择',
     options: [
-      { label: '全选', key: 'selection.selectAll', disabled: !hasEditableTab.value }
+      editorItem('全选', 'selectAll', 'Ctrl+A'),
+      editorItem('选择整行', 'selectLine', 'Ctrl+L'),
+      editorItem('选择下一个匹配项', 'selectNextMatch', 'Ctrl+D'),
+      editorItem('选择全部匹配项', 'selectAllMatches', 'Ctrl+Shift+L'),
+      { type: 'divider', key: 'selection.divider.cursors' },
+      editorItem('在上方添加光标', 'addCursorAbove', isLinux ? 'Shift+Alt+↑' : 'Ctrl+Alt+↑'),
+      editorItem('在下方添加光标', 'addCursorBelow', isLinux ? 'Shift+Alt+↓' : 'Ctrl+Alt+↓'),
+      editorItem('扩大选区', 'expandSelection', 'Shift+Alt+→'),
+      editorItem('缩小选区', 'shrinkSelection', 'Shift+Alt+←')
     ]
   },
   {
@@ -166,7 +210,14 @@ const menus = computed(() => [
       { label: workbenchPanelsStore.bottomVisible ? '隐藏底部面板' : '显示底部面板', key: 'view.toggleBottomPanel' },
       { label: workbenchPanelsStore.rightVisible ? '隐藏右侧边栏' : '显示右侧边栏', key: 'view.toggleRightSidebar' },
       { label: workbenchPanelsStore.minimapVisible ? '隐藏代码缩略图' : '显示代码缩略图', key: 'view.toggleMinimap' },
-      { type: 'divider', key: 'view.divider.1' },
+      { label: workbenchPanelsStore.wordWrap ? '关闭自动换行（Alt+Z）' : '开启自动换行（Alt+Z）', key: 'view.toggleWordWrap' },
+      { label: workbenchPanelsStore.renderWhitespace ? '隐藏空白字符' : '显示空白字符', key: 'view.toggleWhitespace' },
+      { type: 'divider', key: 'view.divider.editor' },
+      editorItem('跳转到行 / 列', 'gotoLine', 'Ctrl+G'),
+      editorItem('跳转到匹配括号', 'gotoBracket', 'Ctrl+Shift+\\'),
+      editorItem('全部折叠', 'foldAll', 'Ctrl+K Ctrl+0'),
+      editorItem('全部展开', 'unfoldAll', 'Ctrl+K Ctrl+J'),
+      editorItem('编辑器命令面板', 'commandPalette', 'F1'),
       { type: 'divider', key: 'view.divider.zoom' },
       { label: `放大  (${zoomStore.label})`, key: 'view.zoomIn', disabled: !zoomStore.canZoomIn },
       { label: '缩小', key: 'view.zoomOut', disabled: !zoomStore.canZoomOut },
@@ -293,6 +344,11 @@ async function runGenerateAiPack() {
 }
 
 async function handleSelect(key: string) {
+  if (key.startsWith('editor.')) {
+    const action = key.slice('editor.'.length)
+    if (Object.hasOwn(editorActionIds, action)) dispatchEditorAction(action as EditorAction)
+    return
+  }
   switch (key) {
     case 'file.openFolder':
       await openFolder()
@@ -331,32 +387,17 @@ async function handleSelect(key: string) {
     case 'file.refresh':
       await projectStore.refresh()
       break
-    case 'edit.undo':
-      dispatchEditorAction('undo')
-      break
-    case 'edit.redo':
-      dispatchEditorAction('redo')
-      break
-    case 'edit.find':
-      dispatchEditorAction('find')
-      break
-    case 'edit.replace':
-      dispatchEditorAction('replace')
-      break
-    case 'edit.findNext':
-      dispatchEditorAction('findNext')
-      break
-    case 'edit.findPrevious':
-      dispatchEditorAction('findPrevious')
-      break
-    case 'selection.selectAll':
-      dispatchEditorAction('selectAll')
-      break
     case 'view.toggleBottomPanel':
       workbenchPanelsStore.toggleBottomPanel()
       break
     case 'view.toggleRightSidebar':
       workbenchPanelsStore.toggleRightPanel()
+      break
+    case 'view.toggleWordWrap':
+      workbenchPanelsStore.toggleWordWrap()
+      break
+    case 'view.toggleWhitespace':
+      workbenchPanelsStore.toggleWhitespace()
       break
     case 'view.toggleMinimap':
       workbenchPanelsStore.toggleMinimap()

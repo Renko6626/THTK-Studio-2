@@ -50,6 +50,9 @@
 
 当前实施计划：
 
+- [editor-usability-update.md](./editor-usability-update.md)
+  - Monaco 常用操作入口、显示选项和标签编辑状态完善
+
 - [dependency-management-plan-2026-10-23.md](./dependency-management-plan-2026-10-23.md)
   - Windows-first 依赖管理：thtk nightly 的安装/更新、ECL mapfile 托管与统一解析
 - [superpowers/plans/2026-07-13-mvp-project-workflow-closure.md](./superpowers/plans/2026-07-13-mvp-project-workflow-closure.md)

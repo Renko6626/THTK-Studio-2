@@ -3,14 +3,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch, shallowRef } from 'vue'
+import { ref, onMounted, onBeforeUnmount, onActivated, watch, shallowRef, nextTick } from 'vue'
 import * as monaco from 'monaco-editor'
 import { useEditorStore } from '../../stores/editor'
 import { useWorkbenchPanelsStore } from '../../stores/workbenchPanels'
 import { useWorkbenchReportsStore } from '../../stores/workbenchReports'
 import { useMessage } from 'naive-ui'
 import { ensureEclLanguageRegistered } from '../../services/languages/ecl/register'
-import { inferMonacoLanguageId } from '../../services/languages/dispatch'
+import { EditorModelSessions } from '../../services/workbench/editorModels'
+import { editorActionIds, type EditorAction } from '../../composables/useEditorActionBridge'
 import { ensureMsgLanguageRegistered } from '../../services/languages/msg/register'
 import { workbenchThemeName } from '../../services/languages/theme'
 import { ensureStdLanguageRegistered } from '../../services/languages/std/register'
@@ -33,22 +34,21 @@ const container = ref<HTMLElement | null>(null)
 
 // 使用 shallowRef 避免 Vue 深度代理 Monaco 对象导致性能问题
 const editorInstance = shallowRef<monaco.editor.IStandaloneCodeEditor | null>(null)
-const editorActionMap = {
-  undo: 'undo',
-  redo: 'redo',
-  find: 'actions.find',
-  replace: 'editor.action.startFindReplaceAction',
-  findNext: 'editor.action.nextMatchFindAction',
-  findPrevious: 'editor.action.previousMatchFindAction',
-  selectAll: 'editor.action.selectAll'
-} as const
-
-type EditorActionKey = keyof typeof editorActionMap
-
-// 模型缓存 Map: Map<path, ITextModel>
-// 这样切换 Tab 时不会丢失 Undo/Redo 历史
-const models = new Map<string, monaco.editor.ITextModel>()
 const diagnosticTimers = new Map<string, number>()
+const modelSessions = new EditorModelSessions((model) => {
+  const key = model.uri.toString()
+  const timer = diagnosticTimers.get(key)
+  if (timer !== undefined) window.clearTimeout(timer)
+  diagnosticTimers.delete(key)
+  clearEclStaticDiagnostics(model)
+  clearToolchainDiagnostics(model)
+  clearStaticProblemsForModel(model)
+})
+let displayedPath: string | null = null
+
+function allModels() {
+  return [...modelSessions.sessions.values()].map(session => session.model)
+}
 
 function scheduleModelDiagnostics(model: monaco.editor.ITextModel | null | undefined) {
   if (!model) return
@@ -85,15 +85,21 @@ function clearStaticProblemsForModel(model: monaco.editor.ITextModel | null | un
   reportsStore.replaceProblems(getEclStaticProblemOwnerKey(model.uri?.fsPath), [])
 }
 
-function runEditorAction(actionKey: EditorActionKey | string | undefined) {
+async function runEditorAction(actionKey: EditorAction | string | undefined) {
   const editor = editorInstance.value
-  if (!editor) return
-  const action = actionKey ? editorActionMap[actionKey as EditorActionKey] : undefined
+  if (!editor || editorStore.activeTab?.viewType !== 'text') return
+  const action = actionKey && Object.hasOwn(editorActionIds, actionKey)
+    ? editorActionIds[actionKey as EditorAction]
+    : undefined
   if (!action) return
   editor.focus()
   const editorAction = editor.getAction?.(action)
   if (editorAction?.run) {
-    void editorAction.run()
+    try {
+      await editorAction.run()
+    } catch (error) {
+      message.error(`编辑操作失败：${String(error)}`)
+    }
     return
   }
   editor.trigger('menu-bar', action, null)
@@ -133,7 +139,7 @@ onMounted(() => {
     fontSize: 13,
     fontFamily: "'Cascadia Code', 'Fira Code', Consolas, 'Courier New', monospace",
     fontLigatures: true,
-    wordWrap: 'off',
+    wordWrap: workbenchPanelsStore.wordWrap ? 'on' : 'off',
     wordBasedSuggestions: 'off',
     suggestOnTriggerCharacters: true,
     minimap: {
@@ -147,7 +153,7 @@ onMounted(() => {
     },
     scrollBeyondLastLine: false,
     fixedOverflowWidgets: true,
-    renderWhitespace: 'selection',
+    renderWhitespace: workbenchPanelsStore.renderWhitespace ? 'all' : 'selection',
     renderLineHighlight: 'all',
     guides: {
       indentation: true,
@@ -187,10 +193,10 @@ onMounted(() => {
 
   // 3. 绑定事件：内容修改
   editorInstance.value.onDidChangeModelContent(() => {
-    if (editorStore.activePath) {
+    if (displayedPath && editorStore.activePath === displayedPath) {
       const model = editorInstance.value?.getModel()
       if (model) {
-        editorStore.updateContent(editorStore.activePath, model.getValue())
+        editorStore.updateContent(displayedPath, model.getValue())
         scheduleModelDiagnostics(model)
       }
     }
@@ -224,6 +230,13 @@ onMounted(() => {
     runEditorAction('findPrevious')
   })
 
+  editorInstance.value.addAction({
+    id: 'thtk.toggleWordWrap',
+    label: '切换自动换行',
+    keybindings: [monaco.KeyMod.Alt | monaco.KeyCode.KeyZ],
+    run: () => workbenchPanelsStore.toggleWordWrap()
+  })
+
   // 初始加载
   updateEditorModel()
   window.addEventListener('thtk:editor-action', handleEditorAction)
@@ -232,7 +245,7 @@ onMounted(() => {
 
 // 监听 Tab 切换
 watch(
-  () => editorStore.activeTab,
+  () => [editorStore.activeTab?.path, editorStore.activeTab?.viewType, editorStore.activeTab?.language],
   () => {
     updateEditorModel()
   },
@@ -242,7 +255,7 @@ watch(
 watch(
   () => reportsStore.problemEntries,
   (entries) => {
-    syncToolchainDiagnosticsToModels([...models.values()], entries)
+    syncToolchainDiagnosticsToModels(allModels(), entries)
   },
   { deep: true }
 )
@@ -265,60 +278,56 @@ watch(
   }
 )
 
-// 核心逻辑：切换 Model
-function updateEditorModel() {
-  if (!editorInstance.value) return
-  const tab = editorStore.activeTab
+// KeepAlive 切回文本视图时，恢复可见尺寸，避免使用隐藏期间的布局。
+onActivated(() => {
+  void nextTick(() => editorInstance.value?.layout())
+})
 
-  if (!tab) {
-    const currentModel = editorInstance.value.getModel()
-    if (currentModel) {
-      clearEclStaticDiagnostics(currentModel)
-      clearStaticProblemsForModel(currentModel)
-    }
-    editorInstance.value.setModel(null)
+watch(
+  () => [workbenchPanelsStore.wordWrap, workbenchPanelsStore.renderWhitespace],
+  () => editorInstance.value?.updateOptions({
+    wordWrap: workbenchPanelsStore.wordWrap ? 'on' : 'off',
+    renderWhitespace: workbenchPanelsStore.renderWhitespace ? 'all' : 'selection'
+  })
+)
+
+// 内容由外部重载时也要同步；本编辑器的输入已经写入模型，无需重新绑定。
+watch(() => editorStore.activeTab?.content, () => {
+  const tab = editorStore.activeTab
+  if (tab?.viewType === 'text' && editorInstance.value?.getModel()?.getValue() !== tab.content) {
+    updateEditorModel()
+  }
+})
+
+watch(() => editorStore.tabs.map(tab => tab.path), () => {
+  updateEditorModel()
+  modelSessions.retain(editorStore.tabs.map(tab => tab.path))
+})
+
+function updateEditorModel() {
+  const editor = editorInstance.value
+  if (!editor) return
+  const previous = displayedPath ? modelSessions.sessions.get(displayedPath) : undefined
+  if (previous) previous.viewState = editor.saveViewState()
+
+  const tab = editorStore.activeTab
+  if (!tab || tab.viewType !== 'text') {
+    editor.setModel(null)
+    displayedPath = null
     return
   }
 
-  let model = models.get(tab.path)
-
-  // 如果 Model 不存在，创建一个新的
-  if (!model) {
-    const langId = inferMonacoLanguageId(tab)
-
-    model = monaco.editor.createModel(
-      tab.content,
-      langId,
-      monaco.Uri.file(tab.path) // 给 Monaco 一个虚拟路径
-    )
-    
-    models.set(tab.path, model)
-    syncToolchainDiagnosticsToModels([...models.values()], reportsStore.problemEntries)
-  } else {
-    const nextLanguageId = inferMonacoLanguageId(tab)
-    if (model.getLanguageId() !== nextLanguageId) {
-      monaco.editor.setModelLanguage(model, nextLanguageId)
-    }
-    // 如果 Store 里的内容被外部更新了（比如反编译覆盖），需要同步回 Model
-    // 注意：setValue 会清空 Undo 栈，仅在必要时调用
-    if (model.getValue() !== tab.content) {
-      model.setValue(tab.content)
-    }
-  }
-
-  // 切换编辑器显示的 Model
-  editorInstance.value.setModel(model)
-  scheduleModelDiagnostics(model)
-  syncStaticProblemsForModel(model)
-  
-  // 恢复焦点
-  editorInstance.value.focus()
-  
-  // 更新一次光标状态
-  const pos = editorInstance.value.getPosition()
-  if (pos) {
-    emit('update-cursor', { line: pos.lineNumber, col: pos.column })
-  }
+  const session = modelSessions.open(tab)
+  const switching = displayedPath !== tab.path
+  editor.setModel(session.model)
+  displayedPath = tab.path
+  if (switching && session.viewState) editor.restoreViewState(session.viewState)
+  scheduleModelDiagnostics(session.model)
+  syncStaticProblemsForModel(session.model)
+  syncToolchainDiagnosticsToModels(allModels(), reportsStore.problemEntries)
+  if (switching) editor.focus()
+  const pos = editor.getPosition()
+  if (pos) emit('update-cursor', { line: pos.lineNumber, col: pos.column })
 }
 
 onBeforeUnmount(() => {
@@ -326,16 +335,8 @@ onBeforeUnmount(() => {
   window.removeEventListener('thtk:editor-reveal-location', handleRevealLocation)
   diagnosticTimers.forEach((timerId) => window.clearTimeout(timerId))
   diagnosticTimers.clear()
-  // 销毁所有 Model 和编辑器
-  models.forEach(model => {
-    clearEclStaticDiagnostics(model)
-    clearToolchainDiagnostics(model)
-    clearStaticProblemsForModel(model)
-    model.dispose()
-  })
-  models.clear()
-  if (editorInstance.value) {
-    editorInstance.value.dispose()
-  }
+  editorInstance.value?.setModel(null)
+  modelSessions.dispose()
+  editorInstance.value?.dispose()
 })
 </script>
