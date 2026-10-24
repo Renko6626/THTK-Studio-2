@@ -114,6 +114,12 @@ export const useTerminalStore = defineStore('terminal', {
       showSession(id)
     },
 
+    renameSession(id: number, title: string) {
+      const trimmed = title.trim()
+      const session = this.sessions.find(session => session.id === id)
+      if (session && trimmed) session.title = trimmed
+    },
+
     markExited(id: number) {
       const session = this.sessions.find((s) => s.id === id)
       if (session) session.exited = true

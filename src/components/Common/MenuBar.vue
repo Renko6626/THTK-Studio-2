@@ -22,7 +22,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h } from 'vue'
+import { computed, h, nextTick } from 'vue'
 import { NDropdown, useMessage, useDialog } from 'naive-ui'
 import { useEditorStore } from '../../stores/editor'
 import { useProjectStore } from '../../stores/project'
@@ -33,6 +33,7 @@ import { useToolchainSettingsStore } from '../../stores/toolchainSettings'
 import { useBuildDialogStore } from '../../stores/buildDialog'
 import { useWorkbenchZoomStore } from '../../stores/workbenchZoom'
 import { useWorkbenchReportsStore } from '../../stores/workbenchReports'
+import { dispatchTerminalAction, type TerminalAction } from '../../composables/useTerminalActionBridge'
 import { dispatchEditorAction, editorActionIds, type EditorAction } from '../../composables/useEditorActionBridge'
 import { useFileOperations } from '../../composables/useFileOperations'
 import { useProjectActions } from '../../composables/useProjectActions'
@@ -137,6 +138,17 @@ function editorItem(label: string, action: EditorAction, shortcut = '') {
     ])
   }
 }
+
+const terminalMenuActions: { label: string; action: TerminalAction }[] = [
+  { label: '查找终端输出', action: 'find' },
+  { label: '复制终端选区', action: 'copy' },
+  { label: '粘贴到终端', action: 'paste' },
+  { label: '全选终端输出', action: 'selectAll' },
+  { label: '终端清屏', action: 'clear' },
+  { label: '滚到底部', action: 'scrollBottom' },
+  { label: '重命名终端', action: 'rename' },
+  { label: '关闭终端', action: 'close' }
+]
 
 const menus = computed(() => [
   {
@@ -263,7 +275,12 @@ const menus = computed(() => [
     key: 'terminal',
     label: '终端',
     options: [
-      { label: '新建终端', key: 'terminal.new' }
+      { label: '新建终端', key: 'terminal.new' },
+      ...terminalMenuActions.map(({ label, action }) => ({
+        label,
+        key: `terminal.action.${action}`,
+        disabled: !terminalStore.activeSession || (action === 'paste' && terminalStore.activeSession.exited)
+      }))
     ]
   }
 ])
@@ -344,6 +361,17 @@ async function runGenerateAiPack() {
 }
 
 async function handleSelect(key: string) {
+  if (key.startsWith('terminal.action.')) {
+    const action = terminalMenuActions.find(item => `terminal.action.${item.action}` === key)?.action
+    const id = terminalStore.activeSessionId
+    if (action && id != null) {
+      workbenchPanelsStore.showBottomPanel('terminal')
+      // 面板隐藏时可能未挂载，等它订阅动作后再发送，保留发起操作时的目标。
+      await nextTick()
+      dispatchTerminalAction(id, action)
+    }
+    return
+  }
   if (key.startsWith('editor.')) {
     const action = key.slice('editor.'.length)
     if (Object.hasOwn(editorActionIds, action)) dispatchEditorAction(action as EditorAction)

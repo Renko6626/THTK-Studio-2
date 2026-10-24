@@ -50,6 +50,9 @@
 
 当前实施计划：
 
+- [superpowers/plans/2026-10-25-terminal-usability.md](./superpowers/plans/2026-10-25-terminal-usability.md)
+  - 终端调研与计划：保留 xterm.js + Rust PTY，以官方插件补搜索、网址及常用操作
+
 - [editor-usability-update.md](./editor-usability-update.md)
   - Monaco 常用操作入口、显示选项和标签编辑状态完善
 

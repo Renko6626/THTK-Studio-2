@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
+import { useTerminalStore } from '../../src/stores/terminal'
 import { useWorkbenchPanelsStore } from '../../src/stores/workbenchPanels'
 import { useProjectStore } from '../../src/stores/project'
 import { useRecentProjectsStore } from '../../src/stores/recentProjects'
@@ -19,6 +20,10 @@ const removeRecentProject = vi.mocked(rawRemoveRecent)
 const saveProjectConfig = vi.mocked(rawSaveConfig)
 
 import { makeFileNode, makeProjectConfig } from '../helpers/fixtures'
+
+vi.mock('../../src/services/terminal/sessionRuntime', () => ({
+  openTerminalSession: vi.fn(), showSession: vi.fn(), disposeTerminalSession: vi.fn()
+}))
 
 vi.mock('../../src/api', () => ({
   openProject: vi.fn(),
@@ -228,5 +233,25 @@ describe('编辑器显示选项', () => {
     store.hydrate(snapshot)
     expect(store.wordWrap).toBe(true)
     expect(store.renderWhitespace).toBe(true)
+  })
+})
+
+
+describe('终端会话重命名', () => {
+  it('仅修改目标标题，保留活动会话和退出状态；空值保留原名', () => {
+    const store = useTerminalStore()
+    store.sessions = [
+      { id: 1, title: '原名', exited: true },
+      { id: 2, title: '另一个', exited: false }
+    ]
+    store.activeSessionId = 2
+    store.renameSession(1, '  构建日志  ')
+    expect(store.sessions).toEqual([
+      { id: 1, title: '构建日志', exited: true },
+      { id: 2, title: '另一个', exited: false }
+    ])
+    expect(store.activeSessionId).toBe(2)
+    store.renameSession(1, '   ')
+    expect(store.sessions[0].title).toBe('构建日志')
   })
 })

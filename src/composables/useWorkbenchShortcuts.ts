@@ -33,6 +33,8 @@ export function useWorkbenchShortcuts({
   const zoomStore = useWorkbenchZoomStore()
 
   function handleGlobalKeydown(event: KeyboardEvent) {
+    // 终端的保留快捷键由 xterm 自定义 handler 分派，其余按键交给 shell。
+    if (event.target instanceof Element && event.target.closest('.xterm')) return
     const key = event.key.toLowerCase()
     const editingFieldFocused = isEditableTarget(event.target)
 
