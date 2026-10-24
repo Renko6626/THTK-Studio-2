@@ -1,4 +1,4 @@
-import { getSettings, getEclMapSemantics } from '../../../api'
+import { getSettings, getEclMapSemantics, getDependencyStatus } from '../../../api'
 import type {
   EclInstructionSpec,
   EclMapSemanticData,
@@ -78,15 +78,95 @@ function resolveAgainstRoot(
   return isAbsolutePath(trimmed) ? trimmed : joinPath(projectRoot, trimmed)
 }
 
-function createCandidatePaths(version: string, roots: (string | null | undefined)[] = []): string[] {
-  if (!version) return []
+/**
+ * 内置基线的规范文件名，对应 Rust `dependencies::BUNDLED_ECL_MAPS`。
+ *
+ * 内置版本会先把规范名放进候选首位；注意 th095 的规范名是 `th095.eclm`，
+ * 但补零 stem 只对 id < 10 生效，所以不会额外生成 `095.eclm` / `095.eclmap`。
+ */
+const BUNDLED_MAP_FILE_BY_ID: Readonly<Record<number, string>> = {
+  6: 'th06.eclm',
+  7: 'th07.eclm',
+  8: 'th08.eclm',
+  9: 'th09.eclm',
+  95: 'th095.eclm',
+  10: 'th10.eclm',
+  103: 'th103.eclm',
+  11: 'th11.eclm',
+  12: 'th12.eclm',
+  125: 'th125.eclm',
+  15: 'th15.eclm',
+  18: 'th18.eclm',
+  185: 'th185.eclm',
+  19: 'th19.eclm',
+  20: 'th20.eclm'
+}
+
+/** 纯数字版本 id；无法解析时返回 null（不拿可疑值去拼文件路径） */
+function parseVersionId(version: string): number | null {
+  const trimmed = String(version || '').trim().toLowerCase().replace(/^th/, '')
+  if (!/^\d+$/.test(trimmed)) return null
+  return Number(trimmed)
+}
+
+/**
+ * 版本号在 map 文件名里的 stem 写法，与 Rust `dependencies::map_file_names` 一致：
+ * id < 10 用 `[id, 0id]`，其余只用 `[id]`。th095 的补零规范名由
+ * `BUNDLED_MAP_FILE_BY_ID` 单独提供，不在这里重复生成。
+ */
+function versionStems(version: string): string[] {
+  const id = parseVersionId(version)
+  if (id === null) return []
+
+  const stems = [String(id)]
+  if (id < 10) stems.push(`0${id}`)
+  return [...new Set(stems)]
+}
+
+/**
+ * 某个版本可能的 map 文件名，顺序与 Rust `dependencies::map_file_names` 对齐：
+ * 内置规范名（若有）> 每个 stem 的 `th{stem}.eclm` / `{stem}.eclm` / `{stem}.eclmap`。
+ */
+function mapFileNames(version: string): string[] {
+  const id = parseVersionId(version)
+  if (id === null) return []
+
+  const names: string[] = []
+  const push = (name: string) => {
+    if (!names.includes(name)) names.push(name)
+  }
+
+  const canonical = BUNDLED_MAP_FILE_BY_ID[id]
+  if (canonical) push(canonical)
+
+  for (const stem of versionStems(version)) {
+    push(`th${stem}.eclm`)
+    push(`${stem}.eclm`)
+    push(`${stem}.eclmap`)
+  }
+
+  return names
+}
+
+/**
+ * 把候选目录与文件名展开成实际路径。
+ *
+ * 目录由调用方按优先级预先展开（托管目录、有效 thtk 的 `maps/`），
+ * 这里不再自动追加 `maps`，避免同一目录被重复尝试、也避免把 thtkDir 根级
+ * 误当成 map 目录——Rust 的 `resolve_default_maps` 只查 `<thtkDir>/maps`。
+ */
+function createCandidatePaths(
+  version: string,
+  directories: (string | null | undefined)[] = []
+): string[] {
+  const names = mapFileNames(version)
+  if (!names.length) return []
 
   const candidates: string[] = []
-  for (const root of roots.filter(Boolean)) {
-    candidates.push(joinPath(root, `th${version}.eclm`))
-    candidates.push(joinPath(root, `${version}.eclm`))
-    candidates.push(joinPath(root, joinPath('maps', `th${version}.eclm`)))
-    candidates.push(joinPath(root, joinPath('maps', `${version}.eclm`)))
+  for (const directory of directories.filter(Boolean)) {
+    for (const name of names) {
+      candidates.push(joinPath(directory, name))
+    }
   }
 
   return [...new Set(candidates)]
@@ -121,21 +201,35 @@ export async function loadDefaultEclSemanticData({
 
   const globalMapPath = String(settings?.eclmap_path || '').trim()
 
-  // 按 thtk 目录推导 thXX.eclm 的候选位置。这里是"依次尝试"，和后端
-  // toolchain::effective_config 的"项目值直接顶掉全局值"不是同一套语义——
-  // 后端只需要挑一个 exe 目录，这里多试几个位置能少让用户手配一次。
-  const roots = [projectRoot, projectConfig?.toolchain?.thtkDir, settings?.thtk_dir]
+  // IDE 托管的 map（deps/maps/bundled）路径只从后端取，不在前端拼用户目录。
+  // 拿不到状态时只是少一级候选，项目/全局 map 与 thtk_dir 推导照常工作。
+  let bundledMapDir = ''
+  try {
+    const dependencyStatus = await getDependencyStatus()
+    bundledMapDir = String(dependencyStatus?.maps?.bundledDir || '').trim()
+  } catch {
+    bundledMapDir = ''
+  }
+
+  // 与 Rust resolve_default_maps 一致：内置基线 > 有效 thtkDir/maps。
+  // 项目目录里的 map 需要通过 mapPaths 显式指定；项目 thtkDir 非空时覆盖全局目录。
+  const effectiveThtkDir = projectConfig?.toolchain?.thtkDir?.trim() || settings?.thtk_dir?.trim()
+  const candidateDirs = [
+    bundledMapDir,
+    effectiveThtkDir ? joinPath(effectiveThtkDir, 'maps') : ''
+  ]
 
   let lastError: unknown = null
 
-  /** 全部加载并合并（项目声明的多份 map 是并列关系，都要进词表） */
-  async function loadAll(paths: string[]): Promise<LoadedMap[]> {
+  // 显式路径必须全部加载成功。与编译器保持相同输入，不发布残缺词表或静默换源。
+  async function loadExplicit(paths: string[]): Promise<LoadedMap[]> {
     const loaded: LoadedMap[] = []
     for (const path of paths) {
       try {
         loaded.push({ path, semantics: await getEclMapSemantics(path) })
       } catch (error) {
-        lastError = error
+        lastError = `无法加载 ECL map ${path}：${String(error)}`
+        return []
       }
     }
     return loaded
@@ -153,15 +247,11 @@ export async function loadDefaultEclSemanticData({
     return []
   }
 
-  // 三级回落。每一级整体失败才降级——项目里一条过期的 map 路径不该把整个
-  // ECL 语言服务打哑，哪怕用户的全局 eclmap 本来是好的。
-  let loaded = await loadAll(projectMapPaths)
-  if (!loaded.length && globalMapPath) {
-    loaded = await loadFirst([globalMapPath])
-  }
-  if (!loaded.length) {
-    loaded = await loadFirst(createCandidatePaths(version, roots))
-  }
+  const loaded = projectMapPaths.length
+    ? await loadExplicit(projectMapPaths)
+    : globalMapPath
+      ? await loadExplicit([globalMapPath])
+      : await loadFirst(createCandidatePaths(version, candidateDirs))
 
   if (!loaded.length) {
     return {

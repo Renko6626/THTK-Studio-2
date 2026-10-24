@@ -43,9 +43,11 @@ export function useEclSemanticVocabulary({
       }
 
       clearEclSemanticVocabulary(scopeKey)
-    } catch {
+      if (semanticData.error) showReloadNotice?.(semanticData.error)
+    } catch (error) {
       if (disposed || token !== loadingToken) return
       clearEclSemanticVocabulary(scopeKey)
+      showReloadNotice?.(`加载 ECL 词表失败：${String(error)}`)
     }
   }
 

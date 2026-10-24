@@ -1,6 +1,7 @@
 // src-tauri/src/common/mod.rs
 
 pub mod cmd_runner;
+pub mod dependencies;
 pub mod file_watcher;
 pub mod game_version;
 pub mod game_map;

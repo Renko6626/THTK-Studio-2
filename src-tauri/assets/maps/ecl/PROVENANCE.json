@@ -1,0 +1,35 @@
+{
+  "source": {
+    "repository": "https://github.com/zero318/TouhouMaps",
+    "commit": "0673f4221f5e975842162e07cd7b765fc7570ebd",
+    "rawBaseUrl": "https://raw.githubusercontent.com/zero318/TouhouMaps/0673f4221f5e975842162e07cd7b765fc7570ebd/",
+    "license": "Unlicense",
+    "licenseUrl": "https://github.com/zero318/TouhouMaps/blob/0673f4221f5e975842162e07cd7b765fc7570ebd/LICENSE",
+    "retrievedAt": "2026-10-24"
+  },
+  "normalization": {
+    "rule": "源文件均归一为 th{version}.eclm；除文件名外不做任何改动——不重排、不改写 map 语法、不调整换行。",
+    "byteIdentical": true
+  },
+  "files": [
+    { "version": 6,   "target": "th06.eclm",  "source": "th06.eclm",      "sha256": "1c10252cab9c7b9455dd02d71994d63bc9a057e3413286e6f2a39ac32eb4b228" },
+    { "version": 7,   "target": "th07.eclm",  "source": "th07.eclm",      "sha256": "a48e3615ae3f4ff697344aab0cc36134b4bbd2bbe7490cbaa0cf66540cd0a619" },
+    { "version": 8,   "target": "th08.eclm",  "source": "th08.eclm",      "sha256": "ff3b1e85dc41734706b1424abb23d3dc4ef287d314d632ea18e6c05d3f73955e" },
+    { "version": 9,   "target": "th09.eclm",  "source": "th09.eclm",      "sha256": "06fb61d2da23ac6f9c951bcb73d548d4e96e74a0c808879f7303849d7e7a3160" },
+    { "version": 95,  "target": "th095.eclm", "source": "th095.eclm",     "sha256": "2daca77a3bcf552f239a7142e743ba8aaacc22ef61e944bad0e6d0da4625b56b" },
+    { "version": 10,  "target": "th10.eclm",  "source": "th10.eclm",      "sha256": "e7849eca8ad0229829b06affd166c6f816134a09b560a3a27e4ea0e60baeb1ce" },
+    { "version": 103, "target": "th103.eclm", "source": "th103.eclm",     "sha256": "1d0b9b3d26da8716505e00d5663a62a38ac87059fbc114355c7643feb9608bce" },
+    { "version": 11,  "target": "th11.eclm",  "source": "th11.eclm",      "sha256": "d09f495fb1ac17188fb65745f5401b152d7c25a483cd66f02599d0c92a0c379d" },
+    { "version": 12,  "target": "th12.eclm",  "source": "th12.eclm",      "sha256": "914d9edce47847d29253a9fd20e34e2cbbdc20abfabb9045d2b93e7698b49065" },
+    { "version": 125, "target": "th125.eclm", "source": "th125.eclm",     "sha256": "f12476a42d1ebfa9120bbbd3d31da1f27b049f61a81f500a079dd8c11fc6b7a1" },
+    { "version": 15,  "target": "th15.eclm",  "source": "th15_thtk.eclm", "sha256": "4d77f91fae53b8d3e0e388a53aaea55f5064df80727096cfebf3a5f591d55da1" },
+    { "version": 18,  "target": "th18.eclm",  "source": "th18_thtk.eclm", "sha256": "d0395721f1c879fcf9ec742cbd73d76568a9677f4ff45b56230f356c5d2212dc" },
+    { "version": 185, "target": "th185.eclm", "source": "th185_thtk.eclm","sha256": "5b842ec6128f3789349f761aee9bddaad035f9f250cb4c23e4f03621456537ef" },
+    { "version": 19,  "target": "th19.eclm",  "source": "th19_thtk.eclm", "sha256": "a3e350da1c3fce9ec31bae1e258b087c636cda05890925ec83cc4ab21f4c51ce" },
+    { "version": 20,  "target": "th20.eclm",  "source": "th20_thtk.eclm", "sha256": "a273be8a0ed1ef29a742da501afc0575de23cccd5dc3fa0dbab791753a456e7e" }
+  ],
+  "notBundled": {
+    "versions": [13, 14, 128, 143, 16, 165, 17],
+    "reason": "该 commit 的 TouhouMaps 没有这些作品的 ECL map（th13/th14/th143/th16/th165/th17/th128）。不放入占位或未审计来源，UI 标为缺失。"
+  }
+}

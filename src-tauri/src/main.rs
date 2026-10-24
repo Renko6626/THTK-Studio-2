@@ -11,6 +11,7 @@ mod utils;
 mod wire_format_tests;
 
 use app_state::AppState;
+use common::dependencies;
 use common::file_watcher;
 use common::fs_utils;
 use common::project_config;
@@ -69,6 +70,29 @@ fn get_toolchain_statuses(state: State<AppState>) -> Vec<toolchain::ToolchainSta
     let root = current_project_root(&state);
     let config = toolchain::effective_config(&state.config_manager.get_config(), root.as_deref());
     toolchain::get_all_toolchain_statuses(&config)
+}
+
+/// 只读依赖状态：thtk 手动配置 + 内置 ECL map 覆盖情况。
+///
+/// 返回前幂等释放内置 map 基线，保证 `maps.bundledDir` 里确实有文件——
+/// 否则前端拿到的路径只是"可能的位置"，thecl 也解析不到。
+/// 释放失败不丢弃整条状态：thtk 配置信息仍然有用，错误会作为 warning
+/// 返回，maps 覆盖则自然显示为空（尚未释放的目录本来就没有文件）。
+/// 这里只读取现有配置，不写入任何设置（安装/更新属于后续 milestone）。
+#[tauri::command(async)]
+fn get_dependency_status(state: State<AppState>) -> Result<dependencies::DependencyStatus, String> {
+    let root = current_project_root(&state);
+    let config = toolchain::effective_config(&state.config_manager.get_config(), root.as_deref());
+    let manager = dependencies::DependencyManager::for_current_user()?;
+
+    let release = manager.ensure_bundled_maps();
+    let mut status = manager.status(&config);
+    if let Err(error) = release {
+        status
+            .warnings
+            .push(format!("释放内置 ECL map 失败：{error}"));
+    }
+    Ok(status)
 }
 
 // ----------------------------------------------------------------
@@ -324,6 +348,17 @@ fn main() {
         // 注册 State
         .manage(app_state)
         .setup(|app| {
+            // 首次启动把内置 ECL map 释放到数据目录。失败不阻止应用启动——
+            // 只影响托管 map 的默认解析，用户仍可手动配置 eclmap_path / mapPaths。
+            match dependencies::DependencyManager::for_current_user() {
+                Ok(manager) => {
+                    if let Err(error) = manager.ensure_bundled_maps() {
+                        eprintln!("[dependencies] 释放内置 ECL map 失败: {error}");
+                    }
+                }
+                Err(error) => eprintln!("[dependencies] 无法确定数据目录: {error}"),
+            }
+
             // MCP server：绑定很快，同步等待拿到端口；失败不阻止应用启动
             use tauri::Manager;
             let handle = app.handle().clone();
@@ -344,6 +379,7 @@ fn main() {
             save_settings,
             get_toolchain_status,
             get_toolchain_statuses,
+            get_dependency_status,
             common::game_version_commands::list_game_versions,
             modules::msg::commands::export_raw_dmsg,
             modules::thstd::commands::export_raw_dstd,

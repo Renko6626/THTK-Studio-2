@@ -164,6 +164,74 @@ fn toolchain_status_is_camel_case() {
 }
 
 #[test]
+fn dependency_status_is_camel_case() {
+    use crate::common::dependencies::{
+        DependencySource, DependencyStatus, MapDependencyStatus, ThtkDependencyStatus,
+    };
+
+    let status = DependencyStatus {
+        thtk: ThtkDependencyStatus {
+            source: DependencySource::Manual,
+            configured: true,
+            available: false,
+            thtk_dir: "D:/thtk".to_string(),
+            resolved_path: "D:/thtk/thecl.exe".to_string(),
+            message: String::new(),
+            license: "BSD-style (retain COPYING)".to_string(),
+        },
+        maps: MapDependencyStatus {
+            source: DependencySource::Bundled,
+            bundled_dir: "/data/deps/maps/bundled".to_string(),
+            covered_versions: vec![6, 20],
+            missing_versions: vec![17],
+            source_commit: "0673f422".to_string(),
+            license: "Unlicense".to_string(),
+        },
+        warnings: vec![],
+    };
+
+    // 前端 src/types/dependencies.ts 逐字段照着这些键写
+    assert_eq!(json_keys(&status), sorted(&["thtk", "maps", "warnings"]));
+    assert_eq!(
+        json_keys(&status.thtk),
+        sorted(&[
+            "source",
+            "configured",
+            "available",
+            "thtkDir",
+            "resolvedPath",
+            "message",
+            "license"
+        ])
+    );
+    assert_eq!(
+        json_keys(&status.maps),
+        sorted(&[
+            "source",
+            "bundledDir",
+            "coveredVersions",
+            "missingVersions",
+            "sourceCommit",
+            "license"
+        ])
+    );
+
+    // source 是前端做字符串匹配的契约
+    assert_eq!(
+        serde_json::to_value(DependencySource::Bundled).unwrap(),
+        serde_json::json!("bundled")
+    );
+    assert_eq!(
+        serde_json::to_value(DependencySource::Manual).unwrap(),
+        serde_json::json!("manual")
+    );
+    assert_eq!(
+        serde_json::to_value(DependencySource::None).unwrap(),
+        serde_json::json!("none")
+    );
+}
+
+#[test]
 fn diagnostic_column_is_nullable() {
     use crate::modules::ecl::error_parser::Diagnostic;
 

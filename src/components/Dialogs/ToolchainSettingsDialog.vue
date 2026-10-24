@@ -34,6 +34,65 @@
       </n-form>
 
       <div class="rounded border border-white/8 bg-[#151515]">
+        <div class="flex items-center justify-between border-b border-white/8 px-4 py-3">
+          <div class="text-[11px] uppercase tracking-[0.12em] text-gray-500">依赖</div>
+          <div class="text-[11px] text-gray-600">只读 · 自动安装/更新将在后续实现</div>
+        </div>
+
+        <div v-if="dependencyLoading" class="px-4 py-4 text-sm text-gray-400">
+          正在读取依赖状态…
+        </div>
+        <div v-else-if="dependencyError" class="px-4 py-4 text-sm text-[#f48771] break-all">
+          读取依赖状态失败：{{ dependencyError }}
+        </div>
+        <div v-else-if="dependencyStatus" class="divide-y divide-white/6">
+          <div class="grid grid-cols-[110px_1fr] gap-x-4 gap-y-3 px-4 py-4 text-sm">
+            <div class="text-gray-400">thtk</div>
+            <div class="space-y-1">
+              <div class="flex items-center gap-2">
+                <span :class="thtkStateClass">
+                  {{ thtkStateLabel }}
+                </span>
+                <span class="text-xs text-gray-600">{{ dependencyStatus.thtk.license }}</span>
+              </div>
+              <div class="break-all text-gray-300">
+                {{ dependencyStatus.thtk.resolvedPath || '手动路径为空' }}
+              </div>
+              <div class="text-xs text-gray-500">{{ dependencyStatus.thtk.message }}</div>
+            </div>
+
+            <div class="text-gray-400">ECL map</div>
+            <div class="space-y-1">
+              <div class="flex items-center gap-2">
+                <span :class="dependencyStatus.maps.source === 'bundled' ? 'text-[#89d185]' : 'text-[#f48771]'">
+                  {{ dependencyStatus.maps.source === 'bundled' ? '内置基线已就绪' : '内置基线未释放' }}
+                </span>
+                <span class="text-xs text-gray-600">
+                  {{ dependencyStatus.maps.license }} · {{ dependencyStatus.maps.sourceCommit.slice(0, 7) }}
+                </span>
+              </div>
+              <div class="break-all text-xs text-gray-500">{{ dependencyStatus.maps.bundledDir }}</div>
+              <div class="text-xs text-gray-400">
+                覆盖：
+                <span class="text-gray-200">{{ formatVersions(dependencyStatus.maps.coveredVersions) || '无' }}</span>
+              </div>
+              <div class="text-xs text-gray-400">
+                缺失：
+                <span class="text-[#f48771]">{{ formatVersions(dependencyStatus.maps.missingVersions) || '无' }}</span>
+                <span v-if="dependencyStatus.maps.missingVersions.length" class="text-gray-500">
+                  （请在项目设置的 mapPaths 里手动提供）
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="dependencyStatus.warnings.length" class="space-y-1 px-4 py-3 text-xs text-[#e2c08d]">
+            <div v-for="warning in dependencyStatus.warnings" :key="warning">- {{ warning }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="rounded border border-white/8 bg-[#151515]">
         <div class="border-b border-white/8 px-4 py-3 text-[11px] uppercase tracking-[0.12em] text-gray-500">
           工具链总览
         </div>
@@ -136,8 +195,8 @@ import {
   NSelect,
   useMessage
 } from 'naive-ui'
-import { getSettings, getToolchainStatuses, saveSettings } from '../../api'
-import type { ToolchainStatus, UserSettingsPayload } from '../../types'
+import { getDependencyStatus, getSettings, getToolchainStatuses, saveSettings } from '../../api'
+import type { DependencyStatus, ToolchainStatus, UserSettingsPayload } from '../../types'
 import type { ToolchainDescriptor } from '../../services/toolchains/registry'
 import { useToolchainSettingsStore } from '../../stores/toolchainSettings'
 import { getRegisteredToolchains } from '../../services/toolchains/registry'
@@ -162,12 +221,29 @@ const saving = ref(false)
 const gameVersionsStore = useGameVersionsStore()
 const versionOptions = computed(() => gameVersionsStore.allOptions)
 
+// 依赖卡片只读：数据全部来自后端 get_dependency_status，表单不回写这些字段。
+const dependencyStatus = ref<DependencyStatus | null>(null)
+const dependencyError = ref('')
+const dependencyLoading = ref(false)
+
+const thtkStateLabel = computed(() => {
+  const thtk = dependencyStatus.value?.thtk
+  if (!thtk) return ''
+  // available 只表示解析出的 thecl.exe 存在，版本探测仍由工具链总览负责。
+  if (thtk.available) return '已找到 thecl.exe'
+  return thtk.configured ? '已配置但未找到 thecl.exe' : '未配置'
+})
+
+const thtkStateClass = computed(() =>
+  dependencyStatus.value?.thtk.available ? 'text-[#89d185]' : 'text-[#f48771]'
+)
+
 watch(
   () => toolchainSettingsStore.visible,
   async (visible) => {
     if (!visible) return
     await loadSettings()
-    await refreshStatuses()
+    await Promise.all([refreshStatuses(), loadDependencies()])
   }
 )
 
@@ -196,6 +272,23 @@ async function refreshStatuses() {
   } finally {
     checking.value = false
   }
+}
+
+async function loadDependencies() {
+  dependencyLoading.value = true
+  dependencyError.value = ''
+  try {
+    dependencyStatus.value = await getDependencyStatus()
+  } catch (error) {
+    dependencyStatus.value = null
+    dependencyError.value = String(error)
+  } finally {
+    dependencyLoading.value = false
+  }
+}
+
+function formatVersions(versions: number[]) {
+  return versions.map(version => `th${version}`).join(' / ')
 }
 
 function updateToolOverride(toolId: string, value: string) {
@@ -252,7 +345,7 @@ async function save() {
       theme: form.theme
     })
     window.dispatchEvent(new CustomEvent('thtk:toolchain-settings-saved'))
-    await refreshStatuses()
+    await Promise.all([refreshStatuses(), loadDependencies()])
     message.success('工具链设置已保存')
     closeDialog()
   } catch (error) {

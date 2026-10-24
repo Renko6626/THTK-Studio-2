@@ -3,18 +3,43 @@ import {
   loadDefaultEclSemanticData,
   detectEclmapVersionMismatch
 } from '../../src/services/languages/ecl/semantic-loader'
-import { getEclMapSemantics as rawGetSemantics, getSettings as rawGetSettings } from '../../src/api'
+import { getEclMapSemantics as rawGetSemantics, getSettings as rawGetSettings, getDependencyStatus as rawGetDependencyStatus } from '../../src/api'
 
 const getEclMapSemantics = vi.mocked(rawGetSemantics)
 const getSettings = vi.mocked(rawGetSettings)
+const getDependencyStatus = vi.mocked(rawGetDependencyStatus)
 
-import type { EclMapSemanticData } from '../../src/types'
+import type { DependencyStatus, EclMapSemanticData } from '../../src/types'
 import { makeAppConfig, makeProjectConfig } from '../helpers/fixtures'
 
 vi.mock('../../src/api', () => ({
   getSettings: vi.fn(),
-  getEclMapSemantics: vi.fn()
+  getEclMapSemantics: vi.fn(),
+  getDependencyStatus: vi.fn()
 }))
+
+function dependencyStatusWithBundledDir(bundledDir: string): DependencyStatus {
+  return {
+    thtk: {
+      source: 'none',
+      configured: false,
+      available: false,
+      thtkDir: '',
+      resolvedPath: '',
+      message: '',
+      license: ''
+    },
+    maps: {
+      source: 'bundled',
+      bundledDir,
+      coveredVersions: [],
+      missingVersions: [],
+      sourceCommit: '',
+      license: 'Unlicense'
+    },
+    warnings: []
+  }
+}
 
 function semanticsWith(names: string[]): EclMapSemanticData {
   return {
@@ -34,6 +59,7 @@ function semanticsWith(names: string[]): EclMapSemanticData {
 
 describe('ECL 词表加载', () => {
   beforeEach(() => {
+    vi.resetAllMocks()
     getSettings.mockResolvedValue(
       makeAppConfig({
         default_game_version: '20',
@@ -41,6 +67,8 @@ describe('ECL 词表加载', () => {
         thtk_dir: '/global/thtk'
       })
     )
+    // 默认不带托管目录，保持既有用例的候选集合不变
+    getDependencyStatus.mockResolvedValue(dependencyStatusWithBundledDir(''))
   })
 
   it('合并项目声明的全部 map，而不是只取第一条', async () => {
@@ -62,8 +90,7 @@ describe('ECL 词表加载', () => {
     expect(result.resolvedPath).toContain('extra.eclm')
   })
 
-  it('项目 map 全部加载失败时继续回落到全局配置', async () => {
-    // 项目里一条过期路径不该把整个 ECL 语言服务打哑
+  it('显式项目 map 失效时报告错误，不回落到全局配置', async () => {
     getEclMapSemantics.mockImplementation(async (path) => {
       if (path === '/global/th20.eclm') return semanticsWith(['global_ins'])
       throw new Error(`missing ${path}`)
@@ -74,7 +101,9 @@ describe('ECL 词表加载', () => {
       projectConfig: makeProjectConfig({ mapPaths: ['maps/gone.eclm'] })
     })
 
-    expect(result.instructions.map(i => i.name)).toEqual(['global_ins'])
+    expect(result.instructions).toEqual([])
+    expect(result.error).toContain('/proj/maps/gone.eclm')
+    expect(getEclMapSemantics).not.toHaveBeenCalledWith('/global/th20.eclm')
   })
 
   it('项目版本优先于全局默认版本', async () => {
@@ -163,9 +192,57 @@ describe('ECL 词表加载', () => {
     expect(getEclMapSemantics).toHaveBeenCalledWith('/abs/a.eclm')
   })
 
+  it('未显式配置时忽略项目目录的同名 map，使用内置基线', async () => {
+    getSettings.mockResolvedValue(makeAppConfig({ default_game_version: '20' }))
+    getDependencyStatus.mockResolvedValue(dependencyStatusWithBundledDir('/bundled'))
+    getEclMapSemantics.mockImplementation(async (path) => {
+      if (path === '/bundled/th20.eclm') return semanticsWith(['bundled_ins'])
+      if (path.startsWith('/proj/')) return semanticsWith(['project_ins'])
+      throw new Error(`missing ${path}`)
+    })
+    const result = await loadDefaultEclSemanticData({ projectRoot: '/proj' })
+    expect(result.instructions.map(i => i.name)).toEqual(['bundled_ins'])
+  })
+
+  it('项目 map 部分失效时不发布残缺词表', async () => {
+    getEclMapSemantics.mockImplementation(async (path) => {
+      if (path === '/proj/base.eclm') return semanticsWith(['base_ins'])
+      throw new Error('file missing')
+    })
+    const result = await loadDefaultEclSemanticData({
+      projectRoot: '/proj',
+      projectConfig: makeProjectConfig({ mapPaths: ['base.eclm', 'missing.eclm'] })
+    })
+    expect(result.instructions).toEqual([])
+    expect(result.error).toContain('/proj/missing.eclm')
+  })
+
+  it('全局显式 map 失效时不改用可用的内置基线', async () => {
+    getDependencyStatus.mockResolvedValue(dependencyStatusWithBundledDir('/bundled'))
+    getEclMapSemantics.mockImplementation(async (path) => {
+      if (path === '/bundled/th20.eclm') return semanticsWith(['bundled_ins'])
+      throw new Error('file missing')
+    })
+    const result = await loadDefaultEclSemanticData({})
+    expect(result.instructions).toEqual([])
+    expect(result.error).toContain('/global/th20.eclm')
+  })
+
+  it('项目 thtkDir 覆盖全局目录，缺失时不混用全局 map', async () => {
+    getSettings.mockResolvedValue(makeAppConfig({ default_game_version: '20', thtk_dir: '/global/thtk' }))
+    getEclMapSemantics.mockImplementation(async (path) => {
+      if (path === '/global/thtk/maps/th20.eclm') return semanticsWith(['global_ins'])
+      throw new Error('file missing')
+    })
+    const result = await loadDefaultEclSemanticData({
+      projectConfig: makeProjectConfig({ toolchain: { thtkDir: '/project/thtk' } })
+    })
+    expect(result.instructions).toEqual([])
+  })
+
   it('没有任何 map 可用时返回空词表并带上最后一次错误', async () => {
     getEclMapSemantics.mockRejectedValue(new Error('nope'))
-    getSettings.mockResolvedValue(makeAppConfig({ default_game_version: '20' }))
+    getSettings.mockResolvedValue(makeAppConfig({ default_game_version: '20', thtk_dir: '/thtk' }))
 
     const result = await loadDefaultEclSemanticData({ projectRoot: '/proj', projectConfig: null })
 
@@ -219,5 +296,91 @@ describe('ECL 词表加载', () => {
 
     expect(result.instructions).toHaveLength(1)
     expect(result.instructions[0].opcode).toBe(99)
+  })
+
+  describe('IDE 托管 map', () => {
+    beforeEach(() => {
+      // 去掉全局 eclmap，才能观察到托管目录这一级
+      getSettings.mockResolvedValue(
+        makeAppConfig({ default_game_version: '20', thtk_dir: '/global/thtk' })
+      )
+    })
+
+    it('使用后端返回的 bundledDir，且排在 thtk_dir 推导之前', async () => {
+      getDependencyStatus.mockResolvedValue(
+        dependencyStatusWithBundledDir('/data/deps/maps/bundled')
+      )
+      getEclMapSemantics.mockImplementation(async (path) => {
+        if (path === '/data/deps/maps/bundled/th20.eclm') return semanticsWith(['bundled_ins'])
+        if (path === '/global/thtk/maps/th20.eclm') return semanticsWith(['thtk_ins'])
+        throw new Error(`missing ${path}`)
+      })
+
+      const result = await loadDefaultEclSemanticData({ projectRoot: null, projectConfig: null })
+
+      expect(result.instructions.map(i => i.name)).toEqual(['bundled_ins'])
+      expect(getEclMapSemantics).not.toHaveBeenCalledWith('/global/thtk/maps/th20.eclm')
+    })
+
+    it('补零命名的基线（th06 / th095）也能命中', async () => {
+      getDependencyStatus.mockResolvedValue(
+        dependencyStatusWithBundledDir('/data/deps/maps/bundled')
+      )
+      getSettings.mockResolvedValue(makeAppConfig({ default_game_version: '6' }))
+      getEclMapSemantics.mockImplementation(async (path) => {
+        if (path === '/data/deps/maps/bundled/th06.eclm') return semanticsWith(['th06_ins'])
+        throw new Error(`missing ${path}`)
+      })
+
+      const result = await loadDefaultEclSemanticData({ projectRoot: null, projectConfig: null })
+
+      expect(result.instructions.map(i => i.name)).toEqual(['th06_ins'])
+    })
+
+    it('th095 只命中规范名 th095.eclm，不生成 095.eclm / 095.eclmap', async () => {
+      getDependencyStatus.mockResolvedValue(
+        dependencyStatusWithBundledDir('/data/deps/maps/bundled')
+      )
+      getSettings.mockResolvedValue(makeAppConfig({ default_game_version: '95' }))
+      getEclMapSemantics.mockImplementation(async (path) => {
+        if (path === '/data/deps/maps/bundled/th095.eclm') return semanticsWith(['th095_ins'])
+        throw new Error(`missing ${path}`)
+      })
+
+      const result = await loadDefaultEclSemanticData({ projectRoot: null, projectConfig: null })
+
+      expect(result.instructions.map(i => i.name)).toEqual(['th095_ins'])
+      const attempted = getEclMapSemantics.mock.calls.map(([path]) => path)
+      // 与 Rust map_file_names 一致：95 的 stem 只有 "95"，补零形式仅来自规范名
+      expect(attempted).toContain('/data/deps/maps/bundled/th095.eclm')
+      expect(attempted).not.toContain('/data/deps/maps/bundled/095.eclm')
+      expect(attempted).not.toContain('/data/deps/maps/bundled/095.eclmap')
+    })
+
+    it('thtkDir 根级同名 map 不参与候选，只查 maps/ 子目录', async () => {
+      getDependencyStatus.mockResolvedValue(dependencyStatusWithBundledDir(''))
+      getEclMapSemantics.mockImplementation(async (path) => {
+        if (path === '/global/thtk/th20.eclm') return semanticsWith(['root_level_ins'])
+        if (path === '/global/thtk/maps/th20.eclm') return semanticsWith(['maps_ins'])
+        throw new Error(`missing ${path}`)
+      })
+
+      const result = await loadDefaultEclSemanticData({ projectRoot: null, projectConfig: null })
+
+      expect(result.instructions.map(i => i.name)).toEqual(['maps_ins'])
+      expect(getEclMapSemantics).not.toHaveBeenCalledWith('/global/thtk/th20.eclm')
+    })
+
+    it('依赖状态不可用时仍回落到 thtk_dir 推导', async () => {
+      getDependencyStatus.mockRejectedValue(new Error('command not available'))
+      getEclMapSemantics.mockImplementation(async (path) => {
+        if (path === '/global/thtk/maps/th20.eclm') return semanticsWith(['thtk_ins'])
+        throw new Error(`missing ${path}`)
+      })
+
+      const result = await loadDefaultEclSemanticData({ projectRoot: null, projectConfig: null })
+
+      expect(result.instructions.map(i => i.name)).toEqual(['thtk_ins'])
+    })
   })
 })

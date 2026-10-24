@@ -50,6 +50,8 @@
 
 当前实施计划：
 
+- [dependency-management-plan-2026-10-23.md](./dependency-management-plan-2026-10-23.md)
+  - Windows-first 依赖管理：thtk nightly 的安装/更新、ECL mapfile 托管与统一解析
 - [superpowers/plans/2026-07-13-mvp-project-workflow-closure.md](./superpowers/plans/2026-07-13-mvp-project-workflow-closure.md)
   - 第一阶段 MVP 收尾：项目配置 UI、最近项目、欢迎流程与安全的项目切换
 

@@ -52,7 +52,7 @@ export interface EclMapSemanticData {
 /**
  * `loadDefaultEclSemanticData` 的返回值：在后端数据之上补了实际解析到的路径
  * 与失败原因。多份 map 合并时 `resolvedPath` 是用 " + " 连起来的。
- * 全部候选都失败时返回空词表并带 `error`。
+ * 显式 map 任一加载失败，或全部默认候选失败时，返回空词表并带 `error`。
  */
 export interface LoadedEclSemanticData extends Partial<EclMapSemanticData> {
   version: string
