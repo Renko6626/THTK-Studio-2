@@ -29,24 +29,17 @@ pub async fn get_truth_source_definitions(
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .clone();
-    let ctx = crate::common::toolchain::effective_context(
-        &state.config_manager.get_config(),
-        root.as_deref(),
-    );
+    let config = state.config_manager.get_config();
     tauri::async_runtime::spawn_blocking(move || {
-        let game = crate::common::game_version::resolve_from(
-            ctx.project.as_ref(),
-            &ctx.config,
-            script_kind.tool(),
-        )?;
-        source_definitions(
-            game,
-            script_kind,
+        let context = super::compiler::resolve_script_context(
+            &config,
             root.as_deref(),
-            ctx.project.as_ref(),
+            None,
+            script_kind,
             &input_path,
-            &source_text,
-        )
+            None,
+        )?;
+        source_definitions_for_context(&context, script_kind, &input_path, &source_text)
     })
     .await
     .map_err(|e| e.to_string())?
@@ -60,12 +53,38 @@ pub fn source_definitions(
     path: &str,
     text: &str,
 ) -> Result<TruthDefinitions, String> {
-    let mut paths = super::catalog::map_paths(game, kind, root, project)?;
+    let paths = super::catalog::map_paths(game, kind, root, project)?;
+    definitions_with_maps(game, kind, &paths, path, text)
+}
+
+/// Shared resolved project context, with file pragmas applied relative to the source.
+pub fn source_definitions_for_context(
+    context: &script_check::ScriptContext,
+    kind: TruthScriptKind,
+    path: &str,
+    text: &str,
+) -> Result<TruthDefinitions, String> {
+    definitions_with_maps(context.game_version, kind, &context.map_paths, path, text)
+}
+
+fn definitions_with_maps(
+    game: u32,
+    kind: TruthScriptKind,
+    project_maps: &[PathBuf],
+    path: &str,
+    text: &str,
+) -> Result<TruthDefinitions, String> {
+    let mut paths = project_maps.to_vec();
     let cwd = std::path::Path::new(path)
         .parent()
-        .unwrap_or(std::path::Path::new(root.unwrap_or(".")));
+        .unwrap_or(std::path::Path::new("."));
     paths.extend(super::source::pragma_maps(text, cwd)?);
     let mut definitions = load_truth_maps(game, kind, &paths)?;
+    let baseline = load_truth_maps(
+        game,
+        kind,
+        &super::catalog::map_paths(game, kind, None, None)?,
+    )?;
     let descriptions = match kind {
         TruthScriptKind::Msg if game == 19 => {
             include_str!("../../../assets/maps/th19.msgm.zh.json")
@@ -102,7 +121,18 @@ pub fn source_definitions(
         if kind == TruthScriptKind::Msg && [143, 165].contains(&game) && instruction.opcode == 33 {
             continue;
         }
-        instruction.description = docs.get(&doc_opcode.to_string()).cloned();
+        let original = baseline
+            .instructions
+            .iter()
+            .find(|i| i.opcode == instruction.opcode);
+        instruction.description = docs.get(&doc_opcode.to_string()).filter(|_| original.is_some()).map(|description| {
+            if original.is_some_and(|i| i.signature != instruction.signature) {
+                format!("原版 th{game} 签名 {} 的行为：{description} 当前 map 已改写签名，参数含义以项目定义为准。",
+                    original.and_then(|i| i.signature.as_deref()).unwrap_or("未知"))
+            } else {
+                description.clone()
+            }
+        });
     }
     Ok(definitions)
 }
@@ -110,6 +140,35 @@ pub fn source_definitions(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn custom_signatures_scope_vanilla_descriptions_but_renames_preserve_them() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("custom.msgm"),
+            "!msgmap\n!ins_names\n17 projectText\n11 projectPause\n!ins_signatures\n17 SS\n",
+        )
+        .unwrap();
+        let defs = source_definitions(
+            18,
+            TruthScriptKind::Msg,
+            None,
+            None,
+            dir.path().join("new.msgspec").to_str().unwrap(),
+            "#pragma mapfile \"custom.msgm\"\n",
+        )
+        .unwrap();
+        let text = defs.instructions.iter().find(|i| i.opcode == 17).unwrap();
+        assert_eq!(text.signature.as_deref(), Some("SS"));
+        assert!(text
+            .description
+            .as_deref()
+            .unwrap()
+            .contains("当前 map 已改写签名"));
+        let pause = defs.instructions.iter().find(|i| i.opcode == 11).unwrap();
+        assert_eq!(pause.name.as_deref(), Some("projectPause"));
+        assert!(pause.description.as_deref().unwrap().contains("等待玩家"));
+        assert!(!pause.description.as_deref().unwrap().contains("改写"));
+    }
     #[test]
     fn descriptions_match_th10_numbering_and_th20_ending() {
         let msg = source_definitions(

@@ -93,14 +93,29 @@ pub struct ScriptOperationParams {
     pub output_path: Option<String>,
     /// MSG/END binary encoding: shift-jis / gbk / utf-8. Source is always UTF-8.
     pub encoding: Option<String>,
+    /// Unsaved UTF-8 source. Only supported with operation=check.
+    pub source_text: Option<String>,
 }
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct ScriptLookupParams {
     pub kind: crate::modules::truth::maps::TruthScriptKind,
     /// Source path provides the pragma map context.
     pub source_path: String,
-    /// Name substring or opcode; empty lists available instructions (up to 50).
+    /// Name substring or exact opcode; empty lists all instructions with pagination.
     pub query: String,
+    /// Unsaved source; source_path still anchors relative pragma maps.
+    pub source_text: Option<String>,
+    #[schemars(default = "default_lookup_offset")]
+    pub offset: Option<usize>,
+    #[schemars(default = "default_lookup_limit", range(min = 1, max = 200))]
+    pub limit: Option<usize>,
+}
+
+fn default_lookup_offset() -> Option<usize> {
+    Some(0)
+}
+fn default_lookup_limit() -> Option<usize> {
+    Some(50)
 }
 
 #[tool_router]
@@ -129,7 +144,7 @@ impl ThtkMcp {
     }
 
     #[tool(
-        description = "获取 THTK-Studio 工作区信息：项目根目录、默认游戏版本、工具（thecl/trumsg/thanm/trustd/thdat）的可用状态与版本。"
+        description = "获取 THTK-Studio 工作区信息：项目根目录、默认游戏版本、工具（thecl/trumsg/thanm/trustd/thdat）的可用状态与版本，以及各 MSG/END/STD 配置、检查器和生成资料路径。"
     )]
     async fn get_workspace_info(&self) -> Result<CallToolResult, McpError> {
         let config = self.config();
@@ -220,7 +235,7 @@ impl ThtkMcp {
     }
 
     #[tool(
-        description = "使用项目配置执行 truth MSG/END/STD 检查、编译或反编译。operation 为 check/compile/decompile；源码使用 .msgspec/.endspec/.stdspec。修改后先 check；GBK 通过 encoding 指定。"
+        description = "使用项目配置执行 truth MSG/END/STD 检查、编译或反编译。operation 为 check/compile/decompile；源码使用 .msgspec/.endspec/.stdspec。check 可传 source_text 检查未保存源码；返回 success=false 表示源码检查或编译失败，诊断与原始输出在结果中。GBK 通过 encoding 指定。"
     )]
     async fn run_script(
         &self,
@@ -237,6 +252,7 @@ impl ThtkMcp {
                 p.input_path,
                 p.output_path,
                 p.encoding,
+                p.source_text,
             )
         })
         .await
@@ -246,7 +262,7 @@ impl ThtkMcp {
     }
 
     #[tool(
-        description = "查询 truth 脚本实际使用的指令名字、参数、枚举和中文说明，合并项目 map 与源码 pragma。MSG 与 END 分开；写指令前先查此工具。"
+        description = "查询 truth 脚本实际使用的指令名字、参数、枚举和中文说明，合并项目 map 与源码 pragma。MSG 与 END 分开；需要项目的精确签名时使用。支持未保存源码及新文件路径；offset/limit 分页，默认 50 项，最多 200 项，枚举完整返回。"
     )]
     async fn lookup_script_semantics(
         &self,
@@ -255,7 +271,16 @@ impl ThtkMcp {
         let config = self.config();
         let root = self.project_root();
         let value = tokio::task::spawn_blocking(move || {
-            tools::lookup_script(&config, root.as_deref(), p.kind, &p.source_path, &p.query)
+            tools::lookup_script(
+                &config,
+                root.as_deref(),
+                p.kind,
+                &p.source_path,
+                &p.query,
+                p.source_text.as_deref(),
+                p.offset,
+                p.limit,
+            )
         })
         .await
         .map_err(|e| tool_error(e.to_string()))?
@@ -377,6 +402,30 @@ pub async fn start(app: AppHandle) -> Result<McpServerInfo, String> {
 mod tests {
     use super::{bind_preferred, with_bearer_auth};
     use std::io::{Read, Write};
+
+    #[test]
+    fn script_schemas_expose_optional_buffers_and_pagination_defaults() {
+        let schema =
+            serde_json::to_value(rmcp::schemars::schema_for!(super::ScriptLookupParams)).unwrap();
+        assert_eq!(schema["properties"]["offset"]["default"], 0);
+        assert_eq!(schema["properties"]["limit"]["default"], 50);
+        assert_eq!(schema["properties"]["limit"]["minimum"], 1);
+        assert_eq!(schema["properties"]["limit"]["maximum"], 200);
+        let required = schema["required"].as_array().unwrap();
+        for field in ["source_text", "offset", "limit"] {
+            assert!(!required.iter().any(|v| v == field));
+            assert!(schema["properties"].get(field).is_some());
+        }
+        let operation =
+            serde_json::to_value(rmcp::schemars::schema_for!(super::ScriptOperationParams))
+                .unwrap();
+        assert!(operation["properties"].get("source_text").is_some());
+        assert!(!operation["required"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v == "source_text"));
+    }
 
     #[tokio::test]
     async fn bind_preferred_falls_back_when_port_taken() {

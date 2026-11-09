@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
-import type { EclResult, TruthAnalysis, TruthDefinitions, TruthScriptKind } from '../../types'
+import type { EclResult, TruthAnalysis, TruthAssistPackResult, TruthDefinitions, TruthScriptKind } from '../../types'
 
 /** Paths are explicit and ordered; no builtin or environment maps are injected. */
 export function getTruthMapDefinitions(
@@ -17,7 +17,9 @@ export function analyzeTruthSource(sourceText: string): Promise<TruthAnalysis> {
   return invoke('analyze_truth_source', { sourceText })
 }
 
-export function generateTruthAssistPack(): Promise<string> { return invoke('generate_truth_assist_pack') }
+export function generateTruthAssistPack(force = false): Promise<TruthAssistPackResult> {
+  return invoke('generate_truth_assist_pack', { force })
+}
 
 export function checkTruthSource(inputPath: string, scriptKind: TruthScriptKind, sourceText: string): Promise<EclResult> {
   return invoke('check_truth_source', { inputPath, scriptKind, sourceText })

@@ -54,7 +54,30 @@ pub fn workspace_info(config: &AppConfig, project_root: Option<&str>) -> Value {
         })
         .collect();
 
+    let script_profiles: Vec<Value> = [
+        crate::modules::truth::maps::TruthScriptKind::Msg,
+        crate::modules::truth::maps::TruthScriptKind::Ending,
+        crate::modules::truth::maps::TruthScriptKind::Std,
+    ].into_iter().map(|kind| {
+        let path = Path::new(project_root.unwrap_or(".")).join(format!("untitled.{}", kind.extension()));
+        match crate::modules::truth::compiler::resolve_script_context(
+            config, project_root, None, kind, &path.to_string_lossy(), None,
+        ) {
+            Ok(context) => {
+                let available = context.tool_path.is_file();
+                json!({"kind": kind, "gameVersion": context.game_version, "encoding": context.encoding,
+                    "mapPaths": context.map_paths, "toolPath": context.tool_path, "available": available,
+                    "message": if available { None } else { Some("工具文件不存在") }})
+            }
+            Err(message) => json!({"kind": kind, "gameVersion": null, "encoding": null,
+                "mapPaths": [], "toolPath": null, "available": false, "message": message}),
+        }
+    }).collect();
+    let checker = toolchain::bundled_checker_path().filter(|p| p.is_file());
     json!({
+        "scriptProfiles": script_profiles,
+        "checkerPath": checker,
+        "referenceRoot": reference_root(project_root),
         "projectRoot": project_root,
         "defaultGameVersion": effective_toolchain_config(config, project_root).version,
         "toolchains": toolchains,
@@ -238,6 +261,150 @@ mod tests {
     }
 
     #[test]
+    fn script_lookup_supports_new_files_pragmas_pagination_and_complete_enums() {
+        use crate::modules::truth::maps::TruthScriptKind;
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().to_str().unwrap();
+        project_config::save_project_config(
+            root,
+            &project_config::ProjectConfig {
+                game_version: "18".into(),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let path = dir.path().join("new.stdspec");
+        let path = path.to_str().unwrap();
+        std::fs::write(
+            dir.path().join("custom.stdm"),
+            "!stdmap\n!ins_names\n3 projectCamera\n",
+        )
+        .unwrap();
+        let config = AppConfig::default();
+        let buffer = "#pragma mapfile \"custom.stdm\"\n";
+        let custom = lookup_script(
+            &config,
+            Some(root),
+            TruthScriptKind::Std,
+            path,
+            "projectCamera",
+            Some(buffer),
+            None,
+            None,
+        )
+        .unwrap();
+        assert_eq!(custom["total"], 1);
+        assert_eq!(custom["instructions"][0]["opcode"], 3);
+        assert!(custom["sourceContext"].as_str().unwrap().contains("传入"));
+        assert_eq!(custom["instructions"][0]["referencePath"], Value::Null);
+        let full = lookup_script(
+            &config,
+            Some(root),
+            TruthScriptKind::Std,
+            path,
+            "",
+            None,
+            None,
+            Some(200),
+        )
+        .unwrap();
+        assert!(full["sourceContext"].as_str().unwrap().contains("尚未创建"));
+        let mut collected = Vec::new();
+        let mut offset = Some(0);
+        while let Some(start) = offset {
+            let page = lookup_script(
+                &config,
+                Some(root),
+                TruthScriptKind::Std,
+                path,
+                "",
+                None,
+                Some(start),
+                Some(7),
+            )
+            .unwrap();
+            assert_eq!(page["total"], full["total"]);
+            assert_eq!(page["enums"], full["enums"]);
+            collected.extend(page["instructions"].as_array().unwrap().iter().cloned());
+            offset = page["nextOffset"].as_u64().map(|n| n as usize);
+        }
+        assert_eq!(collected, *full["instructions"].as_array().unwrap());
+        let end = lookup_script(
+            &config,
+            Some(root),
+            TruthScriptKind::Std,
+            path,
+            "",
+            None,
+            Some(usize::MAX),
+            None,
+        )
+        .unwrap();
+        assert!(end["instructions"].as_array().unwrap().is_empty());
+        assert!(end["nextOffset"].is_null());
+        assert!(lookup_script(
+            &config,
+            Some(root),
+            TruthScriptKind::Std,
+            path,
+            "",
+            None,
+            None,
+            Some(201)
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn script_profiles_keep_kinds_separate_and_do_not_hide_unsupported_ending() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().to_str().unwrap();
+        project_config::save_project_config(
+            root,
+            &project_config::ProjectConfig {
+                game_version: "18".into(),
+                map_paths: vec!["ecl-only.eclm".into()],
+                script_maps: project_config::ScriptMaps {
+                    msg: vec!["dialog.msgm".into()],
+                    ending: vec!["credits.endm".into()],
+                    std: vec!["stage.stdm".into()],
+                },
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let info = workspace_info(&AppConfig::default(), Some(root));
+        assert!(info.get("defaultGameVersion").is_some());
+        assert_eq!(info["toolchains"].as_array().unwrap().len(), 5);
+        let profiles = info["scriptProfiles"].as_array().unwrap();
+        for (index, file) in ["dialog.msgm", "credits.endm", "stage.stdm"]
+            .iter()
+            .enumerate()
+        {
+            let paths = profiles[index]["mapPaths"].as_array().unwrap();
+            assert_eq!(paths.len(), 2);
+            assert!(paths[1].as_str().unwrap().ends_with(file));
+        }
+        project_config::save_project_config(
+            root,
+            &project_config::ProjectConfig {
+                game_version: "8".into(),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let info = workspace_info(&AppConfig::default(), Some(root));
+        assert_eq!(info["scriptProfiles"][0]["gameVersion"], 8);
+        assert_eq!(info["scriptProfiles"][1]["available"], false);
+        assert!(info["scriptProfiles"][1]["message"]
+            .as_str()
+            .unwrap()
+            .contains("8"));
+        assert_eq!(info["scriptProfiles"][2]["gameVersion"], 8);
+        assert!(info["referenceRoot"].is_null());
+    }
+
+    #[test]
     fn lookup_by_name_substring() {
         let dir = tempfile::tempdir().expect("tempdir");
         let map_path = write_sample_map(&dir);
@@ -314,6 +481,11 @@ mod tests {
     }
 }
 
+pub fn reference_root(root: Option<&str>) -> Option<std::path::PathBuf> {
+    root.map(|r| Path::new(r).join(".claude/skills/touhou-truth-scripts/references"))
+        .filter(|p| p.is_dir())
+}
+
 pub fn run_script(
     config: &AppConfig,
     root: Option<&str>,
@@ -322,41 +494,43 @@ pub fn run_script(
     input: String,
     output: Option<String>,
     encoding: Option<String>,
+    source_text: Option<String>,
 ) -> Result<Value, String> {
-    use crate::modules::truth::compiler::{self, ScriptMode, ScriptRequest};
-    let ctx = toolchain::effective_context(config, root);
-    let check = operation == "check";
-    let mode = match operation {
-        "compile" | "check" => ScriptMode::Compile,
-        "decompile" => ScriptMode::Decompile,
-        _ => return Err("Unknown script operation".into()),
+    use crate::modules::truth::{
+        check,
+        compiler::{self, ScriptMode, ScriptRequest},
     };
-    let temp = std::env::temp_dir().join(format!("thtk-truth-check-{}", uuid::Uuid::new_v4()));
-    let mut result = compiler::run(
-        &ctx.config,
-        root,
-        ctx.project.as_ref(),
-        &ScriptRequest {
-            mode,
-            kind,
-            input_path: input,
-            output_path: if check {
-                Some(temp.to_string_lossy().into_owned())
-            } else {
-                output
-            },
-            encoding,
-        },
-    );
-    if check {
-        if temp.exists() {
-            std::fs::remove_file(&temp).map_err(|e| e.to_string())?;
-        }
-        result.output_path = None;
+    if source_text.is_some() && operation != "check" {
+        return Err("source_text 仅支持 check 操作".into());
     }
+    let result = if operation == "check" {
+        let text = match source_text {
+            Some(text) => text,
+            None => std::fs::read_to_string(&input).map_err(|e| format!("{input}: {e}"))?,
+        };
+        check::check_with_encoding(config, root, None, &input, kind, &text, encoding.as_deref())?
+    } else {
+        let mode = match operation {
+            "compile" => ScriptMode::Compile,
+            "decompile" => ScriptMode::Decompile,
+            _ => return Err("Unknown script operation".into()),
+        };
+        compiler::run(
+            config,
+            root,
+            None,
+            &ScriptRequest {
+                mode,
+                kind,
+                input_path: input,
+                output_path: output,
+                encoding,
+            },
+        )
+    };
     let mut value = serde_json::to_value(result).map_err(|e| e.to_string())?;
-    if check {
-        value["checkOnly"] = serde_json::json!(true);
+    if operation == "check" {
+        value["checkOnly"] = json!(true);
     }
     Ok(value)
 }
@@ -367,18 +541,31 @@ pub fn lookup_script(
     kind: crate::modules::truth::maps::TruthScriptKind,
     path: &str,
     query: &str,
+    source_text: Option<&str>,
+    offset: Option<usize>,
+    limit: Option<usize>,
 ) -> Result<Value, String> {
-    let ctx = toolchain::effective_context(config, root);
-    let game =
-        crate::common::game_version::resolve_from(ctx.project.as_ref(), &ctx.config, kind.tool())?;
-    let text = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
-    let mut data = crate::modules::truth::commands::source_definitions(
-        game,
-        kind,
-        root,
-        ctx.project.as_ref(),
-        path,
-        &text,
+    let offset = offset.unwrap_or(0);
+    let limit = limit.unwrap_or(50);
+    if !(1..=200).contains(&limit) {
+        return Err("limit 必须为 1–200".into());
+    }
+    let context = crate::modules::truth::compiler::resolve_script_context(
+        config, root, None, kind, path, None,
+    )?;
+    let (text, source_context) = match source_text {
+        Some(text) => (text.to_string(), "使用传入的未保存源码及其 pragma map"),
+        None => match std::fs::read_to_string(path) {
+            Ok(text) => (text, "使用磁盘源码及其 pragma map"),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => (
+                String::new(),
+                "源码尚未创建，使用项目定义，未解析文件 pragma",
+            ),
+            Err(e) => return Err(format!("{path}: {e}")),
+        },
+    };
+    let mut data = crate::modules::truth::commands::source_definitions_for_context(
+        &context, kind, path, &text,
     )?;
     let q = query.trim().to_lowercase();
     data.instructions.retain(|i| {
@@ -386,6 +573,28 @@ pub fn lookup_script(
             || i.opcode.to_string() == q
             || i.aliases.iter().any(|s| s.to_lowercase().contains(&q))
     });
-    data.instructions.truncate(50);
-    serde_json::to_value(data).map_err(|e| e.to_string())
+    data.instructions.sort_by_key(|i| i.opcode);
+    let total = data.instructions.len();
+    data.instructions = data
+        .instructions
+        .into_iter()
+        .skip(offset)
+        .take(limit)
+        .collect();
+    let next = offset.saturating_add(data.instructions.len());
+    let mut value = serde_json::to_value(data).map_err(|e| e.to_string())?;
+    value["total"] = json!(total);
+    value["nextOffset"] = if next < total {
+        json!(next)
+    } else {
+        Value::Null
+    };
+    value["sourceContext"] = json!(source_context);
+    let reference = reference_root(root)
+        .map(|p| p.join(format!("{}.md", kind.as_str())))
+        .filter(|p| p.is_file());
+    for instruction in value["instructions"].as_array_mut().unwrap() {
+        instruction["referencePath"] = json!(reference);
+    }
+    Ok(value)
 }

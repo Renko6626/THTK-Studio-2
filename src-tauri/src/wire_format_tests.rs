@@ -56,6 +56,32 @@ fn truth_map_definitions_match_frontend_contract() {
     );
 }
 
+#[test]
+fn truth_assist_pack_matches_frontend_contract() {
+    use crate::modules::truth::ai_pack::TruthAssistPackResult;
+    let result = TruthAssistPackResult {
+        skill_path: String::new(),
+        skill_written: true,
+        skill_existed: false,
+        reference_files: vec![],
+        project_rules_path: String::new(),
+        project_rules_written: true,
+        suggested_rules_text: String::new(),
+    };
+    assert_eq!(
+        json_keys(&result),
+        sorted(&[
+            "skillPath",
+            "skillWritten",
+            "skillExisted",
+            "referenceFiles",
+            "projectRulesPath",
+            "projectRulesWritten",
+            "suggestedRulesText"
+        ])
+    );
+}
+
 /// 取序列化后的顶层键，排序以便稳定比较
 fn json_keys<T: Serialize>(value: &T) -> Vec<String> {
     let json = serde_json::to_value(value).expect("结构体必须能序列化");

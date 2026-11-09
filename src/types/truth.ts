@@ -59,3 +59,14 @@ export interface TruthTimelineEntry {
   endLine: number
   nodes: TruthTimelineNode[]
 }
+
+/** Rust modules/truth/ai_pack.rs. */
+export interface TruthAssistPackResult {
+  skillPath: string
+  skillWritten: boolean
+  skillExisted: boolean
+  referenceFiles: string[]
+  projectRulesPath: string
+  projectRulesWritten: boolean
+  suggestedRulesText: string
+}
