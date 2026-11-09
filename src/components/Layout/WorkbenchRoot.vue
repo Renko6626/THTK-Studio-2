@@ -4,13 +4,14 @@
     :show-right-sidebar="workbenchPanelsStore.rightVisible"
     :show-bottom-panel="workbenchPanelsStore.bottomVisible"
   >
+    <template #titlebar><MenuBar /></template>
+
     <template #left-sidebar>
       <FileTree />
     </template>
 
     <template #topbar>
-      <div class="h-[68px] flex flex-col">
-        <MenuBar />
+      <div class="h-9 flex flex-col">
         <TabGroup />
       </div>
     </template>
@@ -65,6 +66,7 @@ import { useProjectStore } from '../../stores/project'
 import { useTerminalStore } from '../../stores/terminal'
 import { useWorkbenchPanelsStore } from '../../stores/workbenchPanels'
 import { useWorkbenchZoomStore } from '../../stores/workbenchZoom'
+import { useWindowCloseGuard } from '../../composables/useWindowCloseGuard'
 import { useBeforeUnloadGuard } from '../../composables/useBeforeUnloadGuard'
 import { useEclSemanticVocabulary } from '../../composables/useEclSemanticVocabulary'
 import { useFileWatcher } from '../../composables/useFileWatcher'
@@ -129,8 +131,23 @@ useFileWatcher({
 
 useMcpBridge()
 
-useBeforeUnloadGuard({
+const { closingApproved } = useWindowCloseGuard({
   hasDirtyTabs,
+  flushSnapshots,
+  showError: text => message.error(text),
+  confirmClose: () => new Promise<boolean>(resolve => {
+    dialog.warning({
+      title: '有未保存的修改',
+      content: '未保存的修改可能丢失，仍要退出吗？请先保存需要保留的内容。',
+      positiveText: '仍然退出', negativeText: '取消', maskClosable: false,
+      onPositiveClick: () => resolve(true), onNegativeClick: () => resolve(false),
+      onClose: () => resolve(false), onEsc: () => resolve(false)
+    })
+  })
+})
+
+useBeforeUnloadGuard({
+  hasDirtyTabs: () => hasDirtyTabs() && !closingApproved.value,
   flushSnapshots
 })
 

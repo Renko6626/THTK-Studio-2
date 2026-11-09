@@ -1,49 +1,31 @@
 <template>
-  <div class="h-full flex flex-col bg-[#181818]">
-    <!-- 只留计数（tab 上没有这个信息），标题不重复画 -->
-    <div class="h-8 pl-3 pr-1 flex items-center justify-between shrink-0">
-      <div class="flex items-center gap-3 text-[11px] text-[#9d9d9d]">
-        <span class="text-[#f48771]">{{ reportsStore.errorCount }} 个错误</span>
-        <span class="text-[#dcdcaa]">{{ reportsStore.warningCount }} 个警告</span>
+  <div class="h-full flex flex-col bg-[#1e1e1e] text-[#cccccc]">
+    <div class="h-7 pl-5 pr-2 flex items-center justify-between shrink-0 text-[11px]">
+      <div class="flex items-center gap-3 text-[#9d9d9d]">
+        <span class="flex items-center gap-1"><n-icon :size="14" class="text-[#f48771]"><ErrorCircle16Regular /></n-icon>{{ reportsStore.errorCount }}</span>
+        <span class="flex items-center gap-1"><n-icon :size="14" class="text-[#cca700]"><Warning16Regular /></n-icon>{{ reportsStore.warningCount }}</span>
       </div>
-      <button type="button" class="panel-text-action" @click="reportsStore.clearProblems()">
-        清空
-      </button>
+      <button type="button" class="panel-action" title="清空问题" aria-label="清空问题" @click="reportsStore.clearProblems()"><n-icon :size="16"><Delete16Regular /></n-icon></button>
     </div>
-
-    <div class="flex-1 overflow-auto">
-      <button
-        v-for="problem in sortedProblems"
-        :key="problem.id"
-        type="button"
-        class="w-full text-left px-3 py-2 border-b border-white/6 border-l-2 border-l-transparent bg-transparent hover:bg-[#1b1d1f] hover:border-l-[#3b82f6]"
-        @click="openProblem(problem)"
-      >
-        <div class="flex items-center gap-2 text-sm">
-          <span class="rounded px-1.5 py-0.5 text-[10px] font-semibold tracking-[0.08em]" :class="severityClass(problem.severity)">
-            {{ problem.severity.toUpperCase() }}
-          </span>
-          <span class="rounded-sm px-1.5 py-0.5 text-[10px] font-semibold tracking-[0.08em] uppercase" :class="sourceClass(problem.source)">
-            {{ sourceLabel(problem.source) }}
-          </span>
-          <span class="text-gray-100 truncate">{{ problem.message }}</span>
-        </div>
-        <div class="mt-1 text-[11px] text-gray-500 flex items-center gap-3">
-          <span>{{ sourceDetail(problem) }}</span>
-          <span>{{ problem.scriptKind }}</span>
-          <span class="truncate">{{ problem.path || 'Unknown file' }}</span>
-          <span>Ln {{ problem.line }}, Col {{ problem.column || 1 }}</span>
-        </div>
+    <div class="flex-1 overflow-auto pb-2">
+      <button v-for="problem in sortedProblems" :key="problem.id" type="button" class="problem-row" :title="`${problem.message}\n${problem.path || ''}\n${sourceDetail(problem)}`" @click="openProblem(problem)">
+        <n-icon :size="16" :class="severityClass(problem.severity)">
+          <ErrorCircle16Regular v-if="problem.severity === 'error'" />
+          <Warning16Regular v-else-if="problem.severity === 'warning'" />
+          <Info16Regular v-else />
+        </n-icon>
+        <span class="truncate">{{ problem.message }}</span>
+        <span class="text-[11px] text-[#858585] shrink-0">{{ sourceLabel(problem.source) }}</span>
+        <span class="truncate text-[11px] text-[#858585] max-w-[180px]">{{ problem.path?.split(/[\\/]/).pop() || '未知文件' }} ({{ problem.line }}, {{ problem.column || 1 }})</span>
       </button>
-
-      <div v-if="!sortedProblems.length" class="h-full flex items-center justify-center text-sm text-gray-500">
-        暂无问题记录
-      </div>
+      <div v-if="!sortedProblems.length" class="px-5 py-3 text-xs text-[#9d9d9d]">当前工作区没有问题。</div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { NIcon } from 'naive-ui'
+import { ErrorCircle16Regular, Warning16Regular, Info16Regular, Delete16Regular } from '@vicons/fluent'
 import { computed, nextTick } from 'vue'
 import { useEditorStore } from '../../stores/editor'
 import { useWorkbenchReportsStore } from '../../stores/workbenchReports'
@@ -66,21 +48,15 @@ const sortedProblems = computed(() => {
 })
 
 function severityClass(severity: string) {
-  if (severity === 'error') return 'bg-[#5a1d1d] text-[#f48771]'
-  if (severity === 'warning') return 'bg-[#4a3f14] text-[#dcdcaa]'
-  return 'bg-white/10 text-gray-300'
+  if (severity === 'error') return 'text-[#f48771]'
+  if (severity === 'warning') return 'text-[#cca700]'
+  return 'text-[#75beff]'
 }
 
 function sourceLabel(source: string) {
   if (source === 'thecl') return 'THECL'
   if (source === 'ecl-static') return 'STATIC'
   return String(source || 'system').toUpperCase()
-}
-
-function sourceClass(source: string) {
-  if (source === 'thecl') return 'border border-[#3b82f6]/45 text-[#9ecbff] bg-transparent'
-  if (source === 'ecl-static') return 'border border-[#6a9955]/45 text-[#b5cea8] bg-transparent'
-  return 'border border-white/10 text-gray-300 bg-transparent'
 }
 
 function sourceDetail(problem: ProblemEntry) {
@@ -114,3 +90,15 @@ async function openProblem(problem: ProblemEntry) {
   })
 }
 </script>
+
+<style scoped>
+.problem-row {
+  appearance: none; border: 0; background: transparent; color: inherit;
+  width: 100%; display: flex; align-items: center; gap: 8px;
+  min-height: 28px; padding: 3px 20px; text-align: left;
+  font: inherit; font-size: 12px; cursor: pointer; box-sizing: border-box;
+}
+.problem-row:hover { background: #2a2d2e; }
+.problem-row:focus-visible { outline: 1px solid #0078d4; outline-offset: -1px; }
+.problem-row > span:first-of-type { flex: 1; min-width: 0; }
+</style>

@@ -1,5 +1,7 @@
 <template>
-  <div class="h-screen w-screen bg-[#1e1e1e] text-white flex overflow-hidden">
+  <div class="h-screen w-screen bg-[#1e1e1e] text-white flex flex-col overflow-hidden">
+    <header v-if="$slots.titlebar" class="shrink-0 relative z-30"><slot name="titlebar" /></header>
+    <div class="flex-1 min-h-0 flex overflow-hidden">
     <aside
       v-if="showLeftSidebar"
       class="shrink-0 bg-[#252526] overflow-hidden"
@@ -64,6 +66,7 @@
           <slot name="right-sidebar" />
         </aside>
       </div>
+    </div>
     </div>
   </div>
 </template>

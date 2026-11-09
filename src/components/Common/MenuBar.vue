@@ -1,6 +1,6 @@
 <template>
-  <div class="h-8 px-2 flex items-center justify-between bg-[#181818] border-b border-white/6 text-[12px] text-gray-300 select-none">
-    <div class="flex items-center gap-1">
+  <div class="h-8 pl-2 flex items-center bg-[#181818] border-b border-white/6 text-[12px] text-gray-300 select-none">
+    <div class="titlebar-menus flex items-center gap-1 min-w-0 shrink overflow-x-auto">
       <n-dropdown
         v-for="menu in menus"
         :key="menu.key"
@@ -9,19 +9,21 @@
         :options="menu.options"
         @select="handleSelect"
       >
-        <div class="px-2 h-6 rounded flex items-center hover:bg-white/8 cursor-default">
+        <div class="px-2 h-6 rounded flex items-center shrink-0 whitespace-nowrap hover:bg-white/8 cursor-default">
           {{ menu.label }}
         </div>
       </n-dropdown>
     </div>
 
-    <div class="text-[11px] text-gray-500 truncate max-w-[16rem] px-2">
-      {{ projectStore.rootName || 'THTK-Studio' }}
+    <div data-tauri-drag-region class="flex-1 min-w-0 overflow-hidden self-stretch flex items-center justify-center text-[11px] text-gray-500 px-3" :title="projectStore.rootPath || 'THTK-Studio'">
+      <span data-tauri-drag-region class="truncate pointer-events-none">{{ projectStore.rootName || 'THTK-Studio' }}</span>
     </div>
+    <WindowControls />
   </div>
 </template>
 
 <script setup lang="ts">
+import WindowControls from './WindowControls.vue'
 import { generateTruthAssistPack } from '../../api'
 import { computed, h, nextTick } from 'vue'
 import { NDropdown, useMessage, useDialog } from 'naive-ui'
@@ -505,3 +507,8 @@ async function handleSelect(key: string) {
   }
 }
 </script>
+
+<style scoped>
+.titlebar-menus { scrollbar-width: none; }
+.titlebar-menus::-webkit-scrollbar { display: none; }
+</style>

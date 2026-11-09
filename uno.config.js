@@ -33,19 +33,19 @@ export default defineConfig({
    */
   shortcuts: {
     'panel-action':
-      'w-6 h-6 shrink-0 flex items-center justify-center rounded-[5px] ' +
+      'appearance-none bg-transparent border-0 p-0 cursor-pointer box-border w-6 h-6 shrink-0 flex items-center justify-center rounded-[5px] ' +
       'text-[#9d9d9d] hover:text-[#e7e7e7] hover:bg-white/10 ' +
       // 不要再叠 outline-none：它排在后面会把上面这条焦点环覆盖成透明，
       // 键盘用户就彻底看不到焦点了。
       'focus-visible:[outline:1px_solid_#0078d4] transition-colors',
     // 文字型工具按钮（清空等）。与 panel-action 同一套 hover 语言，只是热区随文字宽。
     'panel-text-action':
-      'h-6 px-2 shrink-0 flex items-center rounded-[5px] text-[11px] ' +
+      'appearance-none bg-transparent border-0 cursor-pointer box-border h-6 px-2 shrink-0 flex items-center rounded-[5px] text-[11px] ' +
       'text-[#9d9d9d] hover:text-[#e7e7e7] hover:bg-white/10 ' +
       'focus-visible:[outline:1px_solid_#0078d4] transition-colors',
     'panel-tab':
-      'relative h-full px-2 text-[11px] leading-none flex items-center shrink-0 ' +
-      'border-b border-transparent text-[#9d9d9d] hover:text-[#e7e7e7] ' +
+      'appearance-none bg-transparent border-0 border-b border-solid cursor-pointer box-border relative h-full px-2 text-[12px] leading-none flex items-center shrink-0 ' +
+      'border-transparent text-[#9d9d9d] hover:text-[#e7e7e7] ' +
       'focus-visible:[outline:1px_solid_#0078d4] transition-colors',
     'panel-tab-active': 'text-[#e7e7e7] border-b-[#e7e7e7]'
   }

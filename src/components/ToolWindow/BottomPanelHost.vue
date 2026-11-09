@@ -1,18 +1,19 @@
 <template>
-  <div class="h-full flex flex-col bg-[#181818]">
-    <div class="h-9 pl-3 pr-1 flex items-center justify-between border-b border-[#2b2b2b] shrink-0">
-      <div class="flex items-center gap-3 h-full" role="tablist">
+  <div class="workbench-panel h-full flex flex-col bg-[#1e1e1e]">
+    <div class="h-[35px] pl-5 pr-2 flex items-center justify-between border-b border-[#2b2b2b] shrink-0">
+      <div class="flex items-center gap-5 h-full min-w-0" role="tablist">
         <button
           v-for="panel in panels"
           :key="panel.key"
           type="button"
-          class="panel-tab uppercase tracking-[0.08em] !px-0"
+          class="panel-tab !px-0 gap-1.5"
           :class="panel.key === workbenchPanelsStore.activeBottomPanel ? 'panel-tab-active' : ''"
           role="tab"
           :aria-selected="panel.key === workbenchPanelsStore.activeBottomPanel"
           @click="workbenchPanelsStore.showBottomPanel(panel.key)"
         >
           {{ panel.label }}
+          <span v-if="panel.key === 'problems' && reports.problemEntries.length" class="rounded-full bg-[#3c3c3c] px-1.5 text-[10px] leading-4 text-[#cccccc]">{{ reports.problemEntries.length }}</span>
         </button>
       </div>
       <div class="flex items-center">
@@ -47,7 +48,7 @@
 
       <div
         v-else-if="workbenchPanelsStore.activeBottomPanel !== 'terminal'"
-        class="h-full flex items-center justify-center text-sm text-[#9d9d9d] bg-[#181818]"
+        class="h-full flex items-center justify-center text-sm text-[#9d9d9d] bg-[#1e1e1e]"
       >
         {{ currentPanelLabel }} 面板尚未实现
       </div>
@@ -62,9 +63,11 @@ import { ChevronDown16Regular, ChevronUp16Regular, Dismiss16Regular } from '@vic
 import TerminalPanel from './TerminalPanel.vue'
 import OutputPanel from './OutputPanel.vue'
 import ProblemsPanel from './ProblemsPanel.vue'
+import { useWorkbenchReportsStore } from '../../stores/workbenchReports'
 import { useWorkbenchPanelsStore } from '../../stores/workbenchPanels'
 import type { BottomPanelKey } from '../../stores/workbenchPanels'
 
+const reports = useWorkbenchReportsStore()
 const workbenchPanelsStore = useWorkbenchPanelsStore()
 
 const panels: { key: BottomPanelKey; label: string }[] = [
@@ -78,3 +81,8 @@ const currentPanelLabel = computed(() => {
 })
 
 </script>
+
+<style scoped>
+.workbench-panel { font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif; }
+.workbench-panel :deep(button) { font-family: inherit; }
+</style>

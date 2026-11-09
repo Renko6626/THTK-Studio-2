@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full flex flex-col bg-[#181818]">
+  <div class="h-full flex flex-col bg-[#1e1e1e]">
     <!--
       会话条。刻意做得比上方 BottomPanelHost 的面板头**轻**：更矮、无独立底色、
       无边框，读起来是"属于终端的标签"，而不是第二条 chrome。
@@ -7,14 +7,14 @@
     -->
     <div
       v-if="terminalStore.sessionCount"
-      class="h-8 pl-2 pr-1 flex items-center gap-px shrink-0 overflow-x-auto"
+      class="h-7 pl-4 pr-2 flex items-center gap-1 shrink-0 overflow-x-auto border-b border-white/5"
     >
       <div
         v-for="session in terminalStore.sessions"
         :key="session.id"
-        class="group panel-tab gap-1.5 cursor-pointer select-none"
+        class="group panel-tab !text-[11px] gap-1.5 cursor-pointer select-none"
         :class="[
-          session.id === terminalStore.activeSessionId ? 'panel-tab-active' : '',
+          session.id === terminalStore.activeSessionId ? 'text-[#e7e7e7] !bg-white/5' : '',
           session.exited ? 'opacity-50' : ''
         ]"
         role="tab"
@@ -25,7 +25,7 @@
         <!-- 关闭只在悬停或当前标签上出现，避免一排 × 抢视线（同 VS Code） -->
         <button
           type="button"
-          class="w-4 h-4 shrink-0 flex items-center justify-center rounded-[3px]
+          class="appearance-none border-0 bg-transparent p-0 cursor-pointer text-inherit w-4 h-4 shrink-0 flex items-center justify-center rounded-[3px]
                  opacity-0 group-hover:opacity-100 focus-visible:opacity-100
                  hover:bg-white/10 transition-opacity"
           :class="session.id === terminalStore.activeSessionId ? 'opacity-100' : ''"
@@ -74,7 +74,7 @@
       @close="closeFind(true)"
     />
 
-    <div ref="hostRef" class="flex-1 min-h-0 relative bg-[#181818]">
+    <div ref="hostRef" class="flex-1 min-h-0 relative bg-[#1e1e1e]">
       <div
         v-if="!terminalStore.sessionCount"
         class="h-full flex flex-col items-center justify-center gap-3 text-sm text-[#9d9d9d]"
