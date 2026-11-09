@@ -7,9 +7,9 @@
 | 来源 | 固定版本与入口 | 用于哪些内容 |
 | --- | --- | --- |
 | zero318/truth（源自 ExpHP/truth） | [`c78a541d1fb09fcefd448c83b097d4f9b815fce3`](https://github.com/zero318/truth/tree/c78a541d1fb09fcefd448c83b097d4f9b815fce3) | `doc/syntax.md`；`src/formats/msg.rs`、`std.rs` 的 meta 与文件结构；`src/core_mapfiles/{msg,end,std}.rs` 的版本签名 |
-| Studio 固定工具与编码扩展 | [依赖清单](../../deps/README.md)、[编码设计](../superpowers/specs/2026-11-09-truth-msg-encoding-design.md) | UTF-8 源码、Shift-JIS／GBK／UTF-8 二进制选择；实际 CLI 用法 |
-| zero318/TouhouMaps | `0673f4221f5e975842162e07cd7b765fc7570ebd`，见 [PROVENANCE.json](../../src-tauri/assets/maps/truth/defaults/PROVENANCE.json) | 合并 truth 签名后的默认名称、枚举和覆盖定义 |
-| Studio 默认 map 注册表 | [bundled_maps.rs](../../crates/script-check/src/bundled_maps.rs)、[默认 map 目录](../../src-tauri/assets/maps/truth/defaults/) | 本手册的 19 MSG + 12 END + 22 STD 支持集合和可调用短名 |
+| Studio 固定工具与编码扩展 | Studio 源码仓库的 `deps/README.md`、`docs/superpowers/specs/2026-11-09-truth-msg-encoding-design.md` | UTF-8 源码、Shift-JIS／GBK／UTF-8 二进制选择；实际 CLI 用法 |
+| zero318/TouhouMaps | `0673f4221f5e975842162e07cd7b765fc7570ebd`，见 Studio 源码仓库的 `src-tauri/assets/maps/truth/defaults/PROVENANCE.json` | 合并 truth 签名后的默认名称、枚举和覆盖定义 |
+| Studio 默认 map 注册表 | Studio 源码仓库的 `crates/script-check/src/bundled_maps.rs`、`src-tauri/assets/maps/truth/defaults/` | 本手册的 19 MSG + 12 END + 22 STD 支持集合和可调用短名 |
 
 编译器源码在构建缓存 `deps/.cache/truth`，可按固定提交恢复；它不要求随用户项目提供。语法复核还使用了 `tests/integration/msg_features.rs`、`std_features.rs`、`general.rs` 及 `snapshots/integration__integration__bits_2_bits__{msg06_multiple_scripts,std06_general,std12_general}.snap`。正文的八份最小示例由随包 `trumsg`／`trustd` 加版本默认 map 实际编译。
 

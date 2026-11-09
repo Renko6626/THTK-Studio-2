@@ -35,4 +35,4 @@
 
 先保留反编译所得的 `meta`、资源引用和入口号，在需要的位置修改指令。正文使用默认 map 的短名，如 `textAdd`、`posTime`；`text_dialogue`、`camera_position_interp` 等长名也可能出现在旧文件中。它们是 map 中同一 opcode 的别名。项目 map 可以重新命名或重新定义签名，迁移时要同时带上 map。
 
-详细签名以有效 map 为准；正文负责说明常用参数和行为。默认 map 位于 [`src-tauri/assets/maps/truth/defaults/`](../../src-tauri/assets/maps/truth/defaults/)，覆盖 19 个 MSG、12 个 END、22 个 STD profile。`mission.msg`、TH06–09 旧结局及 TH06NC 不在这份手册的支持集合中。
+详细签名以有效 map 为准；正文负责说明常用参数和行为。Studio 源码仓库的默认 map 位于 `src-tauri/assets/maps/truth/defaults/`；生成到 mod 项目的辅助包会在项目上下文中列出实际 map 路径。默认集合覆盖 19 个 MSG、12 个 END、22 个 STD profile。`mission.msg`、TH06–09 旧结局及 TH06NC 不在这份手册的支持集合中。
