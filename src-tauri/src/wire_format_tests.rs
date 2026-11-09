@@ -11,6 +11,51 @@
 
 use serde::Serialize;
 
+#[test]
+fn truth_map_definitions_match_frontend_contract() {
+    use crate::modules::truth::maps::{load_truth_maps, TruthScriptKind};
+    let map = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("assets/maps/truth/zero318/th20.stdm");
+    let definitions = load_truth_maps(20, TruthScriptKind::Std, &[map]).unwrap();
+    assert_eq!(
+        json_keys(&definitions),
+        sorted(&[
+            "gameVersion",
+            "scriptKind",
+            "sourcePaths",
+            "instructions",
+            "enums",
+        ])
+    );
+    let instruction = definitions
+        .instructions
+        .iter()
+        .find(|i| i.opcode == 3)
+        .unwrap();
+    assert_eq!(
+        json_keys(instruction),
+        sorted(&[
+            "opcode",
+            "description",
+            "name",
+            "aliases",
+            "signature",
+            "params",
+            "intrinsic",
+            "nameSource",
+            "signatureSource",
+        ])
+    );
+    assert_eq!(
+        json_keys(&instruction.params.as_ref().unwrap()[1]),
+        sorted(&["type", "encoding", "enumName", "attributes",])
+    );
+    assert_eq!(
+        serde_json::to_value(TruthScriptKind::Ending).unwrap(),
+        "ending"
+    );
+}
+
 /// 取序列化后的顶层键，排序以便稳定比较
 fn json_keys<T: Serialize>(value: &T) -> Vec<String> {
     let json = serde_json::to_value(value).expect("结构体必须能序列化");
@@ -47,7 +92,14 @@ fn file_node_keeps_its_mixed_naming() {
     assert_eq!(
         json_keys(&node),
         sorted(&[
-            "name", "path", "is_dir", "size", "extension", "category", "children", "isLeaf",
+            "name",
+            "path",
+            "is_dir",
+            "size",
+            "extension",
+            "category",
+            "children",
+            "isLeaf",
             "lossy"
         ])
     );
@@ -64,6 +116,7 @@ fn app_config_stays_snake_case() {
         json_keys(&config),
         sorted(&[
             "thtk_dir",
+            "truth_dir",
             "thecl_path",
             "eclmap_path",
             "tool_overrides",
@@ -81,12 +134,21 @@ fn project_config_is_camel_case() {
 
     assert_eq!(
         json_keys(&ProjectConfig::default()),
-        sorted(&["gameVersion", "encoding", "mapPaths", "toolchain"])
+        sorted(&[
+            "gameVersion",
+            "encoding",
+            "mapPaths",
+            "scriptMaps",
+            "toolchain"
+        ])
     );
 
     let nested = serde_json::to_value(ProjectConfig::default()).unwrap();
     let toolchain = nested.get("toolchain").unwrap().as_object().unwrap();
-    assert_eq!(toolchain.keys().collect::<Vec<_>>(), vec!["thtkDir"]);
+    assert_eq!(
+        toolchain.keys().collect::<Vec<_>>(),
+        vec!["thtkDir", "truthDir"]
+    );
 }
 
 #[test]
@@ -100,7 +162,10 @@ fn project_config_load_exposes_the_three_states() {
         path: "/proj/.thtk-project.json".to_string(),
     };
 
-    assert_eq!(json_keys(&load), sorted(&["status", "value", "error", "path"]));
+    assert_eq!(
+        json_keys(&load),
+        sorted(&["status", "value", "error", "path"])
+    );
 
     // 三个状态的字面量前端要按字符串匹配
     for (status, expected) in [
@@ -108,7 +173,10 @@ fn project_config_load_exposes_the_three_states() {
         (ProjectConfigStatus::Loaded, "loaded"),
         (ProjectConfigStatus::Invalid, "invalid"),
     ] {
-        assert_eq!(serde_json::to_value(status).unwrap(), serde_json::json!(expected));
+        assert_eq!(
+            serde_json::to_value(status).unwrap(),
+            serde_json::json!(expected)
+        );
     }
 }
 
@@ -121,7 +189,10 @@ fn recent_project_shapes_differ_between_storage_and_view() {
         name: "proj".to_string(),
         last_opened_at: 1,
     };
-    assert_eq!(json_keys(&stored), sorted(&["path", "name", "lastOpenedAt"]));
+    assert_eq!(
+        json_keys(&stored),
+        sorted(&["path", "name", "lastOpenedAt"])
+    );
 
     // 展示形态多一个现算的 available，它不落盘
     let view = to_views(&[stored]).remove(0);

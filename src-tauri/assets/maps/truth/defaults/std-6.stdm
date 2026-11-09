@@ -1,0 +1,24 @@
+!stdmap
+
+# Studio std, th6; generated from pinned truth/TouhouMaps.
+!ins_names
+0 camera_position_key
+1 fog
+2 camera_facing
+3 camera_facing_interp_linear
+4 fog_interp
+5 std_pause
+0 posKeyframe
+1 fog
+2 facing
+3 facingTime
+4 fogTime
+5 pause
+
+!ins_signatures
+0 fff
+1 Cff
+2 fff
+3 S__
+4 S__
+5 ___

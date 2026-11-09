@@ -1,5 +1,8 @@
 # MSG / STD 可读性生态 实施计划
 
+> **2026-11-09 状态更新：历史记录。** MSG/END/STD 已决定迁入随包 truth，旧方言直接废弃，GBK 必须保留。后续以 [新迁移设计](../specs/2026-11-09-truth-msg-std-migration-design.md) 为准；本文中旧后端与依赖选择不再构成实施授权。现有 ECL map 基线事实仍有效，thtk 在线安装/更新继续暂缓。
+
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **日期：** 2026-08-05

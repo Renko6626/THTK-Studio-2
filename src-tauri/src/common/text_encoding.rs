@@ -1,20 +1,5 @@
-//! 游戏文本的编码处理。
-//!
-//! 东方原作的 .msg 是 Shift-JIS；汉化版通常改用 GBK（它同时装得下简体汉字和
-//! 日文假名/汉字，而汉化版常有简日混排）；少数走 thcrap 一类方案的用 UTF-8。
-//!
-//! 这里存在的理由是 `encoding_rs` 的两个**静默**行为，直接用会产出坏数据：
-//!
-//! 1. `Encoding::encode` 遇到目标编码装不下的字符时**不报错**，而是写入 HTML
-//!    数字实体。`SHIFT_JIS.encode("你好")` 得到的是字面的 `&#20320;`，打包"成功"，
-//!    游戏里显示的却是这串实体本身。更隐蔽的是部分字符会被映射成别的日文汉字，
-//!    连实体都不留，看上去是通顺的错字。
-//! 2. `Encoding::decode` 用 Shift-JIS 解几乎任何字节序列都能"成功"——它的单字节
-//!    区覆盖极广，所以 `had_errors` 恒为 false。把 GBK 的 .msg 当 SJIS 解出来
-//!    满屏乱码，却没有任何自动信号。
-//!
-//! 因此本模块只提供两个**会说话**的入口：[`encode_strict`] 装不下就失败并指出
-//! 是哪些字符，[`decode_with_warning`] 解出可疑结果时附一条提示。
+//! 工作区文本读取与 ECL 文件写入所用的编码处理。
+//! MSG/END 二进制字符串编码由随包 truth 承担。
 
 use encoding_rs::{Encoding, GBK, SHIFT_JIS, UTF_8};
 
@@ -112,41 +97,14 @@ pub fn describe_unmappable(offenders: &[UnmappableChar], encoding_name: &str) ->
     format!("{listed}{more} 无法用 {encoding_name} 编码。{hint}")
 }
 
-/// 写入游戏文件前对目标编码本身的告诫，没有就返回 None。
-///
-/// 依据：thcrap 官方文档明说「the original games **don't support any form of
-/// Unicode**」「the game uses a NUL byte as a string delimiter (because it works
-/// with plain C strings in **SHIFT-JIS** encoding)」——thcrap 能做多语言是靠运行时
-/// 把游戏进程里的 Win32 `A` 函数换成 `U` 版本（`TextOutExA` → `TextOutExU`），
-/// **它根本不改 .msg 文件**。所以往 .msg 里塞 UTF-8 字节，原版游戏必然读不了。
-///
-/// GBK 则是"有条件可用"：传统汉化走改 `CreateFontIndirectA` 的 `lfCharSet`
-/// （`SHIFTJIS_CHARSET` 0x80 → `GB2312_CHARSET` 0x86）加转区那条路，还得处理
-/// 字节边界判断。能不能跑通取决于用户的补丁环境，不是本工具能保证的。
-pub fn caution_for_game_file(encoding_name: &str) -> Option<String> {
-    match resolve(encoding_name).ok()?.name() {
-        n if n == UTF_8.name() => Some(
-            "原版东方游戏不支持任何形式的 Unicode（按 Shift-JIS 的 C 字符串处理），\
-             UTF-8 的 .msg 在原版游戏里读不出来。仅在你确知目标引擎能读 UTF-8 时使用。"
-                .to_string(),
-        ),
-        n if n == GBK.name() => Some(
-            "GBK 需要游戏侧已做汉化适配（字体 charset 补丁、字节边界判断、转区等）。\
-             原版未打补丁的游戏读 GBK 文本会乱码。"
-                .to_string(),
-        ),
-        _ => None,
-    }
-}
-
 /// 读取工作区里的文本文件：**UTF-8 优先**，不是合法 UTF-8 才按 `fallback` 解。
 ///
 /// 返回 `(文本, 是否走了 fallback)`。
 ///
-/// 顺序不能反。THTK-Studio 自己产出的 `.decl` / `.dmsg` / `.dstd` 一律以 UTF-8
+/// 顺序不能反。THTK-Studio 自己产出的 `.decl` / `.msgspec` / `.stdspec` 一律以 UTF-8
 /// 无 BOM 写盘（`save_file` 恒传 `is_source = true`），若读取时无条件按 Shift-JIS
 /// 解，日文对白会变成 `蜊夐ｺ鈴怺螟｢` 这样的乱码——而纯 ASCII 的文件往返完全正常，
-/// 所以这个错误能长期潜伏：`.decl` / `.dstd` 基本只有指令名和数字，只有 `.dmsg`
+/// 所以这个错误能长期潜伏：`.decl` / `.stdspec` 基本只有指令名和数字，只有 `.msgspec`
 /// 里的日文才触发。
 ///
 /// fallback 留给用户直接打开的外部文件（原始游戏文本等），取项目配置的编码。
@@ -161,58 +119,6 @@ pub fn decode_source_text(bytes: &[u8], fallback_encoding: &str) -> (String, boo
     let encoding = resolve(fallback_encoding).unwrap_or(SHIFT_JIS);
     let (text, _, _) = encoding.decode(body);
     (text.into_owned(), true)
-}
-
-/// 解码字节，并在结果疑似乱码时附一条提示。
-///
-/// 返回 `(文本, 可疑提示)`。Shift-JIS 解什么都不报错，所以不能依赖 `had_errors`，
-/// 只能看解出来的字符长什么样。
-pub fn decode_with_warning(bytes: &[u8], encoding_name: &str) -> (String, Option<String>) {
-    let encoding = match resolve(encoding_name) {
-        Ok(encoding) => encoding,
-        Err(_) => SHIFT_JIS,
-    };
-    let (text, _, _) = encoding.decode(bytes);
-    let text = text.into_owned();
-    let warning = detect_mojibake(&text).map(|reason| {
-        format!("{reason}当前按 {encoding_name} 解包；若内容不对，换个编码重新解包即可（原文件不会被改动）。")
-    });
-    (text, warning)
-}
-
-/// 乱码启发式。
-///
-/// 用错编码解 Shift-JIS 时的典型特征是**大量半角片假名**（GBK/UTF-8 的高位字节
-/// 落进 SJIS 的 0xA1–0xDF 单字节半角区），其次是私用区字符和替换字符。
-///
-/// 阈值取得保守：正常的日文 .msg 偶尔也会用半角片假名，宁可漏报也不要在正确
-/// 解包的文件上天天弹提示。返回 None 表示没有明显嫌疑，**不代表一定正确**。
-pub fn detect_mojibake(text: &str) -> Option<String> {
-    let total = text.chars().count();
-    if total < 16 {
-        return None;
-    }
-
-    let suspicious = text
-        .chars()
-        .filter(|&c| {
-            matches!(c,
-                '\u{FF61}'..='\u{FF9F}'   // 半角片假名
-                | '\u{E000}'..='\u{F8FF}' // 私用区
-                | '\u{FFFD}'              // 替换字符
-            )
-        })
-        .count();
-
-    let ratio = suspicious as f64 / total as f64;
-    if suspicious >= 8 && ratio > 0.15 {
-        Some(format!(
-            "解包结果里有 {suspicious} 个可疑字符（占 {:.0}%），像是编码不匹配。",
-            ratio * 100.0
-        ))
-    } else {
-        None
-    }
 }
 
 #[cfg(test)]
@@ -310,87 +216,15 @@ mod tests {
             offenders.iter().map(|o| o.ch).collect::<Vec<_>>()
         );
         let message = describe_unmappable(&offenders, "shift-jis");
-        assert!(message.contains("另有"), "超过 5 个应汇总剩余数量: {message}");
-    }
-
-    /// 核心回归：用错编码解包时几乎没有可靠的自动信号，只能靠字符特征。
-    ///
-    /// `decode` 的 `had_errors` 不能用——Shift-JIS 单字节区覆盖极广，GBK 字节
-    /// 绝大多数都能"解出"东西；只有末尾字节恰好不成对时才会冒一个替换字符。
-    /// 靠它判断等于把检出率押在文本长度的奇偶性上。
-    #[test]
-    fn flags_gbk_bytes_decoded_as_shift_jis() {
-        let gbk_bytes = encode_strict(
-            "你好世界，这是一段足够长的简体中文测试文本用来触发启发式检测",
-            "gbk",
-        )
-        .unwrap();
-
-        let (decoded, _, _) = SHIFT_JIS.decode(&gbk_bytes);
-        let replacement_chars = decoded.chars().filter(|&c| c == '\u{FFFD}').count();
         assert!(
-            replacement_chars <= 2,
-            "前提：整段乱码里替换字符寥寥无几（实际 {replacement_chars} 个），\
-             所以 had_errors 不足以作为信号，必须看字符分布"
+            message.contains("另有"),
+            "超过 5 个应汇总剩余数量: {message}"
         );
-
-        let (_, warning) = decode_with_warning(&gbk_bytes, "shift-jis");
-        assert!(warning.is_some(), "应当提示疑似编码不匹配");
-        assert!(warning.unwrap().contains("编码"));
-    }
-
-    #[test]
-    fn does_not_flag_correctly_decoded_japanese() {
-        let sjis = encode_strict(
-            "博麗霊夢「そこまでよ！\n魔理沙、あなたの負けね」\nこれは正しい日本語のテキストです。",
-            "shift-jis",
-        )
-        .unwrap();
-        let (text, warning) = decode_with_warning(&sjis, "shift-jis");
-        assert!(text.contains("博麗霊夢"));
-        assert_eq!(warning, None, "正确解包不该弹提示");
-    }
-
-    #[test]
-    fn does_not_flag_correctly_decoded_chinese() {
-        let gbk = encode_strict(
-            "博丽灵梦「到此为止了！\n魔理沙，你输了」\n这是一段正常的简体中文文本。",
-            "gbk",
-        )
-        .unwrap();
-        let (text, warning) = decode_with_warning(&gbk, "gbk");
-        assert!(text.contains("博丽灵梦"));
-        assert_eq!(warning, None);
-    }
-
-    #[test]
-    fn short_text_is_never_flagged() {
-        assert_eq!(detect_mojibake("ﾃｽﾄ"), None, "太短的文本不做判断");
-    }
-
-    /// 原版游戏读不了 UTF-8（thcrap 文档：games don't support any form of Unicode），
-    /// 允许选但必须说出来，否则用户会打出一批在原版里全是乱码的 .msg。
-    #[test]
-    fn warns_that_utf8_is_unreadable_by_original_games() {
-        let caution = caution_for_game_file("utf-8").expect("UTF-8 必须给告诫");
-        assert!(caution.contains("Unicode"));
-        assert!(caution.contains("读不出来") || caution.contains("读不了"));
-    }
-
-    #[test]
-    fn warns_that_gbk_needs_a_patched_game() {
-        let caution = caution_for_game_file("gbk").expect("GBK 必须说明前提");
-        assert!(caution.contains("汉化适配") || caution.contains("补丁"));
-    }
-
-    #[test]
-    fn shift_jis_needs_no_caution() {
-        assert_eq!(caution_for_game_file("shift-jis"), None, "原生编码不该弹告诫");
     }
 
     // ---- decode_source_text：读工作区文本文件 ----
 
-    /// 回归：解包产出的 .dmsg 是 UTF-8 无 BOM，此前读取时无条件按 Shift-JIS 解，
+    /// 回归：解包产出的 .msgspec 是 UTF-8 无 BOM，此前读取时无条件按 Shift-JIS 解，
     /// 日文对白在编辑器里变成 `蜊夐ｺ鈴怺螟｢...`，而 VS Code 打开却是好的。
     #[test]
     fn utf8_japanese_survives_the_round_trip() {
@@ -401,7 +235,7 @@ mod tests {
     }
 
     /// 纯 ASCII 两种解法结果相同——这正是该 bug 能长期潜伏的原因：
-    /// .decl / .dstd 基本只有指令名和数字，看不出问题。
+    /// .decl / .stdspec 基本只有指令名和数字，看不出问题。
     #[test]
     fn ascii_is_identical_either_way() {
         let source = b"entry 0\n    textboxShow()\n";

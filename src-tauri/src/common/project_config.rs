@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 const PROJECT_CONFIG_FILENAME: &str = ".thtk-project.json";
 
-/// 允许的 encoding 取值——指的是**游戏文本**的编码，不是 .decl/.dmsg 源文件的
+/// 允许的 encoding 取值——指的是**游戏文本**的编码，不是 .decl/.msgspec/.endspec 源文件的
 /// （那些在磁盘上始终是 UTF-8）。
 ///
 /// - `shift-jis`：原作唯一的原生编码，默认值。
@@ -20,8 +20,14 @@ pub const SUPPORTED_ENCODINGS: [&str; 3] = ["shift-jis", "gbk", "utf-8"];
 /// 内容被丢掉，UI 看到的是 status=loaded 加一个空列表，一保存用户的东西就没了。
 /// 手写 JSON 时拼错键名恰恰是最常见的笔误，只靠 serde 的语法/类型报错拦不住。
 /// 这里显式白名单，只在面向 UI 的加载器上生效。
-const KNOWN_TOP_LEVEL_KEYS: [&str; 4] = ["gameVersion", "encoding", "mapPaths", "toolchain"];
-const KNOWN_TOOLCHAIN_KEYS: [&str; 1] = ["thtkDir"];
+const KNOWN_TOP_LEVEL_KEYS: [&str; 5] = [
+    "gameVersion",
+    "encoding",
+    "mapPaths",
+    "scriptMaps",
+    "toolchain",
+];
+const KNOWN_TOOLCHAIN_KEYS: [&str; 2] = ["thtkDir", "truthDir"];
 
 /// 项目级配置，保存在工作区根目录的 .thtk-project.json
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -33,6 +39,7 @@ pub struct ProjectConfig {
     pub encoding: String,
     /// ECL map 文件路径列表（相对于项目根目录或绝对路径）
     pub map_paths: Vec<String>,
+    pub script_maps: ScriptMaps,
     /// 工具链路径覆盖（可选，覆盖全局设置）
     pub toolchain: ProjectToolchainConfig,
 }
@@ -40,8 +47,17 @@ pub struct ProjectConfig {
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(default, rename_all = "camelCase")]
 pub struct ProjectToolchainConfig {
+    pub truth_dir: String,
     /// 覆盖全局 thtk_dir
     pub thtk_dir: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct ScriptMaps {
+    pub msg: Vec<String>,
+    pub ending: Vec<String>,
+    pub std: Vec<String>,
 }
 
 impl Default for ProjectConfig {
@@ -50,6 +66,7 @@ impl Default for ProjectConfig {
             game_version: String::new(),
             encoding: "shift-jis".to_string(),
             map_paths: Vec::new(),
+            script_maps: ScriptMaps::default(),
             toolchain: ProjectToolchainConfig::default(),
         }
     }
@@ -163,6 +180,15 @@ pub fn validate_project_config(config: &ProjectConfig) -> Result<(), String> {
         return Err(format!("mapPaths[{index}] 为空路径"));
     }
 
+    for (kind, paths) in [
+        ("msg", &config.script_maps.msg),
+        ("ending", &config.script_maps.ending),
+        ("std", &config.script_maps.std),
+    ] {
+        if let Some(index) = paths.iter().position(|p| p.trim().is_empty()) {
+            return Err(format!("scriptMaps.{kind}[{index}] 为空路径"));
+        }
+    }
     Ok(())
 }
 
@@ -254,7 +280,9 @@ pub fn save_project_config(project_root: &str, config: &ProjectConfig) -> Result
             .iter()
             .map(|path| path.trim().to_string())
             .collect(),
+        script_maps: config.script_maps.clone(),
         toolchain: ProjectToolchainConfig {
+            truth_dir: config.toolchain.truth_dir.trim().to_string(),
             thtk_dir: config.toolchain.thtk_dir.trim().to_string(),
         },
     };
@@ -303,7 +331,8 @@ mod tests {
 
     /// 建一个临时目录当项目根。用测试名做后缀避免并行测试互相干扰。
     fn temp_root(name: &str) -> PathBuf {
-        let dir = env::temp_dir().join(format!("thtk-project-config-{name}-{}", std::process::id()));
+        let dir =
+            env::temp_dir().join(format!("thtk-project-config-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         dir
@@ -349,8 +378,10 @@ mod tests {
             game_version: version.to_string(),
             encoding: "shift-jis".to_string(),
             map_paths: Vec::new(),
+            script_maps: ScriptMaps::default(),
             toolchain: ProjectToolchainConfig {
                 thtk_dir: String::new(),
+                truth_dir: String::new(),
             },
         }
     }
@@ -464,7 +495,10 @@ mod tests {
             load_project_config_detailed(&root_str(&dir)).status,
             ProjectConfigStatus::Invalid
         );
-        assert_eq!(load_project_config(&root_str(&dir)).unwrap().encoding, "utf8");
+        assert_eq!(
+            load_project_config(&root_str(&dir)).unwrap().encoding,
+            "utf8"
+        );
 
         // JSON 本身坏掉时两者都拿不到值
         fs::write(&path, "{{{").unwrap();
@@ -480,8 +514,10 @@ mod tests {
             game_version: "17".to_string(),
             encoding: "utf-8".to_string(),
             map_paths: vec!["maps/th17.eclm".to_string()],
+            script_maps: Default::default(),
             toolchain: ProjectToolchainConfig {
                 thtk_dir: "D:\\tools\\thtk".to_string(),
+                truth_dir: String::new(),
             },
         };
 
@@ -610,8 +646,10 @@ mod tests {
             game_version: "  18  ".to_string(),
             encoding: "  utf-8  ".to_string(),
             map_paths: vec!["  maps/th18.eclm  ".to_string()],
+            script_maps: Default::default(),
             toolchain: ProjectToolchainConfig {
                 thtk_dir: "  D:/thtk  ".to_string(),
+                truth_dir: String::new(),
             },
         };
 

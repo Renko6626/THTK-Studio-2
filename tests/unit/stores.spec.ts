@@ -47,7 +47,7 @@ describe('project store 的配置三态', () => {
       files: [makeFileNode({ path: '/proj/a.decl' })],
       projectConfig: {
         status: 'loaded',
-        value: { gameVersion: '18', encoding: 'utf-8', mapPaths: [], toolchain: { thtkDir: '' } },
+        value: { gameVersion: '18', encoding: 'utf-8', mapPaths: [], scriptMaps: { msg: [], ending: [], std: [] }, toolchain: { thtkDir: '', truthDir: '' } },
         error: null,
         path: '/proj/.thtk-project.json'
       }

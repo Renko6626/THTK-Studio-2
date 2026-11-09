@@ -16,8 +16,8 @@ use common::file_watcher;
 use common::fs_utils;
 use common::project_config;
 use common::recent_projects;
-use common::toolchain;
 use common::system_clipboard;
+use common::toolchain;
 use config::AppConfig;
 use tauri::State;
 
@@ -58,7 +58,10 @@ fn current_project_root(state: &State<AppState>) -> Option<String> {
 // 实际编译时用的 exe 不是同一个。
 // 重活不能占主线程：启动子进程读版本与 usage
 #[tauri::command(async)]
-fn get_toolchain_status(state: State<AppState>, tool: String) -> Result<toolchain::ToolchainStatus, String> {
+fn get_toolchain_status(
+    state: State<AppState>,
+    tool: String,
+) -> Result<toolchain::ToolchainStatus, String> {
     let root = current_project_root(&state);
     let config = toolchain::effective_config(&state.config_manager.get_config(), root.as_deref());
     toolchain::get_toolchain_status(&config, &tool)
@@ -285,8 +288,13 @@ fn clear_recent_projects(state: State<AppState>) -> Result<(), String> {
 /// 返回三态结果（absent / loaded / invalid），让前端能区分"还没配置"和
 /// "配置文件坏了"——后者不确认就覆盖会毁掉用户手写的内容。
 #[tauri::command]
-fn load_project_config(state: State<AppState>) -> Result<project_config::ProjectConfigLoad, String> {
-    let root = state.current_project_root.lock().unwrap_or_else(|e| e.into_inner());
+fn load_project_config(
+    state: State<AppState>,
+) -> Result<project_config::ProjectConfigLoad, String> {
+    let root = state
+        .current_project_root
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
     let root_path = root.as_deref().ok_or("No project root set")?;
     Ok(project_config::load_project_config_detailed(root_path))
 }
@@ -303,7 +311,10 @@ fn save_project_config_cmd(
     config: project_config::ProjectConfig,
     expected_root: String,
 ) -> Result<(), String> {
-    let root = state.current_project_root.lock().unwrap_or_else(|e| e.into_inner());
+    let root = state
+        .current_project_root
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
     let root_path = root.as_deref().ok_or("No project root set")?;
 
     if !recent_projects::paths_equal(root_path, &expected_root) {
@@ -348,6 +359,8 @@ fn main() {
         // 注册 State
         .manage(app_state)
         .setup(|app| {
+            use tauri::Manager;
+            toolchain::set_resource_dir(app.path().resource_dir()?);
             // 首次启动把内置 ECL map 释放到数据目录。失败不阻止应用启动——
             // 只影响托管 map 的默认解析，用户仍可手动配置 eclmap_path / mapPaths。
             match dependencies::DependencyManager::for_current_user() {
@@ -360,7 +373,6 @@ fn main() {
             }
 
             // MCP server：绑定很快，同步等待拿到端口；失败不阻止应用启动
-            use tauri::Manager;
             let handle = app.handle().clone();
             match tauri::async_runtime::block_on(modules::mcp::server::start(handle)) {
                 Ok(info) => {
@@ -381,8 +393,6 @@ fn main() {
             get_toolchain_statuses,
             get_dependency_status,
             common::game_version_commands::list_game_versions,
-            modules::msg::commands::export_raw_dmsg,
-            modules::thstd::commands::export_raw_dstd,
             read_file,
             save_file,
             open_project,
@@ -396,6 +406,9 @@ fn main() {
             compile_ecl_file,
             decompile_ecl_file,
             get_ecl_map_semantics,
+            modules::truth::commands::get_truth_map_definitions,
+            modules::truth::commands::get_truth_source_definitions,
+            modules::truth::analysis::analyze_truth_source,
             run_thecl_operation,
             decompile_msg_file,
             compile_msg_file,
@@ -404,6 +417,7 @@ fn main() {
             extract_dat_file,
             pack_dat_file,
             generate_ai_assist_pack,
+            modules::truth::ai_pack::generate_truth_assist_pack,
             fs_ops::create_directory,
             fs_ops::create_file,
             fs_ops::rename_entry,

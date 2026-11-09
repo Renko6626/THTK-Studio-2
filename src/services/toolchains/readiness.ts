@@ -10,17 +10,7 @@ export interface ToolchainReadiness {
   missing: string[]
 }
 
-/**
- * 判断 thtk 工具链是否可用。
- *
- * 安装包**不含** thtk（`tauri.conf.json` 没配 `bundle.resources`，thtk 是第三方
- * GPL 工具），而 `thtk_dir` 默认是空串、为空时后端退回裸 exe 名走 PATH。
- * 所以全新安装后所有工具链动作都不可用，而界面上此前没有任何提示——
- * 用户要么点了才拿到一句英文报错，要么根本不知道从哪配。
- *
- * 状态还没取到（空数组）时返回 `ready`：宁可不提示，也不要在加载过程中
- * 闪一条"未配置"的假警报。
- */
+/** 状态尚未加载时不闪现缺失提示；具体工具来源由设置面板展示。 */
 export function summarizeToolchainReadiness(
   statuses: ToolchainStatus[]
 ): ToolchainReadiness {
@@ -38,14 +28,14 @@ export function summarizeToolchainReadiness(
     return {
       state: 'missing',
       message:
-        '尚未配置 thtk 工具链，编译、反编译与解包功能都不可用。thtk 是第三方工具，需要另行下载后在设置里指定其所在目录。',
+        '工具链均不可用，请检查工具链设置。truth 随安装包提供，thtk 需另行配置。',
       missing
     }
   }
 
   return {
     state: 'partial',
-    message: `thtk 目录里缺少 ${missing.join(' / ')}，用到这些工具的操作会失败。`,
+    message: `工具不可用：${missing.join(' / ')}，用到这些工具的操作会失败。`,
     missing
   }
 }

@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "status": "implemented",
+  "reviewedAt": "2026-11-09",
+  "truth": {
+    "repository": "https://github.com/zero318/truth",
+    "trackingBranch": "format_improvements_test",
+    "baseCommit": "c78a541d1fb09fcefd448c83b097d4f9b815fce3",
+    "license": "Apache-2.0",
+    "delivery": "bundled-with-studio",
+    "requiredBinaries": [
+      "truth-core",
+      "trumsg",
+      "trustd"
+    ],
+    "requiredDownstreamChange": "MSG/END --encoding shift-jis|gbk|utf-8; UTF-8 sources; patch kept in this repository",
+    "downstreamChangeStatus": "implemented-and-gbk-roundtrip-tested",
+    "artifacts": [
+      {
+        "packagingRevision": 2,
+        "repository": "https://github.com/zero318/truth",
+        "baseCommit": "c78a541d1fb09fcefd448c83b097d4f9b815fce3",
+        "rustToolchain": "1.85.1",
+        "patchSha256": "f6ad44adbcc1e6d5200cab54b16d4da76eccd48471f390bca1b86c87f0ba399e",
+        "target": "x86_64-unknown-linux-gnu",
+        "sha256": {
+          "truth-core": "b7eb384413363c01b665b8b55bd4dcf828ca5b23e0280a3d2254da743dcb95d8",
+          "trumsg": "5837affbc1be0c58fc92b56b6004bc144c672e519b99c8162e6dd982f422bf20",
+          "trustd": "38db76ba8cf98721550d5568f281376026dbe6e96b6d0e84161409a5f89b7721"
+        }
+      },
+      {
+        "packagingRevision": 2,
+        "repository": "https://github.com/zero318/truth",
+        "baseCommit": "c78a541d1fb09fcefd448c83b097d4f9b815fce3",
+        "rustToolchain": "1.85.1",
+        "patchSha256": "f6ad44adbcc1e6d5200cab54b16d4da76eccd48471f390bca1b86c87f0ba399e",
+        "target": "x86_64-pc-windows-msvc",
+        "sha256": {
+          "truth-core.exe": "e254fe12ecba855b5389f9f869485faf235929ba57fddb7719c2483058ae555b",
+          "trumsg.exe": "e1ac020de6f7945f1da6c76988070ca16d43f859109a21136135b8d4aa51b361",
+          "trustd.exe": "748af375a0ff3d91545833463f0c1c2eaff4b54a0e206685cd3de38610bd5c73"
+        }
+      }
+    ],
+    "baselineBuild": {
+      "rustToolchain": "1.85.1",
+      "target": "x86_64-unknown-linux-gnu",
+      "status": "patched-linux-and-windows-cli-built",
+      "evidence": "deps/truth-integration-check-2026-11-09.md"
+    },
+    "patch": "deps/truth/patches/0001-msg-binary-encoding.patch"
+  },
+  "maps": {
+    "repository": "https://github.com/zero318/TouhouMaps",
+    "commit": "0673f4221f5e975842162e07cd7b765fc7570ebd",
+    "license": "Unlicense",
+    "additionalSource": "truth core_mapfiles and map directory at truth.baseCommit, plus project-owned research",
+    "normalizationStatus": "53-versioned-native-profiles-and-source-context-query-implemented",
+    "existingEclProvenance": "src-tauri/assets/maps/ecl/PROVENANCE.json",
+    "semanticProvider": "studio-native-map-parser",
+    "vendoredSourceProvenance": "src-tauri/assets/maps/truth/zero318/PROVENANCE.json",
+    "productProvenance": "src-tauri/assets/maps/truth/defaults/PROVENANCE.json"
+  },
+  "thtk": {
+    "repository": "https://github.com/thpatch/thtk",
+    "retainedTools": [
+      "thecl",
+      "thanm",
+      "thdat"
+    ],
+    "delivery": "existing-manual-configuration"
+  },
+  "studioBundle": {
+    "target": "x86_64-pc-windows-msvc",
+    "format": "nsis",
+    "signed": false,
+    "file": "src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/thtk-studio_0.1.0_x64-setup.exe",
+    "bytes": 7109177,
+    "sha256": "67f83091fbd1b96e8e5e4ed04f61a923c956acb1774307fb83b4cb3a78cc73e2"
+  }
+}

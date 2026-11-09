@@ -18,7 +18,8 @@ const CONFIG: ProjectConfig = {
   gameVersion: '18',
   encoding: 'shift-jis',
   mapPaths: ['maps/th18.eclm'],
-  toolchain: { thtkDir: '' }
+  scriptMaps: { msg: [], ending: [], std: [] },
+  toolchain: { thtkDir: '', truthDir: '' }
 }
 
 describe('applyProjectDefaults', () => {

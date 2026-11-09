@@ -235,7 +235,7 @@ describe('ECL 词表加载', () => {
       throw new Error('file missing')
     })
     const result = await loadDefaultEclSemanticData({
-      projectConfig: makeProjectConfig({ toolchain: { thtkDir: '/project/thtk' } })
+      projectConfig: makeProjectConfig({ toolchain: { thtkDir: '/project/thtk', truthDir: '' } })
     })
     expect(result.instructions).toEqual([])
   })

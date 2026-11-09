@@ -4,9 +4,9 @@
   "version": "0.1.0",
   "identifier": "com.abl.thtk-studio",
   "build": {
-    "beforeDevCommand": "npm run dev -- --host 127.0.0.1",
+    "beforeDevCommand": "node scripts/build-truth.mjs && npm run dev -- --host 127.0.0.1",
     "devUrl": "http://127.0.0.1:1420",
-    "beforeBuildCommand": "npm run build",
+    "beforeBuildCommand": "node scripts/build-truth.mjs && npm run build",
     "frontendDist": "../dist"
   },
   "app": {
@@ -34,6 +34,9 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "resources": {
+      "resources/truth/": "truth/"
+    }
   }
 }

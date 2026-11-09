@@ -2,8 +2,8 @@
  * 游戏版本条目。对应 Rust 侧 `common/game_version_commands.rs` 的
  * `GameVersionView`（serde `rename_all = "camelCase"`）。
  *
- * `tools` 里的 id 与 `ToolchainStatus.tool` 对齐：thecl / thanm / thstd / thmsg / thdat。
- * 注意各工具支持的版本集合**并不相同**——thmsg 没有 103（Uwabami Breakers），
+ * `tools` 里的 id 与 `ToolchainStatus.tool` 对齐：thecl / thanm / trustd / trumsg / thdat。
+ * 注意各工具支持的版本集合**并不相同**——trumsg 不覆盖 95 / 103 / 125 的普通对话格式，
  * thdat 多出 PC-98 五作与三部格斗作。不要拿一张列表通吃五个工具。
  */
 export interface GameVersionView {

@@ -114,7 +114,7 @@ function syncForm(payload: Partial<BuildDialogPayload> | null | undefined) {
 
   // 菜单打开对话框时只带 inputPath；结局/staff 的类型按文件名补上。
   // 用户在表单里手动改过（payload 显式带 scriptKind）则不覆盖。
-  if (formModel.tool === 'thmsg' && !(payload && 'scriptKind' in payload)) {
+  if (formModel.tool === 'trumsg' && !(payload && 'scriptKind' in payload)) {
     const msgModel = formModel as unknown as { scriptKind: string }
     msgModel.scriptKind = inferMsgScriptKind(formModel.inputPath)
   }

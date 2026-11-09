@@ -14,11 +14,10 @@ export interface EclFileParams {
   mapPaths?: string[]
 }
 
-/** thmsg / thstd 共用的 object-arg 形式 */
+/** trumsg / trustd 共用的 object-arg 形式 */
 export interface ScriptFileParams {
   inputPath: string
   outputPath?: string | null
-  withComments?: boolean
   /** 游戏文本编码；仅 msg 路径使用，留空走项目配置 */
   encoding?: string | null
   /** 仅 msg 路径使用；不传时后端按文件名推断 */
@@ -63,7 +62,7 @@ export function decompileEcl(binaryPath: string, mapPaths: string[] = []): Promi
 }
 
 /**
- * 编译 ECL 文件 (.decl -> .ecl) —— 与 thmsg/thstd 同款 object-arg 形式,
+ * 编译 ECL 文件 (.decl -> .ecl) —— 与 trumsg/trustd 同款 object-arg 形式,
  * 走 effective_thecl_version / effective map_paths 的快速路径。
  * 后端命令 `compile_ecl_file` 返回 { success, message, outputPath }。
  * @param {{ sourcePath: string, mapPaths?: Array<string> }} params
@@ -73,7 +72,7 @@ export function compileEclFile({ sourcePath, mapPaths = [] }: EclFileParams): Pr
 }
 
 /**
- * 反编译 ECL 文件 (.ecl -> .decl) —— 与 thmsg/thstd 同款 object-arg 形式。
+ * 反编译 ECL 文件 (.ecl -> .decl) —— 与 trumsg/trustd 同款 object-arg 形式。
  * 注意:Rust 端参数名为 binary_path,Tauri 会做 camelCase 转换,
  * 这里对前端统一暴露成 sourcePath 以保持 4 个工具调用方式一致。
  * @param {{ sourcePath: string, mapPaths?: Array<string> }} params
@@ -83,30 +82,28 @@ export function decompileEclFile({ sourcePath, mapPaths = [] }: EclFileParams): 
 }
 
 /**
- * 反编译 MSG 文件 (.msg -> .dmsg)
+ * 反编译 MSG 文件 (.msg -> .msgspec)
  *
- * `encoding` 指**游戏文本**的编码（.dmsg 文件本身始终写 UTF-8）。留空则用项目
+ * `encoding` 指**游戏文本**的编码（.msgspec 文件本身始终写 UTF-8）。留空则用项目
  * 配置，再空则 shift-jis。与打包各自独立——常见工作流是 shift-jis 解开原版日文、
  * 翻译后用 gbk 打包。
  */
 export function decompileMsgFile({
   inputPath,
   outputPath = null,
-  withComments = true,
   encoding = null,
   scriptKind = null
 }: ScriptFileParams): Promise<MsgResult> {
   return invoke('decompile_msg_file', {
     inputPath,
     outputPath,
-    withComments,
     encoding,
     scriptKind
   })
 }
 
 /**
- * 编译 MSG 文件 (.dmsg -> .msg)
+ * 编译 MSG 文件 (.msgspec -> .msg)
  * @param {{ inputPath: string, outputPath?: string|null }} params
  */
 export function compileMsgFile({
@@ -119,19 +116,18 @@ export function compileMsgFile({
 }
 
 /**
- * 反编译 STD 文件 (.std -> .dstd)
+ * 反编译 STD 文件 (.std -> .stdspec)
  * @param {{ inputPath: string, outputPath?: string|null, withComments?: boolean }} params
  */
 export function decompileStdFile({
   inputPath,
   outputPath = null,
-  withComments = true
 }: ScriptFileParams): Promise<StdResult> {
-  return invoke('decompile_std_file', { inputPath, outputPath, withComments })
+  return invoke('decompile_std_file', { inputPath, outputPath })
 }
 
 /**
- * 编译 STD 文件 (.dstd -> .std)
+ * 编译 STD 文件 (.stdspec -> .std)
  * @param {{ inputPath: string, outputPath?: string|null }} params
  */
 export function compileStdFile({ inputPath, outputPath = null }: ScriptFileParams): Promise<StdResult> {
@@ -152,22 +148,4 @@ export function extractDatFile({ archivePath, targetDir }: ExtractDatParams): Pr
  */
 export function packDatFile({ sourceDir, archivePath }: PackDatParams): Promise<ThdatResult> {
   return invoke('pack_dat_file', { sourceDir, archivePath })
-}
-
-/**
- * 导出不含方言声明的原始 .dmsg / .dstd。
- *
- * 磁盘上的 .dmsg / .dstd 是 IDE 方言（指令名由 IDE 映射，thmsg / thstd 只认
- * ins_N），无法直接喂给命令行。这个入口产出它们认识的形式，供 CI / 脚本使用。
- */
-export function exportRawDmsg(
-  inputPath: string,
-  outputPath: string,
-  scriptKind: MsgScriptKind | null = null
-): Promise<string> {
-  return invoke('export_raw_dmsg', { inputPath, outputPath, scriptKind })
-}
-
-export function exportRawDstd(inputPath: string, outputPath: string): Promise<string> {
-  return invoke('export_raw_dstd', { inputPath, outputPath })
 }

@@ -10,7 +10,7 @@
       <div class="flex items-center justify-between pr-2">
         <div>
           <div class="text-sm font-semibold text-white">工具链设置</div>
-          <div class="text-xs text-gray-400 mt-1">统一管理 THTK 根目录、各工具覆盖路径、默认 ECL map 和版本检测</div>
+          <div class="text-xs text-gray-400 mt-1">配置 thtk、随包 truth 的覆盖路径与默认游戏版本</div>
         </div>
       </div>
     </template>
@@ -22,6 +22,10 @@
             <n-input v-model:value="form.thtk_dir" placeholder="例如：D:\\tools\\thtk" />
             <n-button @click="pickThtkDir">浏览</n-button>
           </div>
+        </n-form-item>
+
+        <n-form-item label="truth 目录（留空使用随包版本）">
+          <n-input v-model:value="form.truth_dir" placeholder="可选：覆盖 trumsg / trustd 所在目录" />
         </n-form-item>
 
         <n-form-item label="默认游戏版本">
@@ -36,7 +40,7 @@
       <div class="rounded border border-white/8 bg-[#151515]">
         <div class="flex items-center justify-between border-b border-white/8 px-4 py-3">
           <div class="text-[11px] uppercase tracking-[0.12em] text-gray-500">依赖</div>
-          <div class="text-[11px] text-gray-600">只读 · 自动安装/更新将在后续实现</div>
+          <div class="text-[11px] text-gray-600">truth 随应用提供，thtk 使用手动路径</div>
         </div>
 
         <div v-if="dependencyLoading" class="px-4 py-4 text-sm text-gray-400">
@@ -208,6 +212,7 @@ const registeredToolchains = getRegisteredToolchains()
 
 const form = reactive<UserSettingsPayload>({
   thtk_dir: '',
+  truth_dir: '',
   thecl_path: '',
   eclmap_path: '',
   tool_overrides: {},
@@ -250,6 +255,7 @@ watch(
 async function loadSettings() {
   const settings = await getSettings()
   form.thtk_dir = settings?.thtk_dir || ''
+  form.truth_dir = settings?.truth_dir || ''
   form.thecl_path = settings?.thecl_path || ''
   form.eclmap_path = settings?.eclmap_path || ''
   form.tool_overrides = { ...(settings?.tool_overrides || {}) }
@@ -338,6 +344,7 @@ async function save() {
 
     await saveSettings({
       thtk_dir: form.thtk_dir.trim(),
+      truth_dir: form.truth_dir.trim(),
       thecl_path: normalizedOverrides.thecl || '',
       eclmap_path: form.eclmap_path.trim(),
       tool_overrides: normalizedOverrides,

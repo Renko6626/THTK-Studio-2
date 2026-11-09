@@ -13,7 +13,8 @@ export function makeProjectConfig(overrides: Partial<ProjectConfig> = {}): Proje
     gameVersion: '',
     encoding: 'shift-jis',
     mapPaths: [],
-    toolchain: { thtkDir: '' },
+    scriptMaps: { msg: [], ending: [], std: [] },
+    toolchain: { thtkDir: '', truthDir: '' },
     ...overrides
   }
 }
@@ -21,6 +22,7 @@ export function makeProjectConfig(overrides: Partial<ProjectConfig> = {}): Proje
 export function makeAppConfig(overrides: Partial<AppConfig> = {}): AppConfig {
   return {
     thtk_dir: '',
+    truth_dir: '',
     thecl_path: '',
     eclmap_path: '',
     tool_overrides: {},

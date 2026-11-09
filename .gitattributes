@@ -1,0 +1,3 @@
+# Preserve upstream snapshot bytes and unified-diff blank context lines.
+src-tauri/assets/maps/truth/zero318/* whitespace=-blank-at-eol
+deps/truth/patches/*.patch whitespace=-blank-at-eol

@@ -56,7 +56,7 @@ pub fn workspace_info(config: &AppConfig, project_root: Option<&str>) -> Value {
 
     json!({
         "projectRoot": project_root,
-        "defaultGameVersion": config.default_game_version,
+        "defaultGameVersion": effective_toolchain_config(config, project_root).version,
         "toolchains": toolchains,
     })
 }
@@ -216,9 +216,11 @@ pub fn lookup_semantics(map_path: &str, query: &str) -> Result<Value, String> {
 /// 解析当前应使用的 eclmap 路径(项目配置优先,其次应用配置,最后 thtk_dir/maps/{ver}.eclmap)
 pub fn resolve_map_path(config: &AppConfig, project_root: Option<&str>) -> Result<String, String> {
     let effective = effective_toolchain_config(config, project_root);
-    effective.map_paths.into_iter().next().ok_or_else(|| {
-        "No eclmap configured: set eclmap_path or thtk_dir in settings".to_string()
-    })
+    effective
+        .map_paths
+        .into_iter()
+        .next()
+        .ok_or_else(|| "No eclmap configured: set eclmap_path or thtk_dir in settings".to_string())
 }
 
 #[cfg(test)]
@@ -310,4 +312,80 @@ mod tests {
         // 默认配置下无 eclmap_path / thtk_dir → 没有 map
         assert!(effective.map_paths.is_empty());
     }
+}
+
+pub fn run_script(
+    config: &AppConfig,
+    root: Option<&str>,
+    kind: crate::modules::truth::maps::TruthScriptKind,
+    operation: &str,
+    input: String,
+    output: Option<String>,
+    encoding: Option<String>,
+) -> Result<Value, String> {
+    use crate::modules::truth::compiler::{self, ScriptMode, ScriptRequest};
+    let ctx = toolchain::effective_context(config, root);
+    let check = operation == "check";
+    let mode = match operation {
+        "compile" | "check" => ScriptMode::Compile,
+        "decompile" => ScriptMode::Decompile,
+        _ => return Err("Unknown script operation".into()),
+    };
+    let temp = std::env::temp_dir().join(format!("thtk-truth-check-{}", uuid::Uuid::new_v4()));
+    let mut result = compiler::run(
+        &ctx.config,
+        root,
+        ctx.project.as_ref(),
+        &ScriptRequest {
+            mode,
+            kind,
+            input_path: input,
+            output_path: if check {
+                Some(temp.to_string_lossy().into_owned())
+            } else {
+                output
+            },
+            encoding,
+        },
+    );
+    if check {
+        if temp.exists() {
+            std::fs::remove_file(&temp).map_err(|e| e.to_string())?;
+        }
+        result.output_path = None;
+    }
+    let mut value = serde_json::to_value(result).map_err(|e| e.to_string())?;
+    if check {
+        value["checkOnly"] = serde_json::json!(true);
+    }
+    Ok(value)
+}
+
+pub fn lookup_script(
+    config: &AppConfig,
+    root: Option<&str>,
+    kind: crate::modules::truth::maps::TruthScriptKind,
+    path: &str,
+    query: &str,
+) -> Result<Value, String> {
+    let ctx = toolchain::effective_context(config, root);
+    let game =
+        crate::common::game_version::resolve_from(ctx.project.as_ref(), &ctx.config, kind.tool())?;
+    let text = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
+    let mut data = crate::modules::truth::commands::source_definitions(
+        game,
+        kind,
+        root,
+        ctx.project.as_ref(),
+        path,
+        &text,
+    )?;
+    let q = query.trim().to_lowercase();
+    data.instructions.retain(|i| {
+        q.is_empty()
+            || i.opcode.to_string() == q
+            || i.aliases.iter().any(|s| s.to_lowercase().contains(&q))
+    });
+    data.instructions.truncate(50);
+    serde_json::to_value(data).map_err(|e| e.to_string())
 }

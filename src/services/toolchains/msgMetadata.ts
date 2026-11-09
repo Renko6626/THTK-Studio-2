@@ -2,8 +2,8 @@ import type { MsgBuildPayload, MsgScriptKind } from '../../types'
 import type { SelectOption } from 'naive-ui'
 
 export const MSG_MODE_LABELS: Record<MsgBuildPayload['mode'], string> = {
-  decompile: '解包 (.msg → .dmsg)',
-  compile: '打包 (.dmsg → .msg)'
+  decompile: '反编译为 truth 源码',
+  compile: '编译为 .msg'
 }
 
 export const MSG_MODE_OPTIONS: SelectOption[] = (
@@ -17,7 +17,7 @@ export const MSG_MODE_OPTIONS: SelectOption[] = (
  * 只给编码名等于让用户去猜。空串表示跟随项目配置。
  */
 /**
- * 两套 opcode 的切换点。结局/staff 不是 stage 的一个选项，而是 thmsg 的 `-e`
+ * 两套 opcode 的切换点。结局/staff 不是 stage 的一个选项，而是 trumsg 的 `--ending`
  * 模式；opcode 3 在两边含义不同，选错会得到一张看似合法但完全错误的表。
  */
 export const MSG_SCRIPT_KIND_OPTIONS: SelectOption[] = [
@@ -26,6 +26,8 @@ export const MSG_SCRIPT_KIND_OPTIONS: SelectOption[] = [
 ]
 
 export function inferMsgScriptKind(path: string | null | undefined): MsgScriptKind {
+  if (path?.toLowerCase().endsWith('.endspec')) return 'ending'
+  if (path?.toLowerCase().endsWith('.msgspec')) return 'stage'
   const stem = String(path || '')
     .split(/[\\/]/)
     .pop()
@@ -47,14 +49,13 @@ export const MSG_ENCODING_OPTIONS: SelectOption[] = [
 
 export function createDefaultMsgPayload(): MsgBuildPayload {
   return {
-    tool: 'thmsg',
+    tool: 'trumsg',
     mode: 'compile',
     inputPath: '',
     // 空字符串表示"自动推导"，请求构建器再把它转成 null
     outputPath: '',
     encoding: '',
-    scriptKind: 'stage',
-    withComments: true
+    scriptKind: 'stage'
   }
 }
 

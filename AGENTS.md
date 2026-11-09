@@ -67,6 +67,13 @@ Do not optimize for flashy UI at the cost of architecture.
 - Prefer wrapping external tools behind a stable internal interface.
 - Paths, game versions, and tool arguments should not be hardcoded where avoidable.
 
+## Confirmed toolchain direction (2026-11-09)
+
+- MSG / END / STD migrate fully to the pinned zero318/truth branch; ECL / ANM / DAT remain on thtk for now.
+- Bundle truth with Studio, including truth-core beside trumsg/trustd. Preserve GBK through a separately reviewed minimal encoding extension.
+- Retire .dmsg/.dstd support and thmsg/thstd paths; do not build a converter or delete user files.
+- Runtime migration is implemented in `modules/truth`. Read `docs/superpowers/specs/2026-11-09-truth-msg-std-migration-design.md` and its linked encoding design for the established interfaces; further architecture changes still require review.
+
 ## When changing features
 
 Before implementing, first identify which layer the task belongs to:

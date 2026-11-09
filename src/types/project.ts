@@ -11,7 +11,7 @@ import type { FileNode } from './fs'
 export type ProjectConfigStatus = 'absent' | 'loaded' | 'invalid'
 
 /**
- * **游戏文本**的编码，不是 .decl/.dmsg 源文件的（那些在磁盘上始终是 UTF-8）。
+ * **游戏文本**的编码，不是 .decl/.msgspec 源文件的（那些在磁盘上始终是 UTF-8）。
  *
  * - `shift-jis` 原作唯一原生编码
  * - `gbk` 汉化版常用，同时装得下简体与日文；需游戏侧已做适配
@@ -23,12 +23,14 @@ export type ProjectEncoding = 'shift-jis' | 'gbk' | 'utf-8'
 export interface ProjectToolchainConfig {
   /** 覆盖全局 thtk_dir；空字符串表示沿用全局设置 */
   thtkDir: string
+  truthDir: string
 }
 
 export interface ProjectConfig {
   gameVersion: string
   encoding: ProjectEncoding
   mapPaths: string[]
+  scriptMaps: { msg: string[]; ending: string[]; std: string[] }
   toolchain: ProjectToolchainConfig
 }
 

@@ -57,7 +57,7 @@
                 placeholder="跟随项目设置"
               />
               <div class="mt-2 text-xs text-gray-500 leading-5">
-                原作是 Shift-JIS。解错编码不会报错，只会得到乱码——若产出可读性差，换个编码重解即可，原文件不动。
+                原作通常使用 Shift-JIS，汉化版可能使用 GBK。若解码报错或出现乱码，请按游戏所用编码重新解包。
               </div>
             </div>
             <n-button
@@ -142,9 +142,9 @@ const TOOL_DESCRIPTORS: Record<string, ToolDescriptor> = {
   msg: {
     typeLabel: 'Touhou MSG 二进制',
     description: 'MSG 控制原作对话流程与立绘切换。',
-    suggestion: '反编译为 .dmsg 文本源码后修改;指令 ins_N 自动翻译为名字。',
-    actionLabel: '反编译为 .dmsg',
-    actionNote: '调用 thmsg 反编译,产物 .dmsg 会自动在编辑器打开。',
+    suggestion: '反编译为 .msgspec 文本源码后修改;使用 truth 原生脚本和指令 map。',
+    actionLabel: '反编译为 .msgspec',
+    actionNote: '调用 trumsg 反编译,产物 .msgspec 会自动在编辑器打开。',
     disabled: false,
     // 游戏文本编码猜不出来：Shift-JIS 解任何字节都不报错，解错了只是满屏乱码
     needsEncoding: true,
@@ -153,9 +153,9 @@ const TOOL_DESCRIPTORS: Record<string, ToolDescriptor> = {
   std: {
     typeLabel: 'Touhou STD 二进制',
     description: 'STD 控制原作 3D 背景的摄像机与几何数据。',
-    suggestion: '反编译为 .dstd 文本源码后修改;jmp 参数顺序自动适配生态约定。',
-    actionLabel: '反编译为 .dstd',
-    actionNote: '调用 thstd 反编译,产物 .dstd 会自动在编辑器打开。',
+    suggestion: '反编译为 .stdspec 文本源码后修改;支持符号标签和结构化控制流。',
+    actionLabel: '反编译为 .stdspec',
+    actionNote: '调用 trustd 反编译,产物 .stdspec 会自动在编辑器打开。',
     disabled: false,
     action: async (tab) => { await runDecompileStd(tab.path) }
   },

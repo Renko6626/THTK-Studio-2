@@ -44,3 +44,7 @@ __pycache__/
 
 # 参考用的外部仓库（THTK-Studio 一代等），只读不提交
 reference/
+
+# Reproducible third-party builds and generated bundle resources
+/deps/.cache/
+/src-tauri/resources/truth/

@@ -14,7 +14,7 @@
         <div class="space-y-2 text-sm">
           <div class="flex items-center justify-between">
             <span class="text-gray-400">工具</span>
-            <span class="text-gray-100">thmsg</span>
+            <span class="text-gray-100">trumsg</span>
           </div>
           <div class="flex items-center justify-between">
             <span class="text-gray-400">模式</span>
@@ -80,27 +80,17 @@
       v-if="model.scriptKind === 'ending'"
       class="rounded border border-[#cca700]/40 bg-[#cca700]/8 px-3 py-2 text-xs leading-5 text-[#cca700]"
     >
-      结局 / staff 会给 thmsg 加 <code>-e</code>，并使用另一套 opcode 表。文件名是
+      结局 / staff 会使用 trumsg 的 <code>--ending</code>，并使用另一套 opcode 表。文件名是
       <code>e01.msg</code> 或 <code>staff1.msg</code> 时会自动识别。
     </div>
 
-    <div v-if="isDecompileMode" class="build-option">
-      <n-checkbox
-        :checked="model.withComments"
-        @update:checked="updateField('withComments', $event)"
-      >
-        在每行末尾追加指令说明
-      </n-checkbox>
-      <div class="text-xs text-gray-500 mt-1">
-        便于阅读，但打包时会被忽略——注释不会写进 .msg。
-      </div>
-    </div>
+
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { NCheckbox, NForm, NFormItem, NInput, NSelect } from 'naive-ui'
+import { NForm, NFormItem, NInput, NSelect } from 'naive-ui'
 import {
   MSG_ENCODING_OPTIONS,
   MSG_MODE_LABELS,
@@ -117,7 +107,6 @@ const emit = defineEmits<{
   'update:model': [value: MsgBuildPayload]
 }>()
 
-const isDecompileMode = computed(() => props.model.mode === 'decompile')
 
 const encodingSummary = computed(
   () =>

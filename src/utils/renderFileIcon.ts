@@ -46,10 +46,11 @@ function resolveIconUrl(node: IconNode | null | undefined, expanded = false): st
     case 'danm':
       return videoIcon
     case 'msg':
-    case 'dmsg':
+    case 'msgspec':
+    case 'endspec':
       return emailIcon
     case 'std':
-    case 'dstd':
+    case 'stdspec':
       return threeDIcon
     case 'dat':
       return zipIcon

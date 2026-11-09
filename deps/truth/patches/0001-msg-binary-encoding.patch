@@ -1,0 +1,197 @@
+diff --git a/src/cli_def.rs b/src/cli_def.rs
+index 408905b..3ec953e 100644
+--- a/src/cli_def.rs
++++ b/src/cli_def.rs
+@@ -549,13 +549,16 @@ pub mod msg_compile {
+     use super::*;
+ 
+     pub fn main(version: &str, args: &[String]) -> ! {
+-        let (common_options, msg_mode) = cli::parse_args(version, args, CmdSpec {
++        let (common_options, (msg_mode, encoding)) = cli::parse_args(version, args, CmdSpec {
+             program: "trumsg compile",
+             usage_args: "FILE -g GAME -o OUTPUT [OPTIONS...]",
+             options: (cli::common_compile_options(), cli::msg_mode()),
+         });
+ 
+-        wrap_exit_code(|truth| run(truth, &common_options, msg_mode));
++        wrap_exit_code(|truth| {
++            truth.ctx().defs.msg_encoding = encoding;
++            run(truth, &common_options, msg_mode)
++        });
+     }
+ 
+     fn run(
+@@ -609,12 +612,13 @@ pub mod msg_decompile {
+     use super::*;
+ 
+     pub fn main(version: &str, args: &[String]) -> ! {
+-        let (common_options, output, fmt_config, msg_mode) = cli::parse_args(version, args, CmdSpec {
++        let (common_options, output, fmt_config, (msg_mode, encoding)) = cli::parse_args(version, args, CmdSpec {
+             program: "trumsg decompile",
+             usage_args: "FILE -g GAME [OPTIONS...]",
+             options: (cli::common_decompile_options(), cli::output(), cli::fmt_config(), cli::msg_mode()),
+         });
+         wrap_decompile_to_stdout(fmt_config, output, |truth| {
++            truth.ctx().defs.msg_encoding = encoding;
+             decompile(truth, &common_options, msg_mode)
+         })
+     }
+@@ -879,14 +883,21 @@ mod cli {
+     }
+ 
+     pub enum MsgMode { Stage, Mission, Ending }
+-    pub fn msg_mode() -> impl CliArg<Value=MsgMode> {
++    pub fn msg_mode() -> impl CliArg<Value=(MsgMode, crate::io::Encoding)> {
+         let mission_opt = opts::Flag { short: "", long: "mission", help: "parse mission.msg or titlemsg.txt" };
+         let ending_opt = opts::Flag { short: "", long: "ending", help: "parse an ending MSG" };
+-        mission_opt.zip(ending_opt).and_then(|(mission, ending)| match (mission, ending) {
+-            (true, true) => Err(error!("--mission and --ending are incompatible")),
+-            (true, false) => Ok(MsgMode::Mission),
+-            (false, true) => Ok(MsgMode::Ending),
+-            (false, false) => Ok(MsgMode::Stage),
++        let encoding_opt = opts::Opt { short: "", long: "encoding", metavar: "ENCODING", help: "MSG/END binary text encoding: shift-jis (default), gbk, utf-8; source stays UTF-8" };
++        mission_opt.zip(ending_opt).zip(encoding_opt).and_then(|((mission, ending), encoding)| {
++            if mission && ending { return Err(error!("--mission and --ending are incompatible")); }
++            if mission && encoding.is_some() { return Err(error!("--encoding is only supported for stage/ending MSG")); }
++            let encoding = match encoding.as_deref().unwrap_or("shift-jis") {
++                "shift-jis" => encoding_rs::SHIFT_JIS,
++                "gbk" => encoding_rs::GBK,
++                "utf-8" => encoding_rs::UTF_8,
++                other => return Err(error!("unsupported encoding: {}", other)),
++            };
++            let mode = if mission { MsgMode::Mission } else if ending { MsgMode::Ending } else { MsgMode::Stage };
++            Ok((mode, encoding))
+         })
+     }
+ 
+diff --git a/src/context/defs.rs b/src/context/defs.rs
+index d5f57c9..c5c8482 100644
+--- a/src/context/defs.rs
++++ b/src/context/defs.rs
+@@ -30,6 +30,8 @@ pub const CANONICAL_NAN_BITS: u32 = 0x7FC0_0000;
+ /// more easily record information for name resolution.
+ #[derive(Debug, Clone)]
+ pub struct Defs {
++    /// Per-request MSG/END string encoding; other languages keep their default.
++    pub msg_encoding: crate::io::Encoding,
+     regs: IdMap<(LanguageKey, RegId), RegData>,
+     instrs: IdMap<(LanguageKey, raw::Opcode), InsData>,
+ 
+@@ -204,6 +206,7 @@ impl Default for Defs {
+         use rib::{Rib, RibKind};
+ 
+         Defs {
++            msg_encoding: crate::io::DEFAULT_ENCODING,
+             regs: Default::default(),
+             instrs: Default::default(),
+             vars: Default::default(),
+@@ -226,6 +229,13 @@ impl Default for Defs {
+ 
+ impl Defs {
+     pub fn new() -> Self { Default::default() }
++
++    pub fn string_encoding(&self, language: LanguageKey) -> crate::io::Encoding {
++        match language {
++            LanguageKey::Msg | LanguageKey::End => self.msg_encoding,
++            _ => crate::io::DEFAULT_ENCODING,
++        }
++    }
+ }
+ 
+ /// # Definitions
+diff --git a/src/llir/lower.rs b/src/llir/lower.rs
+index d131e91..f95c500 100644
+--- a/src/llir/lower.rs
++++ b/src/llir/lower.rs
+@@ -13,7 +13,7 @@ use crate::pos::{Sp};
+ use crate::resolve::{DefId};
+ use crate::ident::{Ident};
+ use crate::context::{self, CompilerContext};
+-use crate::io::{Encoded, DEFAULT_ENCODING};
++use crate::io::Encoded;
+ use crate::value::{ScalarValue};
+ use crate::passes::semantics::time_and_difficulty::TimeAndDifficulty;
+ use crate::diff_switch_utils as ds_util;
+@@ -657,7 +657,7 @@ fn encode_args(
+                 let string = arg.expect_raw().expect_string();
+ 
+                 // convert to Shift-JIS or whatever
+-                let mut encoded = Encoded::encode(&sp!(arg.span => string), DEFAULT_ENCODING).map_err(|e| emitter.emit(e))?;
++                let mut encoded = Encoded::encode(&sp!(arg.span => string), defs.string_encoding(hooks.language())).map_err(|e| emitter.emit(e))?;
+ 
+                 // have to append null eagerly to correctly reproduce TH17 Extra files
+                 match size_spec {
+diff --git a/src/llir/raise/early.rs b/src/llir/raise/early.rs
+index 122e9ee..1b4f0ba 100644
+--- a/src/llir/raise/early.rs
++++ b/src/llir/raise/early.rs
+@@ -19,7 +19,7 @@ use crate::context::defs::{ConstNames, TypeColor, auto_enum_names};
+ use crate::game::LanguageKey;
+ use crate::llir::{ArgEncoding, StringArgSize, InstrAbi, RegisterEncodingStyle};
+ use crate::value::{ScalarValue};
+-use crate::io::{DEFAULT_ENCODING, Encoded};
++use crate::io::Encoded;
+ use crate::llir::raise::{CannotRaiseIntrinsic, RaisedIntrinsicParts, RaisedIntrinsicPseudos};
+ use crate::passes::semantics::time_and_difficulty::DEFAULT_DIFFICULTY_MASK_BYTE;
+ 
+@@ -203,7 +203,7 @@ impl Raiser<'_> {
+     fn decode_args(&mut self, emitter: &impl Emitter, instr: &RawInstr, instr_offset: raw::BytePos, defs: &Defs) -> Result<EarlyRaiseInstr, ErrorReported> {
+         if self.options.arguments {
+             if let Some((abi, _)) = defs.ins_abi(self.hooks.language(), instr.opcode) {
+-                return decode_args_with_abi(emitter, self.hooks, instr, instr_offset, abi);
++                return decode_args_with_abi(emitter, self.hooks, instr, instr_offset, abi, defs.string_encoding(self.hooks.language()));
+             } else {
+                 self.opcodes_without_abis.insert(instr.opcode);
+             }
+@@ -232,6 +232,7 @@ fn decode_args_with_abi(
+     instr: &RawInstr,
+     instr_offset: raw::BytePos,
+     siggy: &InstrAbi,
++    encoding: crate::io::Encoding,
+ ) -> Result<EarlyRaiseInstr, ErrorReported> {
+     use crate::io::BinRead;
+ 
+@@ -359,7 +360,7 @@ fn decode_args_with_abi(
+                 let warn_on_trimmed_data = !furibug;  // furibug DOES leave garbage after the null
+                 encoded.trim_first_nul(emitter, warn_on_trimmed_data);
+ 
+-                let string = encoded.decode(DEFAULT_ENCODING).map_err(|e| emitter.emit(e))?;
++                let string = encoded.decode(encoding).map_err(|e| emitter.emit(e))?;
+                 ScalarValue::String(string)
+             },
+         };
+diff --git a/tests/msg_encoding.rs b/tests/msg_encoding.rs
+new file mode 100644
+index 0000000..7e7996f
+--- /dev/null
++++ b/tests/msg_encoding.rs
+@@ -0,0 +1,29 @@
++use std::fs;
++use std::process::Command;
++
++#[test]
++fn gbk_stage_and_ending_roundtrip_without_changing_default_encoding() {
++    let dir = tempfile::tempdir().unwrap();
++    let input = dir.path().join("input.spec");
++    for (opcode, ending) in [(17, false), (3, true)] {
++        fs::write(&input, format!("meta {{table: {{0: {{script: \"main\"}}}}}}\nscript main {{ ins_{opcode}(\"汉\"); }}")).unwrap();
++        let binary = dir.path().join("output.msg");
++        let restored = dir.path().join("restored.spec");
++        let run = |mode: &str, source: &std::path::Path, target: &std::path::Path, encoding: Option<&str>| {
++            let mut cmd = Command::new(env!("CARGO_BIN_EXE_truth-core"));
++            cmd.args(["trumsg", mode, "-g", "18", "-o"]).arg(target).arg(source);
++            if ending { cmd.arg("--ending"); }
++            if let Some(encoding) = encoding { cmd.args(["--encoding", encoding]); }
++            cmd.env_remove("TRUTH_MAP_PATH").output().unwrap()
++        };
++        let encoded = run("compile", &input, &binary, Some("gbk"));
++        assert!(encoded.status.success(), "{}", String::from_utf8_lossy(&encoded.stderr));
++        // GBK 汉 = BA BA; existing MSG XOR mask starts 77,7E,95,BC.
++        assert!(fs::read(&binary).unwrap().windows(4).any(|w| w == [0xcd,0xc4,0x95,0xbc]));
++        assert!(run("decompile", &binary, &restored, Some("gbk")).status.success());
++        assert!(fs::read_to_string(&restored).unwrap().contains("汉"));
++        assert!(!run("compile", &input, &binary, None).status.success());
++        fs::write(&input, format!("meta {{table: {{0: {{script: \"main\"}}}}}}\nscript main {{ ins_{opcode}(\"😀\"); }}")).unwrap();
++        assert!(!run("compile", &input, &binary, Some("gbk")).status.success());
++    }
++}

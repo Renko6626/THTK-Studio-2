@@ -11,7 +11,7 @@ import type { GameVersionView } from '../../src/types'
  * 以及 thmsg 不支持的 Uwabami Breakers。
  */
 const TABLE: GameVersionView[] = [
-  { id: 18, code: 'th18', title: '东方虹龙洞', tools: ['thecl', 'thmsg', 'thdat'] },
+  { id: 18, code: 'th18', title: '东方虹龙洞', tools: ['thecl', 'trumsg', 'thdat'] },
   { id: 75, code: 'th75', title: '东方萃梦想', tools: ['thdat'] },
   { id: 103, code: 'th103', title: 'Uwabami Breakers（非东方）', tools: ['thecl', 'thdat'] }
 ]
@@ -20,7 +20,7 @@ describe('gameVersions', () => {
   it('按工具过滤版本', () => {
     expect(versionsForTool(TABLE, 'thecl').map((v) => v.id)).toEqual([18, 103])
     expect(versionsForTool(TABLE, 'thdat').map((v) => v.id)).toEqual([18, 75, 103])
-    expect(versionsForTool(TABLE, 'thmsg').map((v) => v.id)).toEqual([18])
+    expect(versionsForTool(TABLE, 'trumsg').map((v) => v.id)).toEqual([18])
   })
 
   it('未知工具返回空列表而不是全量', () => {

@@ -22,6 +22,7 @@
 </template>
 
 <script setup lang="ts">
+import { generateTruthAssistPack } from '../../api'
 import { computed, h, nextTick } from 'vue'
 import { NDropdown, useMessage, useDialog } from 'naive-ui'
 import { useEditorStore } from '../../stores/editor'
@@ -73,8 +74,8 @@ gameVersionsStore.ensureLoaded()
 const currentVersion = computed(() => projectStore.gameVersion || '')
 const availability = computed(() => ({
   thecl: toolAvailability('thecl', currentVersion.value, gameVersionsStore.table),
-  thmsg: toolAvailability('thmsg', currentVersion.value, gameVersionsStore.table),
-  thstd: toolAvailability('thstd', currentVersion.value, gameVersionsStore.table),
+  trumsg: toolAvailability('trumsg', currentVersion.value, gameVersionsStore.table),
+  trustd: toolAvailability('trustd', currentVersion.value, gameVersionsStore.table),
   thdat: toolAvailability('thdat', currentVersion.value, gameVersionsStore.table)
 }))
 const hasActiveTab = computed(() => Boolean(editorStore.activeTab))
@@ -83,9 +84,9 @@ const activeExtension = computed(() => editorStore.activeTab?.path?.split('.').p
 const activeIsEcl  = computed(() => activeExtension.value === 'ecl')
 const activeIsDecl = computed(() => activeExtension.value === 'decl')
 const activeIsMsg  = computed(() => activeExtension.value === 'msg')
-const activeIsDmsg = computed(() => activeExtension.value === 'dmsg')
+const activeIsMsgSource = computed(() => ['msgspec', 'endspec'].includes(activeExtension.value))
 const activeIsStd  = computed(() => activeExtension.value === 'std')
-const activeIsDstd = computed(() => activeExtension.value === 'dstd')
+const activeIsStdSource = computed(() => activeExtension.value === 'stdspec')
 const activeIsDat  = computed(() => activeExtension.value === 'dat')
 
 /**
@@ -97,7 +98,7 @@ const activeIsDat  = computed(() => activeExtension.value === 'dat')
  * dropdown 在 disabled 项上不显示 tooltip。
  */
 function toolItem(
-  toolId: 'thecl' | 'thmsg' | 'thstd' | 'thdat',
+  toolId: 'thecl' | 'trumsg' | 'trustd' | 'thdat',
   label: string,
   key: string,
   inactive: boolean
@@ -117,7 +118,7 @@ const eclItem = (label: string, key: string, inactive: boolean) =>
 function openMsgBuildDialog(mode: 'compile' | 'decompile') {
   const path = editorStore.activeTab?.path
   if (!path) return
-  buildDialogStore.openDialog({ tool: 'thmsg', mode, inputPath: path } as never)
+  buildDialogStore.openDialog({ tool: 'trumsg', mode, inputPath: path } as never)
 }
 
 // 快捷键采用 Monaco 默认绑定；入口始终通过既有动作桥交给编辑器执行。
@@ -252,16 +253,15 @@ const menus = computed(() => [
       eclItem('生成 ECL 头文件…', 'script.generateEclHeader', !activeIsDecl.value),
       { type: 'divider', key: 'script-msg-div' },
       // MSG
-      toolItem('thmsg', '解包当前 .msg', 'script.decompileMsg', !activeIsMsg.value),
-      toolItem('thmsg', '解包当前 .msg(高级…)', 'script.decompileMsgAdvanced', !activeIsMsg.value),
-      toolItem('thmsg', '打包当前 .dmsg', 'script.compileMsg', !activeIsDmsg.value),
-      toolItem('thmsg', '打包当前 .dmsg(高级…)', 'script.compileMsgAdvanced', !activeIsDmsg.value),
-      toolItem('thmsg', '导出原始 .dmsg（供命令行）', 'script.exportRawDmsg', !activeIsDmsg.value),
+      toolItem('trumsg', '解包当前 .msg', 'script.decompileMsg', !activeIsMsg.value),
+      toolItem('trumsg', '解包当前 .msg(高级…)', 'script.decompileMsgAdvanced', !activeIsMsg.value),
+      toolItem('trumsg', '打包当前 MSG / END 源码', 'script.compileMsg', !activeIsMsgSource.value),
+      toolItem('trumsg', '打包当前 MSG / END 源码(高级…)', 'script.compileMsgAdvanced', !activeIsMsgSource.value),
       { type: 'divider', key: 'script-std-div' },
       // STD
-      toolItem('thstd', '反编译当前 .std', 'script.decompileStd', !activeIsStd.value),
-      toolItem('thstd', '编译当前 .dstd', 'script.compileStd', !activeIsDstd.value),
-      toolItem('thstd', '导出原始 .dstd（供命令行）', 'script.exportRawDstd', !activeIsDstd.value),
+      toolItem('trustd', '反编译当前 .std', 'script.decompileStd', !activeIsStd.value),
+      toolItem('trustd', '编译当前 .stdspec', 'script.compileStd', !activeIsStdSource.value),
+      { label: '生成 truth Agent 指南', key: 'script.truthAssistPack' },
       { type: 'divider', key: 'script-dat-div' },
       // DAT
       toolItem('thdat', '解包当前 .dat', 'script.extractDat', false),
@@ -472,17 +472,14 @@ async function handleSelect(key: string) {
     case 'script.compileMsgAdvanced':
       openMsgBuildDialog('compile')
       break
-    case 'script.exportRawDmsg':
-      tcActions.runExportRaw('msg', editorStore.activeTab?.path)
-      break
-    case 'script.exportRawDstd':
-      tcActions.runExportRaw('std', editorStore.activeTab?.path)
-      break
     case 'script.compileMsg':
       tcActions.runCompileMsg(editorStore.activeTab)
       break
     case 'script.decompileStd':
       tcActions.runDecompileStd(editorStore.activeTab?.path)
+      break
+    case 'script.truthAssistPack':
+      generateTruthAssistPack().then(path => message.success(`已生成 ${path}`)).catch(e => message.error(String(e)))
       break
     case 'script.compileStd':
       tcActions.runCompileStd(editorStore.activeTab)

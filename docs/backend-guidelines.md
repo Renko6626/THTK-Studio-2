@@ -84,7 +84,7 @@ Rust 侧不应该只是：
 
 建议：
 
-- `thecl / thdat / thanm / thmsg / thstd` 后续都做成统一封装接口
+- `thecl / thdat / thanm / trumsg / trustd` 通过稳定的领域接口封装；MSG/END/STD 正在规划迁入 truth，见迁移设计
 - 区分：
   - 原始命令执行层
   - 参数构建层
@@ -146,7 +146,7 @@ Rust 侧不应该只是：
 
 1. 消除 `config.rs` 中的 unwrap/expect 调用（3 处 Mutex + 1 处 ProjectDirs）
 2. 引入 `tracing` 结构化日志替代 println
-3. thmsg/thstd/thanm 工具链封装（复用 thecl 的 ToolOperationResult 模式）
+3. MSG/END/STD 使用 modules/truth 编译与 map 服务；ANM 继续 thanm 路线
 4. 终端 PTY 架构
 5. 索引与诊断服务层
 
@@ -158,7 +158,7 @@ Rust 侧不应该只是：
 | file_watcher.rs | 文件系统变更监听（notify + debounce + Tauri 事件） |
 | fs_utils.rs | 文件树浅层扫描 + 按需加载子目录 + 文件分类 |
 | fs_ops.rs | 文件 CRUD 操作（创建/重命名/删除/复制） |
-| toolchain.rs | 工具路径解析 + 版本检测（5 个工具）+ 项目级 thtkDir 覆盖 |
+| toolchain.rs | 工具路径解析 + 版本检测（5 个工具）+ 项目级 thtkDir / truthDir 覆盖 |
 | project_config.rs | `.thtk-project.json` 三态读取 + 原子保存 |
 | recent_projects.rs | 最近项目去重/置顶/上限 + 可用性判定 |
 | pty.rs | PTY 会话管理（portable-pty，跨平台 shell 探测） |

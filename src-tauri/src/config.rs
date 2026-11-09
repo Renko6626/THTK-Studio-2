@@ -15,6 +15,7 @@ fn default_mcp_port() -> u16 {
 pub struct AppConfig {
     // thtk 工具链的根目录
     pub thtk_dir: String,
+    pub truth_dir: String,
     // 可选：显式指定 thecl.exe 路径，优先级高于 thtk_dir/thecl.exe
     pub thecl_path: String,
     // 默认 ECL map 路径，供 thecl 构建和编辑器高亮使用
@@ -37,6 +38,7 @@ impl Default for AppConfig {
     fn default() -> Self {
         Self {
             thtk_dir: "".to_string(),
+            truth_dir: "".to_string(),
             thecl_path: "".to_string(),
             eclmap_path: "".to_string(),
             tool_overrides: BTreeMap::new(),
@@ -156,7 +158,10 @@ impl ConfigManager {
 
     // 获取当前配置的一个副本
     pub fn get_config(&self) -> AppConfig {
-        self.config.lock().unwrap_or_else(|e| e.into_inner()).clone()
+        self.config
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
     }
 
     // 更新配置
@@ -201,6 +206,7 @@ pub fn merge_user_settings(current: &AppConfig, incoming: AppConfig) -> AppConfi
     AppConfig {
         // 设置表单负责的字段
         thtk_dir: incoming.thtk_dir,
+        truth_dir: incoming.truth_dir,
         thecl_path: incoming.thecl_path,
         eclmap_path: incoming.eclmap_path,
         tool_overrides: incoming.tool_overrides,
@@ -242,7 +248,8 @@ mod tests {
 
     #[test]
     fn saving_settings_form_does_not_wipe_backend_owned_fields() {
-        let merged = merge_user_settings(&config_with_backend_state(), payload_from_settings_form());
+        let merged =
+            merge_user_settings(&config_with_backend_state(), payload_from_settings_form());
 
         // 表单字段照常更新
         assert_eq!(merged.thtk_dir, "D:/new");
@@ -268,8 +275,7 @@ mod tests {
     #[test]
     fn malformed_recent_entry_does_not_reset_the_whole_config() {
         // 手工编辑过、某一条缺字段：不该让整个 AppConfig 反序列化失败
-        let content =
-            r#"{"thtk_dir":"D:/thtk","recent_projects":[{"path":"D:/a"},{"name":"b"}]}"#;
+        let content = r#"{"thtk_dir":"D:/thtk","recent_projects":[{"path":"D:/a"},{"name":"b"}]}"#;
         let config: AppConfig = serde_json::from_str(content).expect("缺字段应走默认值");
 
         assert_eq!(config.thtk_dir, "D:/thtk");

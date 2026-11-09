@@ -82,6 +82,27 @@ pub struct ReportParams {
     pub path: Option<String>,
 }
 
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct ScriptOperationParams {
+    /// msg / ending / std
+    pub kind: crate::modules::truth::maps::TruthScriptKind,
+    /// check / compile / decompile
+    pub operation: String,
+    /// Absolute path. Source suffix: .msgspec / .endspec / .stdspec
+    pub input_path: String,
+    pub output_path: Option<String>,
+    /// MSG/END binary encoding: shift-jis / gbk / utf-8. Source is always UTF-8.
+    pub encoding: Option<String>,
+}
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct ScriptLookupParams {
+    pub kind: crate::modules::truth::maps::TruthScriptKind,
+    /// Source path provides the pragma map context.
+    pub source_path: String,
+    /// Name substring or opcode; empty lists available instructions (up to 50).
+    pub query: String,
+}
+
 #[tool_router]
 impl ThtkMcp {
     pub fn new(app: AppHandle) -> Self {
@@ -108,16 +129,15 @@ impl ThtkMcp {
     }
 
     #[tool(
-        description = "获取 THTK-Studio 工作区信息：项目根目录、默认游戏版本、五个 thtk 工具（thecl/thmsg/thanm/thstd/thdat）的可用状态与版本。"
+        description = "获取 THTK-Studio 工作区信息：项目根目录、默认游戏版本、工具（thecl/trumsg/thanm/trustd/thdat）的可用状态与版本。"
     )]
     async fn get_workspace_info(&self) -> Result<CallToolResult, McpError> {
         let config = self.config();
         let root = self.project_root();
-        let value = tokio::task::spawn_blocking(move || {
-            tools::workspace_info(&config, root.as_deref())
-        })
-        .await
-        .map_err(|e| McpError::internal_error(format!("task join: {e}"), None))?;
+        let value =
+            tokio::task::spawn_blocking(move || tools::workspace_info(&config, root.as_deref()))
+                .await
+                .map_err(|e| McpError::internal_error(format!("task join: {e}"), None))?;
         json_result(value)
     }
 
@@ -147,7 +167,12 @@ impl ThtkMcp {
         let config = self.config();
         let root = self.project_root();
         let value = tokio::task::spawn_blocking(move || {
-            tools::compile_ecl(&config, root.as_deref(), &params.source_path, params.output_path)
+            tools::compile_ecl(
+                &config,
+                root.as_deref(),
+                &params.source_path,
+                params.output_path,
+            )
         })
         .await
         .map_err(|e| McpError::internal_error(format!("task join: {e}"), None))?
@@ -163,7 +188,12 @@ impl ThtkMcp {
         let config = self.config();
         let root = self.project_root();
         let value = tokio::task::spawn_blocking(move || {
-            tools::decompile_ecl(&config, root.as_deref(), &params.binary_path, params.output_path)
+            tools::decompile_ecl(
+                &config,
+                root.as_deref(),
+                &params.binary_path,
+                params.output_path,
+            )
         })
         .await
         .map_err(|e| McpError::internal_error(format!("task join: {e}"), None))?
@@ -181,12 +211,55 @@ impl ThtkMcp {
         let config = self.config();
         let root = self.project_root();
         let value = tokio::task::spawn_blocking(move || {
-            let map_path =
-                tools::resolve_map_path(&config, root.as_deref()).map_err(tool_error)?;
+            let map_path = tools::resolve_map_path(&config, root.as_deref()).map_err(tool_error)?;
             tools::lookup_semantics(&map_path, &params.query).map_err(tool_error)
         })
         .await
         .map_err(|e| McpError::internal_error(format!("task join: {e}"), None))??;
+        json_result(value)
+    }
+
+    #[tool(
+        description = "使用项目配置执行 truth MSG/END/STD 检查、编译或反编译。operation 为 check/compile/decompile；源码使用 .msgspec/.endspec/.stdspec。修改后先 check；GBK 通过 encoding 指定。"
+    )]
+    async fn run_script(
+        &self,
+        Parameters(p): Parameters<ScriptOperationParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let config = self.config();
+        let root = self.project_root();
+        let value = tokio::task::spawn_blocking(move || {
+            tools::run_script(
+                &config,
+                root.as_deref(),
+                p.kind,
+                &p.operation,
+                p.input_path,
+                p.output_path,
+                p.encoding,
+            )
+        })
+        .await
+        .map_err(|e| tool_error(e.to_string()))?
+        .map_err(tool_error)?;
+        json_result(value)
+    }
+
+    #[tool(
+        description = "查询 truth 脚本实际使用的指令名字、参数、枚举和中文说明，合并项目 map 与源码 pragma。MSG 与 END 分开；写指令前先查此工具。"
+    )]
+    async fn lookup_script_semantics(
+        &self,
+        Parameters(p): Parameters<ScriptLookupParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let config = self.config();
+        let root = self.project_root();
+        let value = tokio::task::spawn_blocking(move || {
+            tools::lookup_script(&config, root.as_deref(), p.kind, &p.source_path, &p.query)
+        })
+        .await
+        .map_err(|e| tool_error(e.to_string()))?
+        .map_err(tool_error)?;
         json_result(value)
     }
 
@@ -222,7 +295,7 @@ impl ServerHandler for ThtkMcp {
             .with_instructions(
                 "THTK-Studio：东方 Project 脚本魔改 IDE。\
                  工作流：decompile_ecl 把 .ecl 反编译为 .decl 文本 → 编辑 → check_ecl 验证 → compile_ecl 产出。\
-                 写 ECL 指令前先 lookup_ecl_semantics 查签名；完成任务后 report_to_user 向用户汇报。",
+                 MSG/END/STD 使用 run_script 操作与 lookup_script_semantics 查询。写 ECL 指令前先 lookup_ecl_semantics 查签名；完成任务后 report_to_user 向用户汇报。",
             )
     }
 }
@@ -282,10 +355,7 @@ pub async fn start(app: AppHandle) -> Result<McpServerInfo, String> {
         StreamableHttpServerConfig::default(),
     );
 
-    let router = with_bearer_auth(
-        axum::Router::new().nest_service("/mcp", service),
-        &token,
-    );
+    let router = with_bearer_auth(axum::Router::new().nest_service("/mcp", service), &token);
 
     let mcp_port = app.state::<AppState>().config_manager.get_config().mcp_port;
     let listener = bind_preferred(mcp_port).await?;
@@ -310,7 +380,9 @@ mod tests {
 
     #[tokio::test]
     async fn bind_preferred_falls_back_when_port_taken() {
-        let blocker = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("bind blocker");
+        let blocker = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind blocker");
         let taken_port = blocker.local_addr().expect("addr").port();
 
         let listener = bind_preferred(taken_port).await.expect("fallback bind");
@@ -324,7 +396,9 @@ mod tests {
         // 找空闲端口→释放→立刻请求,存在小概率被并发测试/其他进程抢占的竞态;
         // 重试若干轮把 flake 概率压到忽略不计(任意一轮成功即证明语义正确)。
         for attempt in 0..5 {
-            let probe = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("probe");
+            let probe = tokio::net::TcpListener::bind("127.0.0.1:0")
+                .await
+                .expect("probe");
             let free_port = probe.local_addr().expect("addr").port();
             drop(probe);
 
@@ -374,21 +448,19 @@ mod tests {
             "expected 401 without Authorization, got: {no_header}"
         );
 
-        let wrong = tokio::task::spawn_blocking(move || {
-            raw_request(addr, Some("Bearer wrong-token"))
-        })
-        .await
-        .expect("join");
+        let wrong =
+            tokio::task::spawn_blocking(move || raw_request(addr, Some("Bearer wrong-token")))
+                .await
+                .expect("join");
         assert!(
             wrong.starts_with("HTTP/1.1 401"),
             "expected 401 with wrong token, got: {wrong}"
         );
 
-        let ok = tokio::task::spawn_blocking(move || {
-            raw_request(addr, Some("Bearer secret-token"))
-        })
-        .await
-        .expect("join");
+        let ok =
+            tokio::task::spawn_blocking(move || raw_request(addr, Some("Bearer secret-token")))
+                .await
+                .expect("join");
         assert!(
             ok.starts_with("HTTP/1.1 200"),
             "expected 200 with correct token, got: {ok}"

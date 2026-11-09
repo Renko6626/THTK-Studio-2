@@ -4,8 +4,8 @@ import type { ProblemEntry } from '../../../stores/workbenchReports'
 
 const markerOwner = 'thtk-toolchain-diagnostics'
 
-/** 这些工具的 diagnostics 会画到 Monaco 上；thmsg 现在也会产出结构化诊断。 */
-const MARKER_SOURCES = new Set(['thecl', 'thmsg'])
+/** 这些工具的 diagnostics 会画到 Monaco 上；trumsg 现在也会产出结构化诊断。 */
+const MARKER_SOURCES = new Set(['thecl', 'trumsg', 'trustd'])
 
 function toMarkerSeverity(severity: string): monaco.MarkerSeverity {
   if (severity === 'error') return monaco.MarkerSeverity.Error

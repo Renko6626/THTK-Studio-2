@@ -17,16 +17,16 @@ pub struct FileNode {
     pub category: FileCategory,          // 文件分类 (用于逻辑判断)
     pub children: Option<Vec<FileNode>>, // 子节点 (仅文件夹有)
     #[serde(rename = "isLeaf")]
-    pub is_leaf: bool,                   // NTree 需要 isLeaf 判断是否可展开
+    pub is_leaf: bool, // NTree 需要 isLeaf 判断是否可展开
     #[serde(default)]
-    pub lossy: bool,                     // 文件名包含非 UTF-8 字节，IDE 操作可能失败
+    pub lossy: bool, // 文件名包含非 UTF-8 字节，IDE 操作可能失败
 }
 
 /// 文件分类枚举，帮助前端快速判断如何处理该文件
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")] // 输出 json 为 "sourceScript", "binaryScript" 等
 pub enum FileCategory {
-    SourceScript,    // 我们自定义的中间格式 (.decl, .dmsg, .dstd) -> 用编辑器打开
+    SourceScript,    // 可编辑脚本源码 (.decl, .msgspec, .endspec, .stdspec) -> 用编辑器打开
     BinaryScript,    // 原始游戏脚本 (.ecl, .msg, .std) -> 提示需要反编译
     Archive,         // 包文件 (.dat)
     Image,           // 图片 (.png, .jpg) -> 用预览器打开
@@ -111,11 +111,7 @@ fn list_dir_shallow(dir_path: &Path) -> Result<Vec<FileNode>> {
         };
 
         // 目录标记为非叶子（前端可展开），除非是空目录
-        let is_leaf = if is_dir {
-            dir_is_empty(&path)
-        } else {
-            true
-        };
+        let is_leaf = if is_dir { dir_is_empty(&path) } else { true };
 
         nodes.push(FileNode {
             name,
@@ -163,7 +159,9 @@ fn sort_nodes(nodes: &mut Vec<FileNode>) {
 /// 辅助函数：根据后缀判断文件分类
 fn determine_category(extension: Option<&str>) -> FileCategory {
     match extension {
-        Some("decl") | Some("dmsg") | Some("dstd") | Some("danm") => FileCategory::SourceScript,
+        Some("decl") | Some("msgspec") | Some("endspec") | Some("stdspec") | Some("danm") => {
+            FileCategory::SourceScript
+        }
         Some("ecl") | Some("msg") | Some("std") => FileCategory::BinaryScript,
         Some("anm") => FileCategory::AssetDefinition,
         Some("dat") => FileCategory::Archive,
@@ -194,8 +192,11 @@ mod lossy_tests {
         assert!(!nodes.is_empty(), "should list both files");
 
         let lossy_node = nodes.iter().find(|n| n.lossy);
-        assert!(lossy_node.is_some(), "should flag non-UTF8 filename as lossy: {:?}",
-            nodes.iter().map(|n| (&n.name, n.lossy)).collect::<Vec<_>>());
+        assert!(
+            lossy_node.is_some(),
+            "should flag non-UTF8 filename as lossy: {:?}",
+            nodes.iter().map(|n| (&n.name, n.lossy)).collect::<Vec<_>>()
+        );
 
         let good = nodes.iter().find(|n| n.name == "good.txt");
         assert!(good.is_some());
@@ -222,7 +223,10 @@ mod tests {
         assert!(names.contains(&".claude"), "got: {names:?}");
         assert!(names.contains(&".mcp.json"), "got: {names:?}");
         assert!(names.contains(&"st01.decl"), "got: {names:?}");
-        assert!(!names.contains(&".git"), ".git must stay hidden, got: {names:?}");
+        assert!(
+            !names.contains(&".git"),
+            ".git must stay hidden, got: {names:?}"
+        );
     }
 
     #[test]

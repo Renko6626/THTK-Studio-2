@@ -63,6 +63,10 @@
             <n-button :disabled="loading" @click="pickThtkDir">浏览</n-button>
           </div>
         </n-form-item>
+        <n-form-item label="truth 目录覆盖"><n-input v-model:value="form.truthDir" placeholder="留空使用全局设置或随包版本" /></n-form-item>
+        <n-form-item label="MSG map 覆盖（每行一个路径）"><n-input v-model:value="form.msgMaps" type="textarea" /></n-form-item>
+        <n-form-item label="END map 覆盖（每行一个路径）"><n-input v-model:value="form.endingMaps" type="textarea" /></n-form-item>
+        <n-form-item label="STD map 覆盖（每行一个路径）"><n-input v-model:value="form.stdMaps" type="textarea" /></n-form-item>
       </n-form>
 
       <div class="rounded border border-white/8 bg-[#151515]">
@@ -154,7 +158,7 @@ const dialog = useDialog()
 const gameVersionsStore = useGameVersionsStore()
 // 项目级版本对五个工具都生效，所以列整张表而非某个工具的子集
 /**
- * 这里选的是**游戏文本**的编码，不是 .decl/.dmsg 源文件的——那些在磁盘上
+ * 这里选的是**游戏文本**的编码，不是 .decl/.msgspec 源文件的——那些在磁盘上
  * 始终是 UTF-8。选错的后果不是报错而是产出坏的游戏文件，所以每一项都写清前提。
  */
 const encodingOptions = [
@@ -187,13 +191,21 @@ interface ProjectSettingsForm {
   encoding: ProjectEncoding
   mapPaths: string[]
   thtkDir: string
+  truthDir: string
+  msgMaps: string
+  endingMaps: string
+  stdMaps: string
 }
 
 const form = reactive<ProjectSettingsForm>({
   gameVersion: null,
   encoding: 'shift-jis',
   mapPaths: [],
-  thtkDir: ''
+  thtkDir: '',
+  truthDir: '',
+  msgMaps: '',
+  endingMaps: '',
+  stdMaps: ''
 })
 
 // 表单开始编辑时锁定的项目根。保存时一并发给后端做比对。
@@ -237,6 +249,10 @@ function syncForm() {
   form.encoding = config?.encoding || 'shift-jis'
   form.mapPaths = [...(config?.mapPaths || [])]
   form.thtkDir = config?.toolchain?.thtkDir || ''
+  form.truthDir = config?.toolchain?.truthDir || ''
+  form.msgMaps = (config?.scriptMaps?.msg || []).join('\n')
+  form.endingMaps = (config?.scriptMaps?.ending || []).join('\n')
+  form.stdMaps = (config?.scriptMaps?.std || []).join('\n')
 }
 
 /** 表单 → 后端结构。字段名对齐 serde 的 camelCase。 */
@@ -246,8 +262,10 @@ function buildConfig(): ProjectConfig {
     encoding: form.encoding,
     // 空条目会被后端校验拒绝，这里先清掉，免得用户因为一个空行存不了
     mapPaths: form.mapPaths.map(item => String(item).trim()).filter(Boolean),
+    scriptMaps: { msg: form.msgMaps.split(/\r?\n/).map(s => s.trim()).filter(Boolean), ending: form.endingMaps.split(/\r?\n/).map(s => s.trim()).filter(Boolean), std: form.stdMaps.split(/\r?\n/).map(s => s.trim()).filter(Boolean) },
     toolchain: {
-      thtkDir: form.thtkDir?.trim() || ''
+      thtkDir: form.thtkDir?.trim() || '',
+      truthDir: form.truthDir.trim()
     }
   }
 }

@@ -37,7 +37,7 @@ const panels: { key: RightPanelKey; label: string }[] = [
   { key: 'references', label: '引用' },
   { key: 'outline', label: '大纲' },
   // 不替换 outline，并列即可：各面板自己判断适用性（outline 只认 .decl、
-  // timeline 只认 .dstd/.dmsg）。按文件类型换面板的分支逻辑会越堆越乱，
+  // timeline 只认 .stdspec/.msgspec）。按文件类型换面板的分支逻辑会越堆越乱，
   // 而 ANM 进来又是另一种结构。
   { key: 'timeline', label: '时间线' }
 ]

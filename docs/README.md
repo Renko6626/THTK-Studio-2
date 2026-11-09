@@ -2,7 +2,7 @@
 
 这个目录用于放开发辅助文档，而不是用户使用说明。
 
-当前文档分为八类：
+架构与参考资料：
 
 - [frontend-guidelines.md](./frontend-guidelines.md)
   - 前端结构、状态管理、组件边界、Monaco 集成建议
@@ -14,8 +14,6 @@
   - `thecl` 官方用法对应的 IDE 接入设计
 - [toolchain-platform.md](./toolchain-platform.md)
   - `thtk` 工具链注册表、通用设置、状态检测和后续扩展约束
-- [toolchain-testing-plan.md](./toolchain-testing-plan.md)
-  - `thecl` 真实样本回归和静态检查并行的测试计划
 - [ecl-highlighting-plan.md](./ecl-highlighting-plan.md)
   - ECL 语法高亮、静态 marker 检查、`eclm` 动态语义层与分阶段实施方案
 - [ecl-signature-inference.md](./ecl-signature-inference.md)
@@ -48,7 +46,15 @@
 - [../editor-shell-status.md](../editor-shell-status.md)
   - 当前 IDE 壳子已经做到哪一步、还缺哪些基础能力
 
-当前实施计划：
+当前路线与计划：
+
+- [truth 迁移设计](superpowers/specs/2026-11-09-truth-msg-std-migration-design.md)：已落地的接口、Studio map 解析路线和旧格式退场要求。
+- [MSG/END 编码设计](superpowers/specs/2026-11-09-truth-msg-encoding-design.md)：已实施的 GBK 最小编码补丁。
+- [truth 迁移计划](superpowers/plans/2026-11-09-truth-msg-std-migration.md)：固定工具核对、编码、map、编译、编辑器、agent 和随包验收。
+- [依赖来源与分发](../deps/README.md)：固定提交、补丁、平台构建和生成产物说明。
+- [工具链生态](toolchain-ecosystem.md)、[脚本支持现状](script-support-status.md)：现有实现与目标路线分开记录。
+
+较早的计划与实施记录：
 
 - [superpowers/plans/2026-10-25-terminal-usability.md](./superpowers/plans/2026-10-25-terminal-usability.md)
   - 终端调研与计划：保留 xterm.js + Rust PTY，以官方插件补搜索、网址及常用操作
@@ -57,7 +63,7 @@
   - Monaco 常用操作入口、显示选项和标签编辑状态完善
 
 - [dependency-management-plan-2026-10-23.md](./dependency-management-plan-2026-10-23.md)
-  - Windows-first 依赖管理：thtk nightly 的安装/更新、ECL mapfile 托管与统一解析
+  - 历史依赖计划：ECL map 基线已经实现；thtk 安装/更新暂缓，MSG/STD 方向由新 truth 设计替代
 - [superpowers/plans/2026-07-13-mvp-project-workflow-closure.md](./superpowers/plans/2026-07-13-mvp-project-workflow-closure.md)
   - 第一阶段 MVP 收尾：项目配置 UI、最近项目、欢迎流程与安全的项目切换
 

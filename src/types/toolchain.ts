@@ -5,7 +5,7 @@
  */
 
 /** thtk 的五个工具 */
-export type ToolchainId = 'thecl' | 'thmsg' | 'thanm' | 'thstd' | 'thdat'
+export type ToolchainId = 'thecl' | 'trumsg' | 'thanm' | 'trustd' | 'thdat'
 
 /**
  * `AppConfig` 里落盘的最近项目形态（`common/recent_projects.rs` 的 `RecentProject`，
@@ -26,6 +26,7 @@ export interface RecentProjectStored {
  */
 export interface AppConfig {
   thtk_dir: string
+  truth_dir: string
   thecl_path: string
   eclmap_path: string
   /** key 为 ToolchainId，值为该工具 exe 的覆盖路径 */
@@ -108,14 +109,10 @@ export interface EclResult {
   outputPath: string | null
 }
 
-/** MSG 的两套消费者。结局/staff 走 `thmsg -e`，opcode 表与关卡对话不同。 */
+/** MSG 的两套消费者。结局/staff 走 `trumsg --ending`，opcode 表与关卡对话不同。 */
 export type MsgScriptKind = 'stage' | 'ending'
 
-/**
- * MSG 与 STD 的结果结构与 `EclResult` 完全一致（都 `rename_all = "camelCase"`）。
- * MSG 的 `diagnostics` 现在会包含预检查与 thmsg stderr 的结构化错误；
- * STD 仍为空，只是复用同一类型。
- */
+/** truth 的 UTF-8 诊断与既有问题面板共用结果结构。 */
 export type MsgResult = EclResult
 export type StdResult = EclResult
 
@@ -163,25 +160,17 @@ export interface TheclBuildPayload {
   showOffsets: boolean
 }
 
-/**
- * thmsg 构建对话框的载荷。
- *
- * 不复用 TheclBuildPayload：thmsg 没有 eclmap（语义数据是内嵌的
- * `assets/msg-th{ver}.json`，不由用户提供），也没有 -r/-s/-x 那些开关；
- * 反过来它有 thecl 没有的 encoding——游戏文本编码，解包/打包各自独立。
- */
+/** MSG 构建表单；版本、默认 map 和编码取自项目设置。 */
 export interface MsgBuildPayload {
-  tool: 'thmsg'
+  tool: 'trumsg'
   mode: 'compile' | 'decompile'
   inputPath: string
   /** 留空 = 按输入路径自动推导 */
   outputPath: string
   /** 游戏文本编码；留空 = 跟随项目配置 */
   encoding: string
-  /** 关卡对话 / 结局-staff；结局会走 thmsg -e */
+  /** 关卡对话 / 结局-staff；结局会走 trumsg --ending */
   scriptKind: MsgScriptKind
-  /** 仅 decompile：在每行末尾追加指令说明 */
-  withComments: boolean
 }
 
 /**
@@ -189,7 +178,7 @@ export interface MsgBuildPayload {
  * 只有最小载荷。等它们真正接上构建对话框时，各自补自己的 payload 类型。
  */
 export interface GenericBuildPayload {
-  tool: Exclude<ToolchainId, 'thecl' | 'thmsg'>
+  tool: Exclude<ToolchainId, 'thecl' | 'trumsg'>
   inputPath: string
 }
 

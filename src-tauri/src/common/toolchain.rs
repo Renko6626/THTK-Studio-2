@@ -32,9 +32,9 @@ pub const TOOLCHAIN_DESCRIPTORS: [ToolchainDescriptor; 5] = [
         exe_name: "thecl.exe",
     },
     ToolchainDescriptor {
-        id: "thmsg",
+        id: "trumsg",
         label: "Message Script Tool",
-        exe_name: "thmsg.exe",
+        exe_name: "trumsg.exe",
     },
     ToolchainDescriptor {
         id: "thanm",
@@ -42,9 +42,9 @@ pub const TOOLCHAIN_DESCRIPTORS: [ToolchainDescriptor; 5] = [
         exe_name: "thanm.exe",
     },
     ToolchainDescriptor {
-        id: "thstd",
+        id: "trustd",
         label: "Stage Data Tool",
-        exe_name: "thstd.exe",
+        exe_name: "trustd.exe",
     },
     ToolchainDescriptor {
         id: "thdat",
@@ -54,7 +54,9 @@ pub const TOOLCHAIN_DESCRIPTORS: [ToolchainDescriptor; 5] = [
 ];
 
 pub fn find_toolchain_descriptor(tool_id: &str) -> Option<&'static ToolchainDescriptor> {
-    TOOLCHAIN_DESCRIPTORS.iter().find(|descriptor| descriptor.id == tool_id)
+    TOOLCHAIN_DESCRIPTORS
+        .iter()
+        .find(|descriptor| descriptor.id == tool_id)
 }
 
 pub fn resolve_tool_override(config: &AppConfig, tool_id: &str) -> String {
@@ -112,20 +114,34 @@ pub fn effective_context(config: &AppConfig, project_root: Option<&str>) -> Effe
         };
     };
 
-    let project_thtk_dir = project.toolchain.thtk_dir.trim();
-    if project_thtk_dir.is_empty() {
-        return EffectiveContext {
-            config: config.clone(),
-            project: Some(project),
-        };
-    }
-
     let mut effective = config.clone();
-    effective.thtk_dir = project_thtk_dir.to_string();
+    if !project.toolchain.thtk_dir.trim().is_empty() {
+        effective.thtk_dir = project.toolchain.thtk_dir.trim().into();
+    }
+    if !project.toolchain.truth_dir.trim().is_empty() {
+        effective.truth_dir = project.toolchain.truth_dir.trim().into();
+    }
     EffectiveContext {
         config: effective,
         project: Some(project),
     }
+}
+
+static RESOURCE_DIR: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+pub fn set_resource_dir(path: PathBuf) {
+    let _ = RESOURCE_DIR.set(path);
+}
+pub fn bundled_truth_dir() -> PathBuf {
+    if cfg!(debug_assertions) {
+        return PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/truth");
+    }
+    RESOURCE_DIR
+        .get()
+        .map(|p| p.join("truth"))
+        .unwrap_or_default()
+}
+fn is_truth(tool: &str) -> bool {
+    matches!(tool, "trumsg" | "trustd")
 }
 
 pub fn resolve_tool_path(config: &AppConfig, tool_id: &str, exe_name: &str) -> String {
@@ -134,14 +150,24 @@ pub fn resolve_tool_path(config: &AppConfig, tool_id: &str, exe_name: &str) -> S
         return override_path;
     }
 
-    if config.thtk_dir.trim().is_empty() {
-        return String::new();
-    }
-
-    PathBuf::from(&config.thtk_dir)
-        .join(exe_name)
-        .to_string_lossy()
-        .to_string()
+    let dir = if is_truth(tool_id) {
+        if config.truth_dir.trim().is_empty() {
+            bundled_truth_dir()
+        } else {
+            PathBuf::from(config.truth_dir.trim())
+        }
+    } else {
+        if config.thtk_dir.trim().is_empty() {
+            return String::new();
+        }
+        PathBuf::from(config.thtk_dir.trim())
+    };
+    let name = if cfg!(windows) || !is_truth(tool_id) {
+        exe_name
+    } else {
+        exe_name.trim_end_matches(".exe")
+    };
+    dir.join(name).to_string_lossy().into_owned()
 }
 
 /// 工具未配置时给用户的说明。
@@ -151,6 +177,11 @@ pub fn resolve_tool_path(config: &AppConfig, tool_id: &str, exe_name: &str) -> S
 /// 所以全新安装后这条会是用户点任何工具链功能时看到的第一句话——它必须
 /// 说清楚下一步做什么，而不是只陈述"没配置"。
 pub fn not_configured_message(tool_id: &str) -> String {
+    if is_truth(tool_id) {
+        return format!(
+            "未找到 {tool_id}。请检查随包 truth 文件，或在工具链设置中指定 truth 目录。"
+        );
+    }
     format!(
         "未找到 {tool_id}。请在「设置 → 工具链设置」里指定 thtk 所在目录。\
 thtk 是第三方工具（BSD 式宽松许可，保留 COPYING），不随本程序分发，\
@@ -168,7 +199,11 @@ pub fn get_toolchain_status(config: &AppConfig, tool_id: &str) -> Result<Toolcha
         if !override_path.is_empty() {
             override_path
         } else {
-            config.thtk_dir.trim().to_string()
+            if is_truth(tool_id) {
+                config.truth_dir.trim().to_string()
+            } else {
+                config.thtk_dir.trim().to_string()
+            }
         }
     };
 
@@ -186,7 +221,7 @@ pub fn get_toolchain_status(config: &AppConfig, tool_id: &str) -> Result<Toolcha
         });
     }
 
-    match query_tool_version(&resolved_path) {
+    match query_tool_version(&resolved_path, descriptor.id) {
         Ok(version) => {
             // 必须在结构体字面量之前算：字面量里 resolved_path 字段会先被移动。
             let supported_versions = probe_supported_versions(&resolved_path, descriptor.id);
@@ -223,10 +258,16 @@ pub fn get_all_toolchain_statuses(config: &AppConfig) -> Vec<ToolchainStatus> {
         .collect()
 }
 
-fn query_tool_version(exe_path: &str) -> Result<String, String> {
+fn query_tool_version(exe_path: &str, tool_id: &str) -> Result<String, String> {
     let parent_dir = Path::new(exe_path).parent();
-    let result = cmd_runner::run_tool(exe_path, &["-V"], parent_dir)?;
-    let output = format!("{}\n{}", result.stdout, result.stderr).trim().to_string();
+    let flag = if is_truth(tool_id) { "--version" } else { "-V" };
+    let result = cmd_runner::run_tool(exe_path, &[flag], parent_dir)?;
+    if !result.success {
+        return Err(format!("{tool_id}: {}", result.stderr));
+    }
+    let output = format!("{}\n{}", result.stdout, result.stderr)
+        .trim()
+        .to_string();
 
     if output.is_empty() {
         return Err("Toolchain did not return version output".to_string());
@@ -275,6 +316,9 @@ pub fn parse_supported_versions(usage: &str) -> Option<Vec<u32>> {
 /// - 探测结果与静态表**取交集**：探测可能报出我们表里没有的新版本，那些版本我们
 ///   既没有标题也没有工具支持信息，暂不放出。
 fn probe_supported_versions(exe_path: &str, tool_id: &str) -> Vec<u32> {
+    if is_truth(tool_id) {
+        return crate::modules::truth::catalog::versions_for_tool(tool_id);
+    }
     let parent_dir = Path::new(exe_path).parent();
     let probed = cmd_runner::run_tool(exe_path, &[], parent_dir)
         .ok()
@@ -307,6 +351,7 @@ mod tests {
         let config = ProjectConfig {
             toolchain: ProjectToolchainConfig {
                 thtk_dir: thtk_dir.to_string(),
+                truth_dir: String::new(),
             },
             ..ProjectConfig::default()
         };
@@ -326,10 +371,11 @@ mod tests {
         let dir = temp_root("override");
         write_project_thtk_dir(&dir, "/project/thtk");
 
-        let effective = effective_config(&global_config("/global/thtk"), Some(&dir.to_string_lossy()));
+        let effective =
+            effective_config(&global_config("/global/thtk"), Some(&dir.to_string_lossy()));
 
         assert_eq!(effective.thtk_dir, "/project/thtk");
-        assert!(resolve_tool_path(&effective, "thmsg", "thmsg.exe").contains("/project/thtk"));
+        assert!(resolve_tool_path(&effective, "thanm", "thanm.exe").contains("/project/thtk"));
 
         let _ = fs::remove_dir_all(&dir);
     }
@@ -368,18 +414,18 @@ mod tests {
         let mut config = global_config("/global/thtk");
         config
             .tool_overrides
-            .insert("thmsg".to_string(), "/exact/thmsg.exe".to_string());
+            .insert("trumsg".to_string(), "/exact/trumsg.exe".to_string());
 
         let effective = effective_config(&config, Some(&dir.to_string_lossy()));
 
         // 项目级目录只顶掉 thtk_dir，用户对单个 exe 的精确指定优先级更高
         assert_eq!(effective.thtk_dir, "/project/thtk");
         assert_eq!(
-            resolve_tool_path(&effective, "thmsg", "thmsg.exe"),
-            "/exact/thmsg.exe"
+            resolve_tool_path(&effective, "trumsg", "trumsg.exe"),
+            "/exact/trumsg.exe"
         );
         // 未被精确指定的工具仍走项目目录
-        assert!(resolve_tool_path(&effective, "thstd", "thstd.exe").contains("/project/thtk"));
+        assert!(resolve_tool_path(&effective, "thanm", "thanm.exe").contains("/project/thtk"));
 
         let _ = fs::remove_dir_all(&dir);
     }

@@ -1,78 +1,63 @@
-use super::compiler;
-use super::MsgScriptKind;
-use crate::app_state::AppState;
-use crate::common::toolchain;
+use super::{MsgResult, MsgScriptKind};
+use crate::{
+    app_state::AppState,
+    common::toolchain,
+    modules::truth::compiler::{self, ScriptMode, ScriptRequest},
+};
 use tauri::State;
 
-/// 本次调用生效的游戏文本编码：显式指定 > 项目配置 > shift-jis。
-///
-/// 解包和打包**各自传各自的**——常见工作流是按 shift-jis 解开原版日文，
-/// 翻译后按 gbk 打包成汉化版，同一个文件的一次往返就要用两种编码。
-fn effective_encoding(
-    explicit: Option<String>,
-    project: Option<&crate::common::project_config::ProjectConfig>,
-) -> String {
-    if let Some(value) = explicit {
-        if !value.trim().is_empty() {
-            return value.trim().to_lowercase();
-        }
-    }
-    project
-        .map(|pc| pc.encoding.trim().to_lowercase())
-        .filter(|e| !e.is_empty())
-        .unwrap_or_else(|| "shift-jis".to_string())
-}
-
-fn ensure_thmsg_configured(config: &crate::config::AppConfig) -> Result<(), String> {
-    let resolved = toolchain::resolve_tool_path(config, "thmsg", "thmsg.exe");
-    if resolved.trim().is_empty() {
-        return Err(toolchain::not_configured_message("thmsg"));
-    }
-    Ok(())
-}
-
-/// 显式指定优先；否则按文件名推断（`e01.msg` / `staff1.msg` → ending）。
-fn effective_script_kind(explicit: Option<MsgScriptKind>, path: &str) -> MsgScriptKind {
-    explicit.unwrap_or_else(|| MsgScriptKind::infer_from_path(path))
-}
-
-/// 解包 .msg → .dmsg。`encoding` 是**游戏文本**的编码（不是 .dmsg 文件的，
-/// 那个始终是 UTF-8）；留空则用项目配置，再空则 shift-jis。
-#[tauri::command]
-pub async fn decompile_msg_file(
+async fn execute(
     state: State<'_, AppState>,
     input_path: String,
     output_path: Option<String>,
-    with_comments: Option<bool>,
     encoding: Option<String>,
     script_kind: Option<MsgScriptKind>,
-) -> Result<compiler::MsgResult, String> {
+    mode: ScriptMode,
+) -> Result<MsgResult, String> {
     let root = state
         .current_project_root
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .clone();
     let ctx = toolchain::effective_context(&state.config_manager.get_config(), root.as_deref());
-    let config = ctx.config;
-    ensure_thmsg_configured(&config)?;
-    let version =
-        crate::common::game_version::resolve_from(ctx.project.as_ref(), &config, "thmsg")?
-            .to_string();
-    let script_kind = effective_script_kind(script_kind, &input_path);
-    let req = compiler::MsgRequest {
-        mode: compiler::MsgMode::Decompile,
-        version,
+    let kind = script_kind
+        .unwrap_or_else(|| MsgScriptKind::infer_from_path(&input_path))
+        .truth_kind();
+    tauri::async_runtime::spawn_blocking(move || {
+        compiler::run(
+            &ctx.config,
+            root.as_deref(),
+            ctx.project.as_ref(),
+            &ScriptRequest {
+                mode,
+                kind,
+                input_path,
+                output_path,
+                encoding,
+            },
+        )
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+#[tauri::command]
+pub async fn decompile_msg_file(
+    state: State<'_, AppState>,
+    input_path: String,
+    output_path: Option<String>,
+    encoding: Option<String>,
+    script_kind: Option<MsgScriptKind>,
+) -> Result<MsgResult, String> {
+    execute(
+        state,
         input_path,
         output_path,
+        encoding,
         script_kind,
-        with_comments: with_comments.unwrap_or(true),
-        encoding: effective_encoding(encoding, ctx.project.as_ref()),
-    };
-    Ok(compiler::run(&config, &req))
+        ScriptMode::Decompile,
+    )
+    .await
 }
-
-/// 打包 .dmsg → .msg。`encoding` 与解包**各自独立**——把原版日文按 shift-jis
-/// 解开、翻译成中文后按 gbk 打包，是同一个文件一次往返里的常规操作。
 #[tauri::command]
 pub async fn compile_msg_file(
     state: State<'_, AppState>,
@@ -80,70 +65,14 @@ pub async fn compile_msg_file(
     output_path: Option<String>,
     encoding: Option<String>,
     script_kind: Option<MsgScriptKind>,
-) -> Result<compiler::MsgResult, String> {
-    let root = state
-        .current_project_root
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .clone();
-    let ctx = toolchain::effective_context(&state.config_manager.get_config(), root.as_deref());
-    let config = ctx.config;
-    ensure_thmsg_configured(&config)?;
-    let version =
-        crate::common::game_version::resolve_from(ctx.project.as_ref(), &config, "thmsg")?
-            .to_string();
-    let script_kind = effective_script_kind(script_kind, &input_path);
-    let req = compiler::MsgRequest {
-        mode: compiler::MsgMode::Compile,
-        version,
+) -> Result<MsgResult, String> {
+    execute(
+        state,
         input_path,
         output_path,
+        encoding,
         script_kind,
-        with_comments: false,
-        encoding: effective_encoding(encoding, ctx.project.as_ref()),
-    };
-    Ok(compiler::run(&config, &req))
-}
-
-/// 导出不含方言声明的原始 .dmsg（`thmsg` 可直接编译的形式）。
-///
-/// 磁盘上的 .dmsg 是 IDE 方言：指令名由本 IDE 映射，`thmsg` 只认 `ins_N`。
-/// 需要脱离 IDE 走命令行 / CI 时用这个入口。
-#[tauri::command]
-pub async fn export_raw_dmsg(
-    state: State<'_, AppState>,
-    input_path: String,
-    output_path: String,
-    script_kind: Option<MsgScriptKind>,
-) -> Result<String, String> {
-    let root = state
-        .current_project_root
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .clone();
-    let ctx = toolchain::effective_context(&state.config_manager.get_config(), root.as_deref());
-    let version =
-        crate::common::game_version::resolve_from(ctx.project.as_ref(), &ctx.config, "thmsg")?
-            .to_string();
-
-    let content = crate::utils::read_text_file(&input_path, "utf-8")
-        .map_err(|e| format!("读取 {input_path} 失败: {e}"))?;
-    // 方言头里的类型优先于文件名：用户可能把 e01.dmsg 改名后仍在编辑它。
-    let kind = script_kind
-        .or_else(|| super::translator::dialect_kind(&content))
-        .unwrap_or_else(|| MsgScriptKind::infer_from_path(&input_path));
-    let semantics = super::map_parser::parse_msg_semantics(&version, kind)?;
-
-    // 方言头必须先剥掉——它不是指令，thmsg 会把它当语法错误
-    let stripped: String = content
-        .lines()
-        .filter(|line| !line.trim_start().starts_with(super::translator::DIALECT_MARKER))
-        .collect::<Vec<_>>()
-        .join("\n");
-    let raw = super::translator::readable_to_dmsg(&stripped, &semantics);
-    let version_id: u32 = version.parse().unwrap_or(0);
-    let (raw, _) = super::translator::apply_thtk_quirks(&raw, version_id, kind);
-    crate::utils::write_file_utf8(&output_path, &raw)
-        .map_err(|e| format!("写入 {output_path} 失败: {e}"))?;
-    Ok(output_path)
+        ScriptMode::Compile,
+    )
+    .await
 }

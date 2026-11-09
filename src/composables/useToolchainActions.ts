@@ -11,9 +11,7 @@ import {
   decompileStdFile,
   compileStdFile,
   extractDatFile,
-  packDatFile,
-  exportRawDmsg,
-  exportRawDstd
+  packDatFile
 } from '../api'
 import type { MessageApi } from 'naive-ui'
 import type { EditorTab } from '../stores/editor'
@@ -29,7 +27,7 @@ export interface ToolchainActionsOptions {
 }
 
 /**
- * 工具链动作合集 —— thecl / thmsg / thstd / thdat 的"快速路径"统一入口。
+ * 工具链动作合集 —— thecl / trumsg / trustd / thdat 的"快速路径"统一入口。
  *
  * 每个 run* 内部完整跑完:dirty 保存 → 调 API → publishToolchainResult → auto-open / refresh →
  * catch 异常也走 publishToolchainResult 报失败卡片。MenuBar 与 BinaryScriptView 共用同一份语义。
@@ -43,8 +41,10 @@ export function useToolchainActions({ message }: ToolchainActionsOptions = {}) {
 
   // 内部:tab dirty 时尝试保存,失败提示用户并取消操作
   async function ensureSavedIfDirty(tab: EditorTab | null | undefined) {
-    if (!tab || !tab.isDirty) return true
+    const openTab = editorStore.tabs.find(t => t.path === tab?.path) || tab
+    if (!openTab?.isDirty) return true
     try {
+      editorStore.activePath = openTab.path
       const saved = await editorStore.saveActiveFile()
       if (!saved) {
         message?.error('保存当前文件失败,操作已取消')
@@ -164,14 +164,15 @@ export function useToolchainActions({ message }: ToolchainActionsOptions = {}) {
   async function runDecompileMsg(
     path: string | null | undefined,
     encoding: string | null = null,
-    scriptKind?: MsgScriptKind
+    scriptKind?: MsgScriptKind,
+    outputPath: string | null = null
   ) {
     if (!path) return
     const kind = scriptKind ?? inferMsgScriptKind(path)
     try {
-      const result = await decompileMsgFile({ inputPath: path, encoding, scriptKind: kind })
+      const result = await decompileMsgFile({ inputPath: path, outputPath, encoding, scriptKind: kind })
       publishToolchainResult({
-        tool: 'thmsg',
+        tool: 'trumsg',
         operation: 'decompile',
         inputPath: path,
         outputPath: result?.outputPath || null,
@@ -183,9 +184,10 @@ export function useToolchainActions({ message }: ToolchainActionsOptions = {}) {
       if (result?.success && result.outputPath && result.outputPath !== path) {
         await autoOpen(result.outputPath)
       }
+      return result
     } catch (error) {
       publishToolchainResult({
-        tool: 'thmsg',
+        tool: 'trumsg',
         operation: 'decompile',
         inputPath: path,
         success: false,
@@ -197,7 +199,8 @@ export function useToolchainActions({ message }: ToolchainActionsOptions = {}) {
   async function runCompileMsg(
     tab: EditorTab | null | undefined,
     encoding: string | null = null,
-    scriptKind?: MsgScriptKind
+    scriptKind?: MsgScriptKind,
+    outputPath: string | null = null
   ) {
     if (!tab?.path) return
     if (!(await ensureSavedIfDirty(tab))) return
@@ -205,11 +208,12 @@ export function useToolchainActions({ message }: ToolchainActionsOptions = {}) {
     try {
       const result = await compileMsgFile({
         inputPath: tab.path,
+        outputPath,
         encoding,
         scriptKind: kind
       })
       publishToolchainResult({
-        tool: 'thmsg',
+        tool: 'trumsg',
         operation: 'compile',
         inputPath: tab.path,
         outputPath: result?.outputPath || null,
@@ -218,9 +222,10 @@ export function useToolchainActions({ message }: ToolchainActionsOptions = {}) {
         diagnostics: result?.diagnostics || [],
         extra: kind === 'ending' ? '（结局/staff）' : ''
       })
+      return result
     } catch (error) {
       publishToolchainResult({
-        tool: 'thmsg',
+        tool: 'trumsg',
         operation: 'compile',
         inputPath: tab.path,
         success: false,
@@ -236,19 +241,20 @@ export function useToolchainActions({ message }: ToolchainActionsOptions = {}) {
     try {
       const result = await decompileStdFile({ inputPath: path })
       publishToolchainResult({
-        tool: 'thstd',
+        tool: 'trustd',
         operation: 'decompile',
         inputPath: path,
         outputPath: result?.outputPath || null,
         success: Boolean(result?.success),
-        message: result?.message || ''
+        message: result?.message || '',
+        diagnostics: result?.diagnostics || []
       })
       if (result?.success && result.outputPath && result.outputPath !== path) {
         await autoOpen(result.outputPath)
       }
     } catch (error) {
       publishToolchainResult({
-        tool: 'thstd',
+        tool: 'trustd',
         operation: 'decompile',
         inputPath: path,
         success: false,
@@ -263,16 +269,17 @@ export function useToolchainActions({ message }: ToolchainActionsOptions = {}) {
     try {
       const result = await compileStdFile({ inputPath: tab.path })
       publishToolchainResult({
-        tool: 'thstd',
+        tool: 'trustd',
         operation: 'compile',
         inputPath: tab.path,
         outputPath: result?.outputPath || null,
         success: Boolean(result?.success),
-        message: result?.message || ''
+        message: result?.message || '',
+        diagnostics: result?.diagnostics || []
       })
     } catch (error) {
       publishToolchainResult({
-        tool: 'thstd',
+        tool: 'trustd',
         operation: 'compile',
         inputPath: tab.path,
         success: false,
@@ -327,45 +334,6 @@ export function useToolchainActions({ message }: ToolchainActionsOptions = {}) {
     }
   }
 
-  /**
-   * 导出原始格式：把磁盘上的方言文件翻译回 ins_N 形式。
-   *
-   * 存在的理由是 thmsg / thstd 没有 -m，指令名是 IDE 加的——项目里的
-   * .dmsg / .dstd 直接跑命令行会在每条带名字的指令上失败。
-   */
-  async function runExportRaw(kind: 'msg' | 'std', path: string | null | undefined) {
-    if (!path) return
-    const ext = kind === 'msg' ? 'dmsg' : 'dstd'
-    const outputPath = await saveDialog({
-      defaultPath: path.replace(new RegExp(`\\.${ext}$`), `.raw.${ext}`),
-      filters: [{ name: `原始 ${ext}`, extensions: [ext] }]
-    })
-    if (!outputPath) return
-    try {
-      const written =
-        kind === 'msg'
-          ? await exportRawDmsg(path, outputPath, inferMsgScriptKind(path))
-          : await exportRawDstd(path, outputPath)
-      publishToolchainResult({
-        tool: kind === 'msg' ? 'thmsg' : 'thstd',
-        operation: 'export-raw',
-        inputPath: path,
-        outputPath: written,
-        success: true,
-        message: `已导出原始格式，可直接用命令行编译：${written}`
-      })
-    } catch (error) {
-      publishToolchainResult({
-        tool: kind === 'msg' ? 'thmsg' : 'thstd',
-        operation: 'export-raw',
-        inputPath: path,
-        outputPath: null,
-        success: false,
-        message: String(error)
-      })
-    }
-  }
-
   async function runPackDat() {
     const sourceDir = await openDialog({ directory: true })
     if (!sourceDir) return
@@ -406,7 +374,6 @@ export function useToolchainActions({ message }: ToolchainActionsOptions = {}) {
     // MSG
     runDecompileMsg,
     runCompileMsg,
-    runExportRaw,
     // STD
     runDecompileStd,
     runCompileStd,

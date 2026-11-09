@@ -3,7 +3,7 @@ import { useWorkbenchPanelsStore } from '../stores/workbenchPanels'
 import type { Diagnostic } from '../types'
 
 /** 发布结果时用的工具标识；'ai' 不是 thtk 工具，是 AI 辅助包生成 */
-export type ResultTool = 'thecl' | 'thmsg' | 'thstd' | 'thdat' | 'ai'
+export type ResultTool = 'thecl' | 'trumsg' | 'trustd' | 'thdat' | 'ai'
 export type ResultOperation =
   | 'compile'
   | 'decompile'
@@ -11,8 +11,7 @@ export type ResultOperation =
   | 'extract'
   | 'pack'
   | 'generate'
-  /** 导出不含 IDE 方言的原始 .dmsg / .dstd，供命令行使用 */
-  | 'export-raw'
+  /** 导出不含 IDE 方言的原始 .msgspec / .stdspec，供命令行使用 */
 
 export interface PublishToolchainResultArgs {
   tool: ResultTool
@@ -31,16 +30,16 @@ export interface PublishToolchainResultArgs {
 // 单一来源:(tool, operation) → 卡片标题动词部分
 const ACTION_LABELS: Record<ResultTool, Partial<Record<ResultOperation, string>>> = {
   thecl: { compile: '编译 .ecl', decompile: '反编译 .ecl', header: '生成 ECL 头文件' },
-  thmsg: { compile: '打包 .msg', decompile: '解包 .msg', 'export-raw': '导出原始 .dmsg' },
-  thstd: { compile: '编译 .std', decompile: '反编译 .std', 'export-raw': '导出原始 .dstd' },
+  trumsg: { compile: '打包 .msg', decompile: '解包 .msg' },
+  trustd: { compile: '编译 .std', decompile: '反编译 .std' },
   thdat: { extract: '解包 .dat', pack: '打包 .dat' },
   ai:    { generate: '生成 AI 辅助包' }
 }
 
 const SCRIPT_KIND: Record<ResultTool, string> = {
   thecl: 'ecl',
-  thmsg: 'msg',
-  thstd: 'std',
+  trumsg: 'msg',
+  trustd: 'std',
   thdat: 'dat',
   ai:    'ecl'
 }

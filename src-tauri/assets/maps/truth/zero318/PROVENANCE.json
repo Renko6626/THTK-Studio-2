@@ -1,0 +1,117 @@
+{
+  "repository": "https://github.com/zero318/TouhouMaps",
+  "commit": "0673f4221f5e975842162e07cd7b765fc7570ebd",
+  "license": "Unlicense",
+  "byteIdentical": true,
+  "purpose": "Original MSG/END/STD source maps; not a complete product support matrix or builtin signature baseline.",
+  "files": [
+    {
+      "file": "any.endm",
+      "sha256": "8ccbf19f7fea0d29b51714ec54ca7315a5a334ccb0cbbbab4db41838beee367e"
+    },
+    {
+      "file": "any.msgm",
+      "sha256": "7d914df2107ae3cbf0a58c5db7d52769ad924040ef678ef1c987c2e3ef1df1e7"
+    },
+    {
+      "file": "any.stdm",
+      "sha256": "df76df6f040865540a7ca92f47228aea69f4cdb27cbad9f805fabd14f4353d0e"
+    },
+    {
+      "file": "th06.msgm",
+      "sha256": "c76be8e8004d9d1f0dd4c9cce34b25fab5dd3f36ce3db0e5fb5da0ce90f5364d"
+    },
+    {
+      "file": "th06.stdm",
+      "sha256": "00f3ab9b5ae27aa78405a92451fb87b0a7e1a872b8903dee7d25402ae8522a34"
+    },
+    {
+      "file": "th06nc.msgm",
+      "sha256": "6d730d893a24e6d7013984612f0c7ed90d00d4c2958a5081b50ef7b50b25f743"
+    },
+    {
+      "file": "th07.msgm",
+      "sha256": "58dd2be8e9e89cb00af14b28cb6b481270a203c2bc6a80b72df2ad5a4a975d44"
+    },
+    {
+      "file": "th07.stdm",
+      "sha256": "6db3ef64abe01d419e32d396e2f0c92fd4fe5988af5eb5a9511099ec0fd40018"
+    },
+    {
+      "file": "th08.msgm",
+      "sha256": "ac34a3fc6f97248a96003b83ba8c800f6ecfeb6d10f934b090d6f9854b624b7d"
+    },
+    {
+      "file": "th08.stdm",
+      "sha256": "56a881367edd82707abc9d128d0b50903eaf7d9035eb8c61d08eb5d68d7a3f00"
+    },
+    {
+      "file": "th09.msgm",
+      "sha256": "72469979440d687266d4632ea11916c72095be231292822285f6375965f4667a"
+    },
+    {
+      "file": "th095.stdm",
+      "sha256": "8cd06b010ccdf152f630b29eb6bd78377e2f460dc299bcfb5d7a6dad220ca8ce"
+    },
+    {
+      "file": "th10.endm",
+      "sha256": "7425ab05a59a9e707400265e6b92bf500e8ff5d56f83e7470be346eecc821ef8"
+    },
+    {
+      "file": "th10.msgm",
+      "sha256": "62a1ad0ca5fbdd31493ea975be49ab462751ab44e37e13e8045e66080b715a25"
+    },
+    {
+      "file": "th10.stdm",
+      "sha256": "79138e2189eaf166d35d8cc8421c65844a4dd8fade49b4a2854afc36f431b254"
+    },
+    {
+      "file": "th103.stdm",
+      "sha256": "7d4ddfa3afeb9505ec4a513c1215006a87ff1eac715e801f362a17de6c2238b1"
+    },
+    {
+      "file": "th11.msgm",
+      "sha256": "a8f196105f672467c3242bf4609168f9505f7202bc61164c4cb70e9b633b7fa8"
+    },
+    {
+      "file": "th11.stdm",
+      "sha256": "3eff8f76f14a8a50b168857c58f2feef50a948b0b53708793f463d19022fb5c2"
+    },
+    {
+      "file": "th12.msgm",
+      "sha256": "cd182dbd6f0fe21356ea8cfe5e0fd998f89b2e857aacf7b9ca80231fb1aa49f3"
+    },
+    {
+      "file": "th12.stdm",
+      "sha256": "23f57dfaeb26f21364ec8be0bfb302d4fc2dbd4e42db3c44ffc406d495b501cd"
+    },
+    {
+      "file": "th18.msgm",
+      "sha256": "4782adf78f0df989a02991f46b298bed1acba0f3acd581d0b05bb92f338fd913"
+    },
+    {
+      "file": "th18.stdm",
+      "sha256": "6de32026c6f8aba0bf04b4ee10afada7429271eff74c343c5451eb9ec93ed52b"
+    },
+    {
+      "file": "th185.msgm",
+      "sha256": "6b7ffbf6e79d54ca5f354f8de7a08c051da0bba68f7ab54e5f258201649c31a6"
+    },
+    {
+      "file": "th19.msgm",
+      "sha256": "abf5c976a4b702e03c1c002dcd7ff1fb632cb62e2e2c81155d5a9d397e6f6c62"
+    },
+    {
+      "file": "th20.endm",
+      "sha256": "d8c48488be104732cc65584144141d66d5f750f444fd1b096e74efb7fef24f7f"
+    },
+    {
+      "file": "th20.msgm",
+      "sha256": "69afe9becc0d2d174f267e48e2deba8531ecc510d26a72415d3358bec142368b"
+    },
+    {
+      "file": "th20.stdm",
+      "sha256": "8d88f6a24f08cdd13ef3e37b43d365480b205443c7badf8cff7db420346f9416"
+    }
+  ]
+}
