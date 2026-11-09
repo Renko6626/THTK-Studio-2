@@ -1,8 +1,8 @@
 <template>
-  <div class="shrink-0 flex items-center gap-3 px-3 py-1.5 border-b border-white/8 bg-[#252526] text-xs">
+  <div class="shrink-0 flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-1.5 border-b border-white/8 bg-[#252526] text-xs">
     <span class="text-gray-200">{{ kind === 'ending' ? 'END 结局' : kind === 'std' ? 'STD 背景' : 'MSG 对话' }}</span>
-    <button class="text-gray-400 hover:text-white" @click="settings.open()">{{ project.gameVersion ? `TH${project.gameVersion}` : '项目版本' }} / map 设置</button>
-    <span class="flex-1 truncate text-gray-400" :title="status">{{ status }}</span>
+    <GameVersionSummary compact />
+    <span class="flex-1 min-w-[80px] truncate text-gray-400" :title="status">{{ status }}</span>
     <n-button size="tiny" :loading="checking" @click="check">检查</n-button>
     <n-button size="tiny" :loading="building || editor.compiling" @click="build">打包</n-button>
     <n-button size="tiny" :disabled="building || editor.compiling" @click="options">构建选项…</n-button>
@@ -12,13 +12,12 @@
 import { computed, ref } from 'vue'
 import { NButton, useMessage } from 'naive-ui'
 import { useEditorStore } from '../../stores/editor'
-import { useProjectStore } from '../../stores/project'
-import { useProjectSettingsStore } from '../../stores/projectSettings'
+import GameVersionSummary from '../Common/GameVersionSummary.vue'
 import { useBuildDialogStore } from '../../stores/buildDialog'
 import { useToolchainActions } from '../../composables/useToolchainActions'
 import { useTruthDiagnostics } from '../../composables/useTruthDiagnostics'
 import { truthKindForPath } from '../../services/languages/truth/kinds'
-const editor = useEditorStore(), project = useProjectStore(), settings = useProjectSettingsStore(), dialog = useBuildDialogStore()
+const editor = useEditorStore(), dialog = useBuildDialogStore()
 const actions = useToolchainActions({ message: useMessage() })
 const { check, checking, status } = useTruthDiagnostics()
 const kind = computed(() => truthKindForPath(editor.activeTab?.path))

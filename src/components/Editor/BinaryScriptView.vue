@@ -9,6 +9,12 @@
         </div>
       </div>
 
+      <div v-if="!descriptor.disabled" class="px-6 pt-4">
+        <div v-if="fileExtension(activeTab?.path || '') === 'dat'" class="text-xs text-gray-400">
+          解包版本：由 thdat 自动识别
+        </div>
+        <GameVersionSummary v-else />
+      </div>
       <div class="grid grid-cols-[1fr_240px] gap-6 px-6 py-6">
         <div class="space-y-4">
           <div class="rounded border border-white/8 bg-[#202020] p-4">
@@ -46,7 +52,7 @@
           </div>
 
           <div class="mt-6 space-y-3">
-            <div v-if="activeTab?.extension?.toLowerCase() === 'msg'">
+            <div v-if="fileExtension(activeTab?.path || '') === 'msg'">
               <div class="text-gray-400 mb-2">脚本类型</div>
               <n-select v-model:value="selectedKind" :options="MSG_SCRIPT_KIND_OPTIONS" size="small" />
             </div>
@@ -93,6 +99,8 @@
 </template>
 
 <script setup lang="ts">
+import GameVersionSummary from '../Common/GameVersionSummary.vue'
+import { fileExtension } from '../../utils/fileExtension'
 import { computed, ref, watch } from 'vue'
 import { NButton, NSelect } from 'naive-ui'
 import { useEditorStore } from '../../stores/editor'
@@ -209,8 +217,8 @@ const ENCODING_OPTIONS = [
 ]
 
 const descriptor = computed(() => {
-  const ext = activeTab.value?.extension?.toLowerCase()
-  return (ext ? TOOL_DESCRIPTORS[ext] : null) || TOOL_DESCRIPTORS.ecl
+  const ext = fileExtension(activeTab.value?.path || '')
+  return TOOL_DESCRIPTORS[ext] || { typeLabel: '未识别的文件类型', description: '当前文件不属于二进制脚本。', suggestion: '请重新打开该文件。', actionLabel: '没有可用操作', actionNote: '', disabled: true, action: null }
 })
 
 function handleAction() {

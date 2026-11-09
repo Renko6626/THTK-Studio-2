@@ -4,15 +4,12 @@
     :title="dialogTitle"
     :subtitle="dialogSubtitle"
     :tool="dialogToolLabel"
-    :confirm-disabled="!formModel.inputPath"
+    :confirm-disabled="!formModel.inputPath || (formModel.tool === 'thecl' && !formModel.version.trim())"
     :submitting="editorStore.compiling"
     @cancel="closeDialog"
     @confirm="handleSubmit"
   >
-    <div v-if="formModel.tool === 'trumsg' || formModel.tool === 'trustd'" class="mb-4 flex items-center justify-between text-xs text-gray-400">
-      <span>项目版本：{{ projectStore.gameVersion || '使用全局默认' }}，map 使用项目设置</span>
-      <button class="text-blue-300 hover:underline" @click="projectSettings.open()">修改项目设置</button>
-    </div>
+    <GameVersionSummary class="mb-4" :version="formModel.tool === 'thecl' ? formModel.version : undefined" />
     <component
       :is="activeBuildFormComponent"
       v-if="activeBuildFormComponent"
@@ -32,7 +29,7 @@
 <script setup lang="ts">
 import { computed, reactive, watch } from 'vue'
 import { useMessage } from 'naive-ui'
-import { useProjectSettingsStore } from '../../stores/projectSettings'
+import GameVersionSummary from '../Common/GameVersionSummary.vue'
 import { getSettings } from '../../api'
 import BuildDialogShell from './BuildDialogShell.vue'
 import { useEditorStore } from '../../stores/editor'
@@ -50,7 +47,6 @@ import { inferMsgScriptKind } from '../../services/toolchains/msgMetadata'
 const buildDialogStore = useBuildDialogStore()
 const editorStore = useEditorStore()
 const projectStore = useProjectStore()
-const projectSettings = useProjectSettingsStore()
 const message = useMessage()
 const { runTheclRequest } = useTheclActions()
 const { runDecompileMsg, runCompileMsg, runDecompileStd, runCompileStd } = useToolchainActions({ message })
@@ -66,10 +62,12 @@ const dialogSubtitle = computed(() => (
 ))
 
 watch(
-  () => buildDialogStore.visible,
-  async (visible) => {
+  () => [buildDialogStore.visible, buildDialogStore.payload] as const,
+  async ([visible], _, onCleanup) => {
     if (!visible) return
 
+    let current = true
+    onCleanup(() => { current = false })
     syncForm(buildDialogStore.payload)
 
     if (formModel.tool === 'thecl') {
@@ -91,17 +89,17 @@ watch(
       if (!formModel.version || !formModel.mapPaths?.length) {
         try {
           const settings = await getSettings()
+          if (!current) return
           if (!formModel.version) {
-            formModel.version = settings?.default_game_version || '20'
+            formModel.version = settings?.default_game_version || ''
           }
           const configuredMapPath = String(settings?.eclmap_path || '').trim()
           if (!formModel.mapPaths?.length && configuredMapPath) {
             formModel.mapPaths = [configuredMapPath]
           }
         } catch {
-          if (!formModel.version) {
-            formModel.version = '20'
-          }
+          if (!current) return
+          // 保留空值，由表单提示选择版本，避免悄悄使用 TH20。
         }
       }
     }
@@ -139,7 +137,12 @@ async function handleSubmit() {
     message.warning('当前没有可执行的输入文件')
     return
   }
+  if (formModel.tool === 'thecl' && !formModel.version.trim()) {
+    message.warning('请先选择目标游戏版本')
+    return
+  }
 
+  const submittedPayload = buildDialogStore.payload
   const descriptor = activeToolchain.value
   const context = { runTheclRequest, runDecompileMsg, runCompileMsg, runDecompileStd, runCompileStd }
 
@@ -150,7 +153,7 @@ async function handleSubmit() {
       context,
       formModel as unknown as BuildDialogPayload
     )
-    if (result?.success) closeDialog()
+    if (result?.success && buildDialogStore.payload === submittedPayload) closeDialog()
     return
   }
 
@@ -164,7 +167,7 @@ async function handleSubmit() {
   const request = descriptor.createRequest(payload)
   const result = await descriptor.execute(context, request, payload)
 
-  if (result?.success) {
+  if (result?.success && buildDialogStore.payload === submittedPayload) {
     closeDialog()
   }
 }

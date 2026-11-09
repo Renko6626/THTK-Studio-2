@@ -62,7 +62,7 @@
       遮罩层会跟着滚，滚动条的位置也不对。
       横向也放开：文件名比侧栏宽时能拖出来看，与 VS Code 资源管理器一致。
     -->
-    <div v-if="projectStore.rootPath" class="flex-1 min-h-0 overflow-auto">
+    <div v-if="projectStore.rootPath" ref="treeScroll" class="flex-1 min-h-0 overflow-auto">
       <n-spin :show="projectStore.isLoading">
         <n-tree
           block-line
@@ -122,6 +122,7 @@ import {
   Add24Regular,
   Folder24Regular
 } from '@vicons/fluent'
+import { useExplorerActiveFile } from '../../composables/useExplorerActiveFile'
 import { useContextMenu } from '../../composables/useContextMenu'
 import type { ContextMenuNode } from '../../composables/useContextMenu'
 import { useFileOperations, remapExpandedKeys } from '../../composables/useFileOperations'
@@ -176,7 +177,11 @@ const projectActions = useProjectActions({ message, dialog })
 
 const { inputState, handleCreate, handleRename, submitInput, cancelInput } = useFileOperations()
 
-const selectedKeys = ref<string[]>([])
+const treeScroll = ref<HTMLElement | null>(null)
+const selectedKeys = computed({
+  get: () => explorerViewStore.selectedPaths,
+  set: (keys: string[]) => explorerViewStore.setSelectedPaths(keys)
+})
 
 const { showMenu, menuX, menuY, targetNode, menuOptions, handleContextMenu, handleClickOutside } = useContextMenu({ selectedKeys })
 
@@ -249,7 +254,7 @@ async function restoreExpandedKeys() {
       }
 
       if (projectStore.rootPath === currentRoot) {
-        expandedKeys.value = validKeys
+        expandedKeys.value = [...new Set([...validKeys, ...expandedKeys.value])]
         lastRestoredFor.value = currentRoot
       }
     } catch { /* ignore */ } finally {
@@ -274,6 +279,7 @@ function handleSelectKeys(keys: string[]) {
 watch(() => projectStore.rootPath, (newRoot) => {
   if (newRoot !== lastRestoredFor.value) {
     lastRestoredFor.value = null
+    expandedKeys.value = []
   }
 })
 
@@ -504,6 +510,7 @@ const nodeProps = ({ option }: { option: TreeOption }) => {
   // 在这里收窄一次，后面的处理器直接用具体类型。
   const node = option as unknown as TreeNode
   return {
+    'data-explorer-path': node.path,
     onClick(e: MouseEvent) {
       const isMultiSelect = e?.ctrlKey || e?.metaKey || e?.shiftKey
       if (!isMultiSelect) {
@@ -569,10 +576,11 @@ async function openFolder() {
   await projectActions.openProjectFromPicker()
 }
 
-// 项目根一变（无论从哪个入口触发：菜单、Ctrl+O、欢迎页还是这里），树的本地选中
-// 都指向已经不存在的节点。放在 watch 里而不是 openFolder 里，才能覆盖全部入口。
-watch(() => projectStore.rootPath, () => {
-  selectedKeys.value = []
+// Tabs, compilation outputs and problem navigation reveal the same active file.
+useExplorerActiveFile(editorStore, projectStore, explorerViewStore, expandedKeys, persistExpandedKeys, path => {
+  const nodes = treeScroll.value?.querySelectorAll<HTMLElement>('[data-explorer-path]')
+  const node = nodes && [...nodes].find(element => element.dataset.explorerPath === path)
+  node?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
 })
 
 onBeforeUnmount(() => {

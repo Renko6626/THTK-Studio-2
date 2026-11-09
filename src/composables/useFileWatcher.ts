@@ -33,6 +33,12 @@ export function useFileWatcher({
     const changes = event.payload
     if (!Array.isArray(changes) || !changes.length) return
 
+    const configPath = projectStore.rootPath && `${normalizePath(projectStore.rootPath)}/.thtk-project.json`
+    if (configPath && changes.some(change => pathsEqual(change.path, configPath))) {
+      // 编译器每次读取磁盘配置；同步编辑器显示，避免版本提示落后于实际参数。
+      await projectStore.reloadProjectConfig()
+    }
+
     let reloadedCount = 0
     let deletedCount = 0
 

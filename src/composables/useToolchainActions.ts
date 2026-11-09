@@ -11,7 +11,8 @@ import {
   decompileStdFile,
   compileStdFile,
   extractDatFile,
-  packDatFile
+  packDatFile,
+  getSettings
 } from '../api'
 import type { MessageApi } from 'naive-ui'
 import type { EditorTab } from '../stores/editor'
@@ -310,18 +311,29 @@ export function useToolchainActions({ message }: ToolchainActionsOptions = {}) {
     return dir + stem
   }
 
+  async function datVersionCaption() {
+    if (projectStore.projectConfigStatus === 'invalid') return '版本未确认（项目配置有误）'
+    let raw = projectStore.gameVersion.trim()
+    if (!raw) {
+      try { raw = (await getSettings()).default_game_version.trim() }
+      catch { return '版本未确认（无法读取全局设置）' }
+    }
+    return raw ? `目标游戏 TH${raw.replace(/^th/i, '')}` : '尚未设置游戏版本'
+  }
+
   async function runExtractDat(archivePath?: string | null) {
     if (!archivePath) {
       const picked = await openDialog({
         multiple: false,
         directory: false,
+        title: '解包 DAT（自动识别版本）',
         filters: [{ name: 'Touhou DAT', extensions: ['dat'] }]
       })
       if (!picked) return
       archivePath = picked
     }
     const defaultDir = deriveDefaultExtractDir(archivePath)
-    const targetDir = await openDialog({ directory: true, defaultPath: defaultDir })
+    const targetDir = await openDialog({ directory: true, defaultPath: defaultDir, title: '解包 DAT（自动识别版本）：选择输出目录' })
     if (!targetDir) return
     try {
       const result = await extractDatFile({ archivePath, targetDir })
@@ -347,9 +359,11 @@ export function useToolchainActions({ message }: ToolchainActionsOptions = {}) {
   }
 
   async function runPackDat() {
-    const sourceDir = await openDialog({ directory: true })
+    const versionCaption = await datVersionCaption()
+    const sourceDir = await openDialog({ directory: true, title: `打包 DAT：${versionCaption}，选择来源目录` })
     if (!sourceDir) return
     const archivePath = await saveDialog({
+      title: `打包 DAT：${versionCaption}，选择输出文件`,
       filters: [{ name: 'Touhou DAT', extensions: ['dat'] }]
     })
     if (!archivePath) return

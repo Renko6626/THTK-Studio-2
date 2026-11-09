@@ -1,3 +1,4 @@
+import { fileExtension } from '../utils/fileExtension'
 import { defineStore } from 'pinia'
 import { readFile, saveFile } from '../api'
 import type { FileCategory, FileNode } from '../types'
@@ -55,8 +56,10 @@ function getBaseName(path: string): string {
 
 const BINARY_SCRIPT_EXTENSIONS = new Set(['ecl', 'msg', 'std', 'dat', 'anm'])
 
-function isBinaryScript(fileNode: OpenFileTarget | null | undefined): boolean {
-  const extension = String(fileNode?.extension || '').toLowerCase()
+const openRequests = new WeakMap<object, object>()
+
+function isBinaryScript(fileNode: Pick<OpenFileTarget, 'path'> | null | undefined): boolean {
+  const extension = fileExtension(fileNode?.path || '')
   return BINARY_SCRIPT_EXTENSIONS.has(extension)
 }
 
@@ -75,9 +78,9 @@ function createTextTab(
     language,
     viewType: 'text',
     size: overrides.size ?? null,
-    extension: overrides.extension ?? path.split('.').pop()?.toLowerCase() ?? null,
     category: overrides.category ?? null,
-    ...overrides
+    ...overrides,
+    extension: fileExtension(path) || null
   }
 }
 
@@ -91,7 +94,7 @@ function createBinaryScriptTab(fileNode: EditorTabSnapshot | OpenFileTarget): Ed
     language: 'plaintext',
     viewType: 'binary-script',
     size: fileNode.size ?? null,
-    extension: fileNode.extension ?? fileNode.path.split('.').pop()?.toLowerCase() ?? null,
+    extension: fileExtension(fileNode.path) || null,
     category: fileNode.category ?? 'binaryScript'
   }
 }
@@ -119,9 +122,13 @@ export const useEditorStore = defineStore('editor', {
 
     // 核心：打开文件
     async openFile(fileNode: OpenFileTarget) {
+      const request = {}
+      const activeAtOpen = this.activePath
+      openRequests.set(this, request)
       // 1. 如果 Tab 已存在，直接切换过去
       const existingTab = this.tabs.find(t => t.path === fileNode.path)
       if (existingTab) {
+        existingTab.extension = fileExtension(existingTab.path) || null
         this.activePath = fileNode.path
         return
       }
@@ -142,8 +149,9 @@ export const useEditorStore = defineStore('editor', {
           extension: fileNode.extension ?? loadPath.split('.').pop()?.toLowerCase() ?? null,
           category: fileNode.category ?? null
         })
-        this.tabs.push(newTab)
-        this.activePath = loadPath
+        // Two overlapping reads of the same file share one tab. Only the latest open may change focus.
+        if (!this.tabs.some(tab => tab.path === loadPath)) this.tabs.push(newTab)
+        if (openRequests.get(this) === request && this.activePath === activeAtOpen) this.activePath = loadPath
 
       } catch (err) {
         console.error('无法读取文件', err)
@@ -246,7 +254,9 @@ export const useEditorStore = defineStore('editor', {
           return {
             ...tab,
             path: newPath,
-            name: getBaseName(newPath)
+            name: getBaseName(newPath),
+            extension: fileExtension(newPath) || null,
+            language: this.inferLanguage(newPath)
           }
         }
 
@@ -255,7 +265,8 @@ export const useEditorStore = defineStore('editor', {
           return {
             ...tab,
             path: nextPath,
-            name: getBaseName(nextPath)
+            name: getBaseName(nextPath),
+            extension: fileExtension(nextPath) || null
           }
         }
 
@@ -279,7 +290,7 @@ export const useEditorStore = defineStore('editor', {
       for (const savedTab of snapshot.tabs) {
         if (!savedTab?.path) continue
 
-        if (savedTab.viewType === 'binary-script') {
+        if (isBinaryScript(savedTab)) {
           restoredTabs.push(createBinaryScriptTab(savedTab))
           continue
         }

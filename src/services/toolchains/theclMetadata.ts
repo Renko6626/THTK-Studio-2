@@ -28,7 +28,7 @@ export function createDefaultTheclPayload(): TheclBuildPayload {
     tool: 'thecl',
     mode: 'compile',
     inputPath: '',
-    version: '20',
+    version: '',
     outputPath: '',
     mapPaths: [],
     useShiftJis: true,
