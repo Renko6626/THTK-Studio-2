@@ -1,10 +1,10 @@
 <template>
   <div class="h-full min-w-0 flex flex-col">
-    <div class="h-8 shrink-0 flex items-center justify-between gap-3 mb-3">
-      <div class="text-xs uppercase tracking-[0.08em] text-gray-500 leading-none">
+    <div class="min-h-8 shrink-0 flex flex-wrap items-center justify-between gap-2 mb-3">
+      <div class="whitespace-nowrap text-xs uppercase tracking-[0.08em] text-gray-500 leading-none">
         ECL 引用
       </div>
-      <div class="shrink-0 text-[11px] text-gray-500 leading-none">
+      <div class="min-w-0 truncate text-[11px] text-gray-500 leading-none" :title="symbolSummary">
         {{ symbolSummary }}
       </div>
     </div>
@@ -25,10 +25,10 @@
       <section class="rounded border border-white/8 bg-[#1c1c1c] overflow-hidden">
         <div class="px-3 py-2 border-b border-white/8 bg-[#1c1c1c]">
           <div class="flex items-center gap-2">
-            <span class="rounded-sm px-1.5 py-0.5 text-[10px] font-semibold tracking-[0.08em] uppercase border" :class="kindClass(definition.kind)">
+            <span class="shrink-0 whitespace-nowrap rounded-sm px-1.5 py-0.5 text-[10px] font-semibold tracking-[0.08em] uppercase border" :class="kindClass(definition.kind)">
               {{ kindLabel(definition.kind) }}
             </span>
-            <span class="text-sm text-gray-100 truncate">{{ definition.name }}</span>
+            <span class="min-w-0 text-sm text-gray-100 truncate" :title="definition.name">{{ definition.name }}</span>
           </div>
           <div class="mt-1 text-[11px] text-gray-500">
             定义位于第 {{ definition.line }} 行，共 {{ references.length }} 处引用/定义
@@ -45,12 +45,12 @@
             @click="revealReference(reference)"
           >
             <div class="min-w-0 flex flex-col">
-              <span class="truncate text-sm text-gray-100">{{ buildReferencePreview(reference) }}</span>
+              <span class="truncate text-sm text-gray-100" :title="buildReferencePreview(reference)">{{ buildReferencePreview(reference) }}</span>
               <span class="truncate text-[11px] text-gray-500">
                 {{ reference.line === definition.line && reference.column === definition.column ? '定义位置' : '引用位置' }}
               </span>
             </div>
-            <span class="text-[11px] text-gray-500 shrink-0">Ln {{ reference.line }}</span>
+            <span class="whitespace-nowrap text-[11px] text-gray-500 shrink-0">Ln {{ reference.line }}</span>
           </button>
         </div>
       </section>

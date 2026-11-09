@@ -1,9 +1,9 @@
 <template>
   <div class="space-y-4">
-    <div class="grid grid-cols-[1.15fr_0.85fr] gap-4">
-      <div class="rounded border border-white/8 bg-[#1b1b1b] p-3">
+    <div class="grid grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] gap-4">
+      <div class="min-w-0 rounded border border-white/8 bg-[#1b1b1b] p-3">
         <div class="text-[11px] uppercase tracking-[0.12em] text-gray-500 mb-3">目标文件</div>
-        <div class="text-sm text-gray-100 break-all">{{ model.inputPath || '未选择文件' }}</div>
+        <div class="truncate text-sm text-gray-100 select-text" :title="model.inputPath">{{ model.inputPath || '未选择文件' }}</div>
         <div class="text-xs text-gray-500 mt-2">
           输出路径留空时，将按模式自动推导默认产物文件名。
         </div>
@@ -11,22 +11,22 @@
 
       <div class="rounded border border-white/8 bg-[#1b1b1b] p-3">
         <div class="text-[11px] uppercase tracking-[0.12em] text-gray-500 mb-3">任务摘要</div>
-        <div class="space-y-2 text-sm">
-          <div class="flex items-center justify-between">
+        <div class="task-summary space-y-2 text-sm">
+          <div class="flex items-center justify-between gap-3">
             <span class="text-gray-400">工具</span>
             <span class="text-gray-100">trumsg</span>
           </div>
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between gap-3">
             <span class="text-gray-400">模式</span>
             <span class="text-gray-100">{{ MSG_MODE_LABELS[model.mode] }}</span>
           </div>
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between gap-3">
             <span class="text-gray-400">脚本类型</span>
-            <span class="text-gray-100">{{ scriptKindSummary }}</span>
+            <span class="text-gray-100" :title="String(scriptKindSummary)">{{ scriptKindSummary }}</span>
           </div>
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between gap-3">
             <span class="text-gray-400">编码</span>
-            <span class="text-gray-100">{{ encodingSummary }}</span>
+            <span class="min-w-0 truncate text-gray-100" :title="String(encodingSummary)">{{ encodingSummary }}</span>
           </div>
         </div>
       </div>
@@ -144,10 +144,6 @@ function updateField<K extends keyof MsgBuildPayload>(field: K, value: MsgBuildP
 </script>
 
 <style scoped>
-.build-option {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 4px;
-  padding: 0.75rem;
-  background: #1b1b1b;
-}
+.task-summary > div > span:first-child { flex-shrink: 0; white-space: nowrap; }
+.task-summary > div > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>

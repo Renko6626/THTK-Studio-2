@@ -1,12 +1,12 @@
 <template>
   <div class="h-full min-w-0 flex flex-col">
-    <div class="h-8 shrink-0 flex items-center justify-between gap-3 mb-3">
-      <div class="text-xs uppercase tracking-[0.08em] text-gray-500 leading-none">
+    <div class="min-h-8 shrink-0 flex flex-wrap items-center justify-between gap-2 mb-3">
+      <div class="whitespace-nowrap text-xs uppercase tracking-[0.08em] text-gray-500 leading-none">
         ECL 大纲
       </div>
       <button
         type="button"
-        class="h-6 shrink-0 px-2 rounded-sm border border-transparent bg-transparent text-[11px] text-gray-500 leading-none hover:text-gray-200 hover:border-[#3b82f6]/60"
+        class="h-6 shrink-0 whitespace-nowrap px-2 rounded-sm border border-transparent bg-transparent text-[11px] text-gray-500 leading-none hover:text-gray-200 hover:border-[#3b82f6]/60"
         @click="toggleAllSections"
       >
         {{ allCollapsed ? '展开全部' : '折叠全部' }}
@@ -19,7 +19,7 @@
         v-model="searchQuery"
         type="text"
         placeholder="搜索函数、全局或标签"
-        class="w-full h-8 px-3 rounded border border-white/8 bg-[#1a1a1a] text-sm text-gray-100 outline-none placeholder:text-gray-500 focus:border-[#3b82f6]/70"
+        class="w-full box-border h-8 px-3 rounded border border-white/8 bg-[#1a1a1a] text-sm text-gray-100 outline-none placeholder:text-gray-500 focus:border-[#3b82f6]/70"
       >
     </div>
 
@@ -65,16 +65,16 @@
             @click="revealSymbol(item)"
           >
             <div class="min-w-0 flex flex-col">
-              <span class="truncate text-sm text-gray-100">
+              <span class="truncate text-sm text-gray-100" :title="item.name">
                 <template v-for="(segment, index) in highlightSegments(item.name)" :key="`${item.name}-${index}`">
                   <span
                     :class="segment.match ? 'bg-[#264f78] text-white rounded px-[1px]' : ''"
                   >{{ segment.text }}</span>
                 </template>
               </span>
-              <span v-if="item.detail" class="truncate text-[11px] text-gray-500">{{ item.detail }}</span>
+              <span v-if="item.detail" class="truncate text-[11px] text-gray-500" :title="item.detail">{{ item.detail }}</span>
             </div>
-            <span class="text-[11px] text-gray-500 shrink-0">Ln {{ item.line }}</span>
+            <span class="whitespace-nowrap text-[11px] text-gray-500 shrink-0">Ln {{ item.line }}</span>
           </button>
         </div>
       </section>

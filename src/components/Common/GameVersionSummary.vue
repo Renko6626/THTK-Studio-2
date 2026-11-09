@@ -1,10 +1,10 @@
 <template>
   <div class="version-summary" :class="compact ? 'version-summary-compact' : ''">
-    <div class="min-w-0">
-      <span class="text-[#9d9d9d]">目标游戏版本：</span>
-      <strong v-if="actual" class="text-[#e7e7e7] font-semibold">{{ label }}</strong>
+    <div class="min-w-0 flex flex-wrap items-center gap-x-2 gap-y-1">
+      <span class="whitespace-nowrap text-[#9d9d9d]">目标游戏版本：</span>
+      <strong v-if="actual" class="min-w-0 truncate text-[#e7e7e7] font-semibold" :title="label">{{ label }}</strong>
       <span v-else class="text-[#e2c08d]">{{ hasOverride ? '请选择游戏版本' : detail }}</span>
-      <span v-if="actual" class="ml-2 text-[#9d9d9d]">{{ explicit ? '本次操作' : source }}</span>
+      <span v-if="actual" class="whitespace-nowrap text-[#9d9d9d]">{{ explicit ? '本次操作' : source }}</span>
     </div>
     <button v-if="!hasOverride" type="button" class="version-settings" @click="openSettings">修改版本</button>
   </div>
@@ -34,9 +34,9 @@ function openSettings() {
 }
 </script>
 <style scoped>
-.version-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid #454545; background: #252526; font-size: 12px; line-height: 20px; }
+.version-summary { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 10px 12px; border: 1px solid #454545; background: #252526; font-size: 12px; line-height: 20px; }
 .version-summary-compact { border: 0; background: transparent; padding: 0; gap: 8px; }
-.version-settings { appearance: none; background: transparent; border: 0; padding: 0; color: #75beff; cursor: pointer; font: inherit; white-space: nowrap; }
+.version-settings { appearance: none; flex-shrink: 0; background: transparent; border: 0; padding: 0; color: #75beff; cursor: pointer; font: inherit; white-space: nowrap; }
 .version-settings:hover { text-decoration: underline; }
 .version-settings:focus-visible { outline: 1px solid #0078d4; }
 </style>

@@ -1,13 +1,13 @@
 <template>
-  <div class="h-full flex flex-col bg-[#252526]">
-    <div class="h-8 px-3 flex items-center justify-between border-b border-white/6 text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400">
-      <span>辅助侧栏</span>
-      <div class="flex items-center gap-1">
+  <div class="h-full min-w-0 flex flex-col bg-[#252526]">
+    <div class="min-h-8 shrink-0 px-3 py-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-b border-white/6 text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-400">
+      <span class="shrink-0 whitespace-nowrap">辅助侧栏</span>
+      <div class="min-w-0 max-w-full flex items-center gap-1 overflow-x-auto">
         <button
           v-for="panel in panels"
           :key="panel.key"
           type="button"
-          class="h-6 px-2 rounded-sm border border-transparent bg-transparent text-[10px] transition-colors"
+          class="h-6 shrink-0 whitespace-nowrap px-2 rounded-sm border border-transparent bg-transparent text-[10px] transition-colors"
           :class="panelClasses(panel.key)"
           @click="workbenchPanelsStore.showRightPanel(panel.key)"
         >

@@ -1,9 +1,9 @@
 <template>
   <div class="space-y-4">
-    <div class="grid grid-cols-[1.15fr_0.85fr] gap-4">
-      <div class="rounded border border-white/8 bg-[#1b1b1b] p-3">
+    <div class="grid grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] gap-4">
+      <div class="min-w-0 rounded border border-white/8 bg-[#1b1b1b] p-3">
         <div class="text-[11px] uppercase tracking-[0.12em] text-gray-500 mb-3">目标文件</div>
-        <div class="text-sm text-gray-100 break-all">{{ model.inputPath || '未选择文件' }}</div>
+        <div class="truncate text-sm text-gray-100 select-text" :title="model.inputPath">{{ model.inputPath || '未选择文件' }}</div>
         <div class="text-xs text-gray-500 mt-2">
           输出路径留空时，将按模式自动推导默认产物文件名。
         </div>

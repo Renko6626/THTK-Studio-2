@@ -5,7 +5,7 @@
   <KeepAlive>
     <component
       :is="resolvedView.component"
-      v-if="resolvedView"
+      :key="resolvedView.id"
       class="w-full h-full"
       @update-cursor="$emit('update-cursor', $event)"
     />
@@ -37,5 +37,6 @@ const editorStore = useEditorStore()
 const projectStore = useProjectStore()
 
 const truthSource = computed(() => truthKindForPath(editorStore.activeTab?.path))
+// Cache one instance per view type; a shared conditional key aliases binary and text views.
 const resolvedView = computed(() => resolveEditorView(editorStore.activeTab?.viewType))
 </script>

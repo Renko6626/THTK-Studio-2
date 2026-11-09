@@ -1,9 +1,9 @@
 <template>
-  <div class="h-full w-full bg-[#1e1e1e] text-gray-200 flex items-center justify-center px-8">
-    <div class="w-full max-w-[760px] rounded-lg border border-white/8 bg-[#181818] shadow-[0_18px_60px_rgba(0,0,0,0.28)]">
+  <div class="binary-script-view h-full w-full min-w-0 box-border overflow-auto bg-[#1e1e1e] text-gray-200 flex flex-col p-4">
+    <div class="w-full min-w-0 max-w-[760px] shrink-0 m-auto rounded-lg border border-white/8 bg-[#181818] shadow-[0_18px_60px_rgba(0,0,0,0.28)]">
       <div class="border-b border-white/8 px-6 py-5">
         <div class="text-[11px] uppercase tracking-[0.14em] text-gray-500">Binary Script</div>
-        <div class="mt-2 text-2xl font-semibold text-white">{{ activeTab?.name || '二进制文件' }}</div>
+        <div class="mt-2 truncate text-2xl font-semibold text-white" :title="activeTab?.name">{{ activeTab?.name || '二进制文件' }}</div>
         <div class="mt-2 text-sm text-gray-400">
           {{ descriptor.description }}
         </div>
@@ -15,22 +15,22 @@
         </div>
         <GameVersionSummary v-else />
       </div>
-      <div class="grid grid-cols-[1fr_240px] gap-6 px-6 py-6">
-        <div class="space-y-4">
+      <div class="binary-script-layout grid gap-6 px-6 py-6">
+        <div class="min-w-0 space-y-4">
           <div class="rounded border border-white/8 bg-[#202020] p-4">
             <div class="text-[11px] uppercase tracking-[0.12em] text-gray-500">文件信息</div>
             <dl class="mt-3 space-y-2 text-sm">
-              <div class="flex items-start justify-between gap-4">
-                <dt class="text-gray-400">路径</dt>
-                <dd class="text-gray-100 break-all text-right">{{ activeTab?.path }}</dd>
+              <div class="min-w-0 space-y-1">
+                <dt class="text-gray-400 whitespace-nowrap">路径</dt>
+                <dd class="m-0 truncate text-gray-100 select-text" :title="activeTab?.path">{{ activeTab?.path }}</dd>
               </div>
               <div class="flex items-center justify-between gap-4">
-                <dt class="text-gray-400">大小</dt>
-                <dd class="text-gray-100">{{ formattedSize }}</dd>
+                <dt class="shrink-0 whitespace-nowrap text-gray-400">大小</dt>
+                <dd class="m-0 min-w-0 truncate text-gray-100">{{ formattedSize }}</dd>
               </div>
               <div class="flex items-center justify-between gap-4">
-                <dt class="text-gray-400">类型</dt>
-                <dd class="text-gray-100">{{ descriptor.typeLabel }}</dd>
+                <dt class="shrink-0 whitespace-nowrap text-gray-400">类型</dt>
+                <dd class="m-0 min-w-0 truncate text-gray-100" :title="descriptor.typeLabel">{{ descriptor.typeLabel }}</dd>
               </div>
             </dl>
           </div>
@@ -43,7 +43,7 @@
           </div>
         </div>
 
-        <div class="rounded border border-white/8 bg-[#151515] p-4 flex flex-col justify-between">
+        <div class="min-w-0 rounded border border-white/8 bg-[#151515] p-4 flex flex-col justify-between">
           <div>
             <div class="text-[11px] uppercase tracking-[0.12em] text-gray-500">操作</div>
             <div class="mt-3 text-sm text-gray-300 leading-6">
@@ -233,3 +233,11 @@ function handleAdvanced() {
   descriptor.value.advancedAction(tab)
 }
 </script>
+
+<style scoped>
+.binary-script-view { container-type: inline-size; }
+.binary-script-layout { grid-template-columns: minmax(0, 1fr); }
+@container (min-width: 640px) {
+  .binary-script-layout { grid-template-columns: minmax(0, 1fr) 240px; }
+}
+</style>
