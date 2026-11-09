@@ -17,6 +17,8 @@ description: 编写或修改东方 MSG 对话、END 结局和 STD 背景脚本�
 
 [PROJECT.md](references/PROJECT.md) 只是生成时默认配置参考。版本和 MSG／END 二进制文本编码按当前任务、文件来源及目标游戏或补丁选择，不要为迁就默认值改写脚本或转换编码。源码始终 UTF-8：`.msgspec`、`.endspec`、`.stdspec`，使用普通文件工具读写。
 
+Studio 新建终端自动设置 `THTK_CHECK`；外部终端先复制 [PROJECT.md](references/PROJECT.md) 中“外部终端首次使用”的完整命令，为当前会话设置检查器路径并用 `--help` 确认可执行。
+
 完成一组编辑后检查：`"$THTK_CHECK" check /path/to/script.msgspec --json`，需要时显式传 `--game` 和 `--encoding`。检查器可在 Studio 关闭后独立运行；完整命令及 map 用法见 [入口](references/README.md#版本编码与检查)。
 
 Studio MCP 也可使用 `run_script`：`kind` 为 `msg`／`ending`／`std`，`operation` 为 `check`／`compile`／`decompile`，`input_path` 为文件路径。仅 check 接受 `source_text` 检查未保存内容，路径仍用于解析相对 pragma。读取 `success`、`diagnostics` 和 `message` 判断结果。MCP 使用当前工具配置，检查前确认它与本次目标一致；CLI 可显式指定版本和编码。

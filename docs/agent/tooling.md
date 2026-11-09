@@ -8,7 +8,7 @@
 
 ## 在终端中检查
 
-Studio 终端里的 `THTK_CHECK` 指向随包检查器。它也可以在 Studio 关闭后独立运行。先保存文件，再检查一组相关修改：
+Studio 新建终端会自动设置 `THTK_CHECK`，指向随包检查器。外部终端先复制生成包 `PROJECT.md` 中“外部终端首次使用”的完整命令，设置当前会话的变量并运行 `--help` 确认可用。检查器可以在 Studio 关闭后独立运行。先保存文件，再检查一组相关修改：
 
 ```sh
 "$THTK_CHECK" check scripts/dialogue.msgspec --json

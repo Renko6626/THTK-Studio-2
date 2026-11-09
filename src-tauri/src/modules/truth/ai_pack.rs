@@ -42,9 +42,24 @@ pub fn generate(
     let checker = crate::common::toolchain::bundled_checker_path().filter(|p| p.is_file());
     let mut project = format!(
         "# 项目配置参考\n\n以下为生成时的默认配置快照。版本和二进制文本编码仅供参考，请按具体文件、目标游戏或补丁及当前任务选择；不要为迁就默认值改写脚本或转换编码。源码始终 UTF-8。\n\n人工指令参考：[MSG](msg-instructions.md)、[END](ending-instructions.md)、[STD](std-instructions.md)，按各自版本章节阅读。项目自定义 map 的签名可通过现有 MCP 查询。\n\n检查器：{}。也可通过 `THTK_CHECK` 指定位置，命令见 [入口](README.md#版本编码与检查)。\n\n",
-        checker.map(|p| format!("`{}`", p.display()))
+        checker.as_ref().map(|p| format!("`{}`", p.display()))
             .unwrap_or_else(|| "尚未安装；可使用 Studio MCP 的 run_script(check)".into())
     );
+    if let Some(checker) = checker {
+        project.push_str("## 外部终端首次使用\n\nStudio 新建终端会自动设置 THTK_CHECK。外部终端在当前会话执行以下命令，再把示例源码路径换成要检查的文件；--help 用于确认检查器可执行。\n\n");
+        if cfg!(windows) {
+            let path = checker.to_string_lossy().replace('\'', "''");
+            project.push_str(&format!(
+                "PowerShell：\n\n```powershell\n$env:THTK_CHECK = '{path}'\n& $env:THTK_CHECK --help\n& $env:THTK_CHECK check scripts/dialogue.msgspec --json\n```\n\n"
+            ));
+        } else {
+            let path = checker.to_string_lossy().replace('\'', "'\\''");
+            project.push_str(&format!(
+                "Bash / sh：\n\n```sh\nexport THTK_CHECK='{path}'\n\"$THTK_CHECK\" --help\n\"$THTK_CHECK\" check scripts/dialogue.msgspec --json\n```\n\n"
+            ));
+        }
+        project.push_str("在项目根目录运行示例，或使用源码绝对路径。变量只在当前终端会话生效；也可直接用带引号的检查器完整路径代替变量。目标版本和编码按本次任务指定，见 [检查用法](README.md#版本编码与检查)。\n\n");
+    }
     for kind in [
         TruthScriptKind::Msg,
         TruthScriptKind::Ending,
