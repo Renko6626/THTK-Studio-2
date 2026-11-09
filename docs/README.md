@@ -48,6 +48,7 @@
 
 当前路线与计划：
 
+- [Agent 脚本编程支持设计](superpowers/specs/2026-11-09-agent-scripting-design.md)、[实施计划](superpowers/plans/2026-11-09-agent-scripting.md)：待审阅的领域文档、共享检查器、headless CLI 与精简 MCP 方案；包含 THBWiki、renkolab、ExpHP 和 Priw8 的资料入口。
 - [truth 迁移设计](superpowers/specs/2026-11-09-truth-msg-std-migration-design.md)：已落地的接口、Studio map 解析路线和旧格式退场要求。
 - [MSG/END 编码设计](superpowers/specs/2026-11-09-truth-msg-encoding-design.md)：已实施的 GBK 最小编码补丁。
 - [truth 迁移计划](superpowers/plans/2026-11-09-truth-msg-std-migration.md)：固定工具核对、编码、map、编译、编辑器、agent 和随包验收。
