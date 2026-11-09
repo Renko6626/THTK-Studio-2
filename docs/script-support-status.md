@@ -13,7 +13,11 @@
 
 MSG/END/STD 共用 truth 词法高亮，按 kind 查询有效 map，提供指令/枚举补全、悬停、参数提示和编译错误定位。Rust 结构分析提供 script 内标签跳转与源码事件列表；循环、分支后的时间标记未求值，不模拟游戏运行。当前结构提取为基础能力，不是完整 truth 语法树或资源预览。
 
-MCP 新增 `run_script`（check/compile/decompile）和 `lookup_script_semantics`，与编辑器调用同一套 Rust 编译与 map 服务。菜单可生成 `.claude/skills/touhou-truth-scripts/SKILL.md`；已有文件保留用户修改。
+MCP 的 `run_script`（check/compile/decompile）支持检查未保存文本；`lookup_script_semantics` 支持新文件、源码 pragma 和完整分页。工作区返回三类脚本的独立配置、headless 检查器和资料位置。
+
+菜单生成完整 `.claude/skills/touhou-truth-scripts/` 辅助包，包含 skill、离线编程手册、项目实际配置、完整有效指令表和可编译例子；保留已有 SKILL／AGENTS，显式覆盖仅更新 skill。手册入口见 [MSG／END／STD 编程手册](agent/README.md)。
+
+IDE、MCP 和独立 `thtk-check` CLI 共用 `crates/script-check` 的 truth 调用与检查实现。CLI 无 Tauri／WebView 依赖，支持普通文件、标准输入、项目配置、编码和 map 覆盖；在 Studio 终端通过 `THTK_CHECK` 调用。没有新增脚本 parser、符号索引或文档搜索服务。
 
 ## 迁移行为
 

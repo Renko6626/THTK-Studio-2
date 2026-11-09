@@ -209,7 +209,7 @@ AGENTS.md                               # 仅缺失时创建简短入口
 
 ## 任务 8：集中验证与实际编程验收
 
-**文件：**新建 `scripts/check-agent-examples.mjs`、`docs/agent/acceptance.md`；更新 `docs/script-support-status.md`、`deps/README.md` 和本计划执行记录。
+**文件：**新建 `scripts/check-agent-examples.mjs`、`deps/agent-scripting-check-2026-11-09.md`；更新 `docs/script-support-status.md`、`deps/README.md` 和本计划执行记录。验证记录放开发资料目录，不混入面向编程者的辅助包。
 
 - [ ] 示例脚本只读取 manifest，调用实际 thtk-check 并检查退出码与 JSON；不在脚本里复制编译或 map 逻辑，不写独立测试框架。
 - [ ] 运行共享库／CLI 测试、受影响 Rust 测试、已有前端检查与构建；必要完整命令见下。只在新失败或改动后补跑受影响检查。
