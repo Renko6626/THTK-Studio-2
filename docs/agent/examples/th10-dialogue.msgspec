@@ -1,0 +1,17 @@
+// TH10: textAdd is opcode 16; no portrait slot on speakerPlayer.
+meta { table: {0: {script: "greeting", flags: 256}} }
+script greeting {
+    skippable(true);
+    playerShow();
+    textboxShow();
+    speakerPlayer();
+    playerFace(0);
+    textAdd("The rain has stopped.");
++4:
+    textPause(600);
+    eclResume();
++30:
+    textboxHide();
+    playerHide();
+    end();
+}

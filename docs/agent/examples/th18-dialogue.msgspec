@@ -1,0 +1,19 @@
+// TH18: face number comes before portrait slot.
+meta { table: {0: {script: "greeting", flags: 256}} }
+script greeting {
+    skippable(true);
+    playerShow(Portrait0);
+    speakerPlayer(0);
+    playerFace(0, Portrait0);
+    bubbleType(TextType0);
+    bubblePos(112.0, 240.0);
+    textAdd("The rain has stopped.");
+    textAdd("Let us take the mountain path.");
++4:
+    textPause(600);
+    eclResume();
++30:
+    textboxHide();
+    playerHide(0);
+    end();
+}

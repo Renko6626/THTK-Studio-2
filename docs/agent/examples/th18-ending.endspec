@@ -1,0 +1,19 @@
+// Uses existing project resources; no ANM or BGM assets are supplied.
+meta { table: {0: {script: "ending", flags: 256}} }
+script ending {
+    anmSourceLoad(AnmIndex0, "e01.anm");
+    anmSetSlot(AnmSlot0, AnmIndex0, 0);
+    music("bgm/th18_15");
+    textColor(0xffffff);
+    textAdd("The journey ends here.");
+    textAdd("Tomorrow will bring another visitor.");
++4:
+    waitClear(600);
+    textAdd("Until then, the mountain rests.");
++4:
+    waitClear(600);
+    musicFade();
+    screenEffectB(60);
++60:
+    end();
+}

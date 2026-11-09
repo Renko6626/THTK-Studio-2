@@ -1,0 +1,50 @@
+[
+  {
+    "path": "th06-dialogue.msgspec",
+    "kind": "msg",
+    "gameVersion": 6,
+    "encoding": "shift-jis"
+  },
+  {
+    "path": "th10-dialogue.msgspec",
+    "kind": "msg",
+    "gameVersion": 10,
+    "encoding": "shift-jis"
+  },
+  {
+    "path": "th18-dialogue.msgspec",
+    "kind": "msg",
+    "gameVersion": 18,
+    "encoding": "shift-jis"
+  },
+  {
+    "path": "th18-ending.endspec",
+    "kind": "ending",
+    "gameVersion": 18,
+    "encoding": "shift-jis"
+  },
+  {
+    "path": "th20-ending.endspec",
+    "kind": "ending",
+    "gameVersion": 20,
+    "encoding": "shift-jis"
+  },
+  {
+    "path": "th06-background.stdspec",
+    "kind": "std",
+    "gameVersion": 6,
+    "encoding": null
+  },
+  {
+    "path": "th08-background.stdspec",
+    "kind": "std",
+    "gameVersion": 8,
+    "encoding": null
+  },
+  {
+    "path": "th18-background.stdspec",
+    "kind": "std",
+    "gameVersion": 18,
+    "encoding": null
+  }
+]

@@ -1,0 +1,15 @@
+// TH06: explicit text line and portrait ANM script.
+const int MAX_WAIT = 60 * 10;
+meta { table: {0: {script: "greeting"}} }
+script greeting {
+    show(LeftPortrait, 0);
+    face(LeftPortrait, 0);
+    anmInterrupt(LeftPortrait, 1);
+    textSet(PaleBlue, TopLine, "Hello, visitor.");
+    textSet(PaleBlue, BottomLine, "The path is open.");
++4:
+    textPause(MAX_WAIT);
+    eclResume();
++30:
+    end();
+}

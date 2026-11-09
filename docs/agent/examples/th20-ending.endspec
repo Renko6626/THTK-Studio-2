@@ -1,0 +1,13 @@
+// TH20 END opcode 9 takes two colors.
+meta { table: {0: {script: "ending", flags: 256}} }
+script ending {
+    textColor(0xffffff, 0xffffff);
+    textAdd("|0,11,あす");
+    textAdd("明日も晴れるだろう。");
++4:
+    waitClear(600);
+    textAdd("The road continues.");
++4:
+    waitClear(600);
+    end();
+}

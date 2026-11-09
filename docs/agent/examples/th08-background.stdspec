@@ -1,0 +1,35 @@
+// ANM script 0 must exist in the project background ANM.
+meta {
+    unknown: 0,
+    stage_name: "Example stage",
+    bgm: [
+        {path: "bgm/example.mid", name: "Example theme"},
+        {path: " ", name: " "},
+        {path: " ", name: " "},
+        {path: " ", name: " "},
+    ],
+    objects: {
+        tile: {
+            layer: 0,
+            pos: [-64.0, -64.0, 0.0],
+            size: [128.0, 128.0, 0.0],
+            quads: [rect {anm_script: 0, pos: [0.0, 0.0, 0.0], size: [128.0, 128.0]}],
+        },
+    },
+    instances: [
+        tile {pos: [0.0, 256.0, 0.0]},
+        tile {pos: [0.0, 384.0, 0.0]},
+    ],
+}
+script main {
+    up(0.0, 0.0, -1.0);
+    facing(0.0, 1.0, 0.0);
+    fov(0.68831855);
+    fog(0xff808080, 200.0, 1000.0);
+repeat:
+    pos(0.0, 0.0, -100.0);
+    posTime(120, Linear);
+    pos(0.0, 128.0, -100.0);
++120:
+    goto repeat;
+}
