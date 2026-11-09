@@ -265,7 +265,6 @@ const menus = computed(() => [
       toolItem('trustd', '编译当前 .stdspec', 'script.compileStd', !activeIsStdSource.value),
       toolItem('trustd', 'STD 构建选项…', 'script.stdOptions', !(activeIsStd.value || activeIsStdSource.value)),
       ] },
-      { label: '生成 truth Agent 指南', key: 'script.truthAssistPack', disabled: !hasWorkspace.value },
       { type: 'divider', key: 'script-dat-div' },
       // DAT
       toolItem('thdat', '解包当前 .dat', 'script.extractDat', false),
@@ -303,10 +302,9 @@ function publishAiPackResult({
   message: string
 }) {
   reportsStore.publishToolResult({
-    ownerKey: 'ecl:ai-pack',
+    ownerKey: 'project:ai-pack',
     source: 'toolchain',
     operation: 'ai-pack',
-    scriptKind: 'ecl',
     title: '生成 AI 辅助包',
     path,
     success,
@@ -316,80 +314,42 @@ function publishAiPackResult({
   workbenchPanelsStore.showBottomPanel('output')
 }
 
-async function runGenerateAiPack() {
-  try {
-    const result = await generateAiAssistPack(false)
-    const refLines = result.referenceFiles.map((file) => `已刷新 ${file}`)
+const assistPackGenerators = [
+  { label: 'ECL', generate: generateAiAssistPack },
+  { label: 'MSG / END / STD', generate: generateTruthAssistPack }
+]
 
-    if (result.skillExisted && !result.skillWritten) {
-      // references 已刷新，但保留了用户的 SKILL.md —— 先如实汇报，再询问是否覆盖。
-      publishAiPackResult({
-        success: true,
-        path: result.skillPath,
-        message: ['SKILL.md 已存在，保留用户版本', ...refLines].join('\n')
-      })
-      dialog.warning({
-        title: 'SKILL.md 已存在',
-        content:
-          '该项目已有 SKILL.md。references 已刷新。是否用最新模板覆盖 SKILL.md?这会丢失你对 SKILL.md 的自定义修改。',
-        positiveText: '覆盖',
-        negativeText: '保留',
-        onPositiveClick: async () => {
-          try {
-            const forced = await generateAiAssistPack(true)
-            publishAiPackResult({
-              success: true,
-              path: forced.skillPath,
-              message: [
-                'SKILL.md 已用最新模板覆盖',
-                ...forced.referenceFiles.map((file) => `已刷新 ${file}`)
-              ].join('\n')
-            })
-          } catch (error) {
-            publishAiPackResult({ success: false, path: null, message: String(error) })
-          }
-        }
-      })
-      return
+async function runGenerateAiPack(force = false, packs = assistPackGenerators) {
+  const lines: string[] = []
+  const preserved: typeof assistPackGenerators = []
+  let success = true
+
+  for (const pack of packs) {
+    try {
+      const result = await pack.generate(force)
+      lines.push(`${pack.label}：${result.skillWritten ? '已生成' : '已保留'} ${result.skillPath}`)
+      lines.push(...result.referenceFiles.map(file => `已刷新 ${file}`))
+      if ('projectRulesWritten' in result) {
+        lines.push(result.projectRulesWritten
+          ? `已创建 ${result.projectRulesPath}`
+          : `已保留 ${result.projectRulesPath}，可手动加入以下入口：\n${result.suggestedRulesText}`)
+      }
+      if (result.skillExisted && !result.skillWritten) preserved.push(pack)
+    } catch (error) {
+      success = false
+      lines.push(`${pack.label} 生成失败：${String(error)}`)
     }
-
-    // 全新生成（skillWritten）或无需写入的常规成功
-    publishAiPackResult({
-      success: true,
-      path: result.skillPath,
-      message: [result.skillWritten ? 'SKILL.md 已生成' : 'SKILL.md 已存在，保留用户版本', ...refLines].join('\n')
-    })
-  } catch (error) {
-    publishAiPackResult({ success: false, path: null, message: String(error) })
   }
-}
 
-function publishTruthPackResult(success: boolean, path: string | null, text: string) {
-  reportsStore.publishToolResult({
-    ownerKey: 'truth:ai-pack', source: 'toolchain', operation: 'ai-pack', scriptKind: 'msg',
-    title: '生成 truth Agent 指南', path, success, message: text, diagnostics: []
-  })
-  workbenchPanelsStore.showBottomPanel('output')
-}
-
-async function runGenerateTruthAssistPack(force = false) {
-  try {
-    const result = await generateTruthAssistPack(force)
-    publishTruthPackResult(true, result.skillPath, [
-      result.skillWritten ? (force ? 'SKILL.md 已用最新模板覆盖' : 'SKILL.md 已生成') : 'SKILL.md 已存在，保留用户版本',
-      ...result.referenceFiles.map(file => `已刷新 ${file}`),
-      result.projectRulesWritten ? `已创建 ${result.projectRulesPath}` : `已保留 ${result.projectRulesPath}，可手动加入以下入口：\n${result.suggestedRulesText}`
-    ].join('\n'))
-    if (result.skillExisted && !result.skillWritten) {
-      dialog.warning({
-        title: 'SKILL.md 已存在',
-        content: 'references 已刷新。是否用最新模板覆盖 SKILL.md？这会覆盖你对 SKILL.md 的修改，项目根 AGENTS.md 会保留。',
-        positiveText: '覆盖', negativeText: '保留',
-        onPositiveClick: () => runGenerateTruthAssistPack(true)
-      })
-    }
-  } catch (error) {
-    publishTruthPackResult(false, null, String(error))
+  publishAiPackResult({ success, path: projectStore.rootPath, message: lines.join('\n') })
+  if (preserved.length) {
+    dialog.warning({
+      title: '保留了已有的 skill',
+      content: `以下 skill 已存在：${preserved.map(pack => pack.label).join('、')}。参考资料已刷新。是否用最新模板覆盖这些 skill？覆盖会丢失自定义修改，项目根 AGENTS.md 会保留。`,
+      positiveText: '覆盖',
+      negativeText: '保留',
+      onPositiveClick: () => runGenerateAiPack(true, preserved)
+    })
   }
 }
 
@@ -510,9 +470,6 @@ async function handleSelect(key: string) {
       break
     case 'script.decompileStd':
       tcActions.runDecompileStd(editorStore.activeTab?.path)
-      break
-    case 'script.truthAssistPack':
-      void runGenerateTruthAssistPack()
       break
     case 'script.stdOptions':
       buildDialogStore.openDialog({ tool: 'trustd', mode: activeIsStd.value ? 'decompile' : 'compile', inputPath: editorStore.activeTab?.path || '' })

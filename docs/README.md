@@ -2,7 +2,7 @@
 
 这个目录收录 Studio 开发资料，以及供脚本作者和编程 agent 使用的领域手册。
 
-- [MSG、END、STD 编程手册](agent/README.md)：truth 写法、台词与立绘、结局与 staff、背景几何与相机、版本差异和八份可编译示例。
+- [MSG、END、STD 编程手册](agent/README.md)：每种格式一份编程介绍与人工指令语义参考，包含版本差异、参数解释和完整小例子。
 
 架构与参考资料：
 
@@ -29,6 +29,14 @@
 > - MSG 逆向 → `renkolab/engine/msg/`
 >
 > 分开是因为逆向知识、mod 产物、Ghidra 工具链三者的寿命与本 IDE 的代码完全不同。
+
+## 脚本手册维护资料
+
+以下内容保留在源码仓库，不默认导出给 agent：
+
+- [资料来源与历史疑问](agent/sources.md)、[支持矩阵](agent/support-matrix.md)。
+- [原始共用语法整理](agent/truth-syntax.md)、[版本差异整理](agent/version-differences.md)、[工具使用详解](agent/tooling.md)。
+- [八份完整编译样例](agent/examples/manifest.json)：用于维护时校对语法与工具调用，不包含游戏资源。
 
 ## ECL 教程整理
 

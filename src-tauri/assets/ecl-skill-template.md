@@ -5,6 +5,8 @@ description: 在本项目中编写或修改东方 Project ECL 脚本(.decl)时�
 
 # ECL 脚本魔改指南（th{{VERSION}}）
 
+本指南及随附指令表按生成时的版本 th{{VERSION}} 导出，仅供参考。具体文件的目标版本以当前任务、文件来源和目标游戏为准；换用其他版本时使用对应的 eclmap 与指令表，不要为迁就项目默认版本改写脚本。
+
 ## ECL 是什么
 
 ECL 控制东方 Project 原作的敌机行为与弹幕逻辑。二进制 `.ecl` 文件由 thecl

@@ -13,7 +13,7 @@
 | TH11 | op9 插入 `speakerNone`；TH10 的 op9–23 后移一位；新增 op25／26 |
 | TH12 | 新增 `musicFade(seconds)` op27，文本签名加入注音尾部兼容 |
 | TH128 | `bossShow` 有有效整数参数；新增气泡位置 op28、气泡类型 op29 与路线选择 op30 |
-| TH13 | 新增 op31；当前默认 map 的 `showEnemy1()` 为零参 |
+| TH13 | 新增 op31；当前默认 map 为 `showEnemy1(int value)`，TH18／185 改为零参 |
 | TH14 | `bossHide(who)`、`speakerBoss(who)`、`bossFace(face,who)`、`intro(who)`，新增 op32 |
 | TH143 | op33 是单整数的教程指令；不能写 TH16 的立绘变暗调用 |
 | TH15 | 移除 TH143 的 op33 |

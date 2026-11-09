@@ -13,7 +13,7 @@
 
 编译器源码在构建缓存 `deps/.cache/truth`，可按固定提交恢复；它不要求随用户项目提供。语法复核还使用了 `tests/integration/msg_features.rs`、`std_features.rs`、`general.rs` 及 `snapshots/integration__integration__bits_2_bits__{msg06_multiple_scripts,std06_general,std12_general}.snap`。正文的八份最小示例由随包 `trumsg`／`trustd` 加版本默认 map 实际编译。
 
-有效签名由内建定义、版本默认 map、项目 map、源码 pragma 顺序叠加。编译器内建签名和最终 map 可能不同，例如当前内建 TH13 op31 是一个整数，随包默认 map 覆盖成零参数。因此本文调用 `showEnemy1()`，不会把上游内建签名单独当成最终接口。
+有效签名由内建定义、版本默认 map、项目 map、源码 pragma 顺序叠加。编译器内建签名和最终 map 可能不同，TH13 op31 的随包默认 map 带一个整数，TH18／185 则为零参。旧稿曾把 TH18 的零参写法误记为 TH13，现已纠正；当前写法见人工指令参考。
 
 ## THBWiki：固定修订与适用章节
 

@@ -1,30 +1,26 @@
 ---
 name: touhou-truth-scripts
-description: 编写或修改东方 MSG 对话、END 结局和 STD 背景脚本时使用，提供 truth 语法、完整项目指令表、可编译示例与检查命令。
+description: 编写或修改东方 MSG 对话、END 结局和 STD 背景脚本时使用，提供编程介绍、人工指令语义参考和检查方式。
 ---
 
 # 编写 MSG、END、STD
 
-从 [编程入口](references/README.md) 和 [当前项目](references/PROJECT.md) 了解目标版本、编码和工具位置。按任务阅读 [MSG](references/msg.md)、[END](references/ending.md) 或 [STD](references/std.md)，共用语法见 [truth-syntax](references/truth-syntax.md)。[示例清单](references/examples/manifest.json) 提供可直接改写的源码。
+按任务阅读一份介绍和对应的指令参考：
 
-源码是 UTF-8 的 truth 原生文本：关卡对话 `.msgspec`，结局／staff `.endspec`，背景 `.stdspec`。用普通文件工具阅读和编辑。项目指令表包含完整名称、参数和枚举；文件的 `#pragma mapfile` 可以进一步覆盖定义，需要精确项目签名时再查询 MCP。
+| 格式 | 编程介绍 | 指令参考 |
+| --- | --- | --- |
+| 关卡对话 MSG | [MSG](references/msg.md) | [MSG 指令](references/msg-instructions.md) |
+| 结局／staff END | [END](references/ending.md) | [END 指令](references/ending-instructions.md) |
+| 背景 STD | [STD](references/std.md) | [STD 指令](references/std-instructions.md) |
 
-例如查询新文件或未保存源码中的文本指令：
+介绍包含语法和完整小例子；指令参考人工维护，每行明确适用版本、编号、作用、参数类型和含义。先确定当前任务目标，再选明确列出的版本行；未列版本不继承同名指令的行为，签名相同也不证明语义相同。无需先查询工具才能写每条指令。项目自定义 map 与手册不一致时，再用 `lookup_script_semantics` 核对；查询新文件或未保存源码可传 `source_path`、`source_text`，分页按 `nextOffset` 继续。
 
-```json
-{"kind":"msg","source_path":"/path/to/project/dialog.msgspec","source_text":"#pragma mapfile \"custom.msgm\"\n","query":"text","offset":0,"limit":50}
-```
+[PROJECT.md](references/PROJECT.md) 只是生成时默认配置参考。版本和 MSG／END 二进制文本编码按当前任务、文件来源及目标游戏或补丁选择，不要为迁就默认值改写脚本或转换编码。源码始终 UTF-8：`.msgspec`、`.endspec`、`.stdspec`，使用普通文件工具读写。
 
-这是 `lookup_script_semantics` 的参数。返回 `total` 和 `nextOffset`；继续用 `nextOffset` 可遍历完整指令，枚举每页完整返回。
+完成一组编辑后检查：`"$THTK_CHECK" check /path/to/script.msgspec --json`，需要时显式传 `--game` 和 `--encoding`。检查器可在 Studio 关闭后独立运行；完整命令及 map 用法见 [入口](references/README.md#版本编码与检查)。
 
-完成一组相关编辑后检查，再按需要编译。终端的 `thtk-check` 用法见 [tooling](references/tooling.md)；检查器位置见 PROJECT.md，也可由 `THTK_CHECK` 指定。Studio MCP 检查磁盘文件：
+Studio MCP 也可使用 `run_script`：`kind` 为 `msg`／`ending`／`std`，`operation` 为 `check`／`compile`／`decompile`，`input_path` 为文件路径。仅 check 接受 `source_text` 检查未保存内容，路径仍用于解析相对 pragma。读取 `success`、`diagnostics` 和 `message` 判断结果。MCP 使用当前工具配置，检查前确认它与本次目标一致；CLI 可显式指定版本和编码。
 
-```json
-{"kind":"msg","operation":"check","input_path":"/path/to/project/dialog.msgspec"}
-```
+检查通过后按需要编译。编译确认语法、签名、编码和结构，资源与游戏内效果仍由目标游戏确认。任务完成可用 `report_to_user` 汇报。
 
-检查未保存内容时加 `source_text`，路径继续用于解析相对 pragma。只有 check 接受该参数；检查不会改写源文件。结果的 `success` 表示源码是否通过，失败时阅读 `diagnostics` 和 `message` 修正。`compile` 生成二进制，`decompile` 生成原生源码；二者可指定 `output_path`。MSG/END 的 `encoding` 指二进制文本编码，默认沿用项目设置；源码始终保持 UTF-8。
-
-保留目标版本和项目 map。STD 使用符号标签，由编译器重算跳转偏移。编译通过后，画面、节奏和游戏侧效果仍由游戏运行确认。
-
-`references/`（包含 examples、PROJECT.md 和 instructions）是生成内容，重新生成辅助包时刷新。此 SKILL.md 默认保留手改内容；项目根 AGENTS.md 始终保留。
+辅助包更新会刷新导出的 `references/`，默认保留手改的 SKILL.md 和项目根 AGENTS.md。自定义约定放在这两个文件中。

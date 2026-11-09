@@ -2,7 +2,7 @@
 
 ## 在 Studio 中工作
 
-项目配置决定游戏版本、工具路径、编码和项目 map。创建或编辑 `.msgspec`、`.endspec`、`.stdspec` 后使用 Studio 的语法检查／编译操作；END 必须选结局格式。编译错误通常会指到行列，先修正第一个有位置的错误，再重试。
+项目配置提供默认游戏版本、工具路径、二进制文本编码和项目 map。版本与编码仅供参考，具体操作应按当前任务、文件来源及目标游戏或补丁选择；不要为迁就项目默认值改写脚本或转换编码。未显式指定时，工具使用配置中的默认值。创建或编辑 `.msgspec`、`.endspec`、`.stdspec` 后使用 Studio 的语法检查／编译操作；END 必须选结局格式。编译错误通常会指到行列，先修正第一个有位置的错误，再重试。
 
 项目使用的默认 map、项目 map、源码 `#pragma mapfile` 会共同决定指令名与签名。改动纯台词、时间或坐标一般直接编辑并检查即可；确实遇到参数不匹配时再查该项目的有效定义。
 
@@ -60,13 +60,13 @@ PowerShell 使用：
 {"kind":"msg","source_path":"/project/scripts/dialogue.msgspec","query":"textPause"}
 ```
 
-`query` 可以是别名子串或精确 opcode；空字符串用于浏览，`offset`／`limit` 控制分页，默认每页 50 项，按 `nextOffset` 继续读取。结果含有效签名、枚举与 map 来源。可传 `source_text` 查询未保存的 pragma；新文件路径也可以先查询项目定义。完整项目快照表在生成包的 `instructions/`，日常修改直接阅读即可。
+`query` 可以是别名子串或精确 opcode；空字符串用于浏览，`offset`／`limit` 控制分页，默认每页 50 项，按 `nextOffset` 继续读取。结果含有效签名、枚举与 map 来源。可传 `source_text` 查询未保存的 pragma；新文件路径也可以先查询项目定义。生成包的 `msg-instructions.md`、`ending-instructions.md`、`std-instructions.md` 为人工语义参考，按具体目标选择版本章节；项目自定义签名通过查询核对。
 
 任务完成时可用 `report_to_user` 把修改和检查结果放进 Studio 输出面板。
 
 ## 直接使用 truth
 
-独立使用 `trumsg`／`trustd` 时，从 `PROJECT.md` 或检查器 JSON 的 `context` 取得工具、版本和有序 map 路径。例如在源码目录运行：
+独立使用 `trumsg`／`trustd` 时，`PROJECT.md` 可提供默认配置参考，检查器 JSON 的 `context` 则列出本次实际使用的配置。按具体目标选择版本、编码和配套 map。例如在源码目录运行：
 
 ```sh
 trumsg compile dialogue.msgspec -g 18 -m /path/to/msg-18.msgm --encoding shift-jis -o dialogue.msg
@@ -91,4 +91,4 @@ trustd compile background.stdspec -g 18 -m /path/to/std-18.stdm -o background.st
 
 ## 项目辅助包
 
-在 Studio 菜单生成 MSG／END／STD 辅助包。入口位于 `.claude/skills/touhou-truth-scripts/SKILL.md`，其他 agent 也可以按这个路径读取。`references/` 内的手册、示例、项目上下文和指令表可离线使用；更新辅助包会刷新这些生成内容。已存在的 skill 和项目根 `AGENTS.md` 默认保留，显式选择覆盖只更新 skill。
+在 Studio 菜单选择“生成 AI 辅助包”，一次生成 ECL 与 MSG／END／STD 的 skill 和参考资料，无需按格式分别选择。ECL 入口位于 `.claude/skills/ecl-modding/SKILL.md`；MSG／END／STD 入口位于 `.claude/skills/touhou-truth-scripts/SKILL.md`，其他 agent 也可以按这个路径读取。`references/` 导出一份入口、三个格式介绍、三份人工指令参考和项目配置参考，例子内嵌在介绍中；更新辅助包会刷新这些生成内容。已存在的 skill 和项目根 `AGENTS.md` 默认保留，显式选择覆盖只更新 skill。
