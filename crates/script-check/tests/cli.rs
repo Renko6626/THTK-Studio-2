@@ -37,6 +37,25 @@ fn headless_json_exit_codes_and_new_stdin_file() {
     assert_eq!(data["context"]["gameVersion"], 18);
     assert_eq!(data["result"]["success"], true);
     assert!(output.stderr.is_empty());
+    let missing_map = root.join("missing.msgm");
+    let output = command(&source)
+        .arg("--map")
+        .arg(&missing_map)
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(2));
+    let data: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(data["context"]["gameVersion"], 18);
+    assert_eq!(
+        data["context"]["mapPaths"][1],
+        missing_map.to_str().unwrap()
+    );
+    assert_eq!(data["result"]["success"], false);
+    assert!(data["result"]["message"]
+        .as_str()
+        .unwrap()
+        .contains(missing_map.to_str().unwrap()));
+    assert!(output.stderr.is_empty());
     std::fs::write(
         &source,
         "meta {table:{0:{script:\"main\"}}}\nscript main {\n unknown();\n}",

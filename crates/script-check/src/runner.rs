@@ -58,6 +58,10 @@ fn execute(context: &ScriptContext, request: &ScriptRequest) -> Result<ScriptRes
     {
         return Err("输出路径不能覆盖输入文件".into());
     }
+    // Configured maps are setup inputs; source pragma maps remain truth's responsibility.
+    for map in &context.map_paths {
+        std::fs::read(map).map_err(|e| format!("无法读取 map 文件 {}：{e}", map.display()))?;
+    }
     let mut cmd = Command::new(&context.tool_path);
     cmd.arg(request.operation.as_str())
         .arg(&input)

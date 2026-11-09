@@ -177,8 +177,12 @@ fn buffers_preserve_file_relative_pragma_and_new_file() {
 fn location_free_tool_error_remains_readable() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("input.msgspec");
-    fs::write(&path, "").unwrap();
-    let mut ctx = context(
+    fs::write(
+        &path,
+        "#pragma mapfile \"missing.map\"\nmeta {table:{0:{script:\"main\"}}}\nscript main {}\n",
+    )
+    .unwrap();
+    let ctx = context(
         dir.path(),
         ScriptKind::Msg,
         ProjectSnapshot {
@@ -186,7 +190,6 @@ fn location_free_tool_error_remains_readable() {
             ..Default::default()
         },
     );
-    ctx.map_paths.push(dir.path().join("missing.map"));
     let result = run(
         &ctx,
         &ScriptRequest {
