@@ -1,11 +1,10 @@
-use super::{catalog, diagnostics, maps::TruthScriptKind};
+use super::maps::TruthScriptKind;
 use crate::{
     common::{project_config::ProjectConfig, toolchain},
     config::AppConfig,
     modules::ecl::error_parser::Diagnostic,
 };
 use serde::{Deserialize, Serialize};
-use std::{path::Path, process::Command};
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -67,144 +66,145 @@ pub struct ScriptRequest {
     pub encoding: Option<String>,
 }
 
+impl From<TruthScriptKind> for script_check::ScriptKind {
+    fn from(kind: TruthScriptKind) -> Self {
+        match kind {
+            TruthScriptKind::Msg => Self::Msg,
+            TruthScriptKind::Ending => Self::Ending,
+            TruthScriptKind::Std => Self::Std,
+        }
+    }
+}
+impl From<script_check::ScriptKind> for TruthScriptKind {
+    fn from(kind: script_check::ScriptKind) -> Self {
+        match kind {
+            script_check::ScriptKind::Msg => Self::Msg,
+            script_check::ScriptKind::Ending => Self::Ending,
+            script_check::ScriptKind::Std => Self::Std,
+        }
+    }
+}
+pub fn resolve_script_context(
+    config: &AppConfig,
+    root: Option<&str>,
+    project: Option<&ProjectConfig>,
+    kind: TruthScriptKind,
+    input_path: &str,
+    encoding: Option<&str>,
+) -> Result<script_check::ScriptContext, String> {
+    let project = if let Some(p) = project {
+        Some(script_check::ProjectSnapshot {
+            game_version: p.game_version.clone(),
+            encoding: p.encoding.clone(),
+            truth_dir: p.toolchain.truth_dir.clone(),
+            script_maps: script_check::ScriptMaps {
+                msg: p.script_maps.msg.clone(),
+                ending: p.script_maps.ending.clone(),
+                std: p.script_maps.std.clone(),
+            },
+        })
+    } else {
+        root.map(|r| script_check::load_project_snapshot(std::path::Path::new(r)))
+            .transpose()?
+            .flatten()
+    };
+    script_check::resolve_context(&script_check::ContextInput {
+        kind: kind.into(),
+        input_path: input_path.into(),
+        project_root: root.map(Into::into),
+        explicit_game_version: None,
+        explicit_encoding: encoding.map(Into::into),
+        explicit_truth_dir: None,
+        explicit_map_paths: Vec::new(),
+        app: script_check::AppSnapshot {
+            default_game_version: config.default_game_version.clone(),
+            truth_dir: config.truth_dir.clone(),
+            tool_overrides: config
+                .tool_overrides
+                .iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect(),
+        },
+        project,
+        bundled_truth_dir: toolchain::bundled_truth_dir(),
+    })
+}
+pub(crate) fn adapt_result(result: script_check::ScriptResult) -> ScriptResult {
+    ScriptResult {
+        success: result.success,
+        tool: result.tool,
+        mode: result.mode,
+        script_kind: result.script_kind,
+        input_path: result.input_path,
+        output_path: result.output_path,
+        message: result.message,
+        diagnostics: result
+            .diagnostics
+            .into_iter()
+            .map(adapt_diagnostic)
+            .collect(),
+    }
+}
+pub(crate) fn adapt_diagnostic(d: script_check::Diagnostic) -> Diagnostic {
+    Diagnostic {
+        path: d.path,
+        line: d.line,
+        column: d.column,
+        severity: d.severity,
+        message: d.message,
+    }
+}
 pub fn run(
     config: &AppConfig,
     root: Option<&str>,
     project: Option<&ProjectConfig>,
     request: &ScriptRequest,
 ) -> ScriptResult {
-    let mut result = ScriptResult {
-        success: false,
-        tool: request.kind.tool().into(),
-        mode: request.mode.as_str().into(),
-        script_kind: request.kind.as_str().into(),
-        input_path: request.input_path.clone(),
-        output_path: None,
-        message: String::new(),
-        diagnostics: Vec::new(),
-    };
-    let attempt = (|| -> Result<(), String> {
-        let input = std::path::absolute(&request.input_path).map_err(|e| e.to_string())?;
-        if !input.is_file() {
-            return Err(format!("输入文件不存在：{}", input.display()));
-        }
-        let cwd = input.parent().ok_or("Source has no parent directory")?;
-        let game = crate::common::game_version::resolve_from(project, config, request.kind.tool())?;
-        let maps = catalog::map_paths(game, request.kind, root, project)?;
-        if matches!(request.mode, ScriptMode::Compile)
-            && !input
-                .extension()
-                .and_then(|s| s.to_str())
-                .is_some_and(|ext| ext.eq_ignore_ascii_case(request.kind.extension()))
-        {
-            return Err(format!(
-                "请使用 truth 原生 .{} 源码；旧 .dmsg/.dstd 已废弃",
-                request.kind.extension()
-            ));
-        }
-        let output = request
-            .output_path
-            .as_ref()
-            .filter(|p| !p.trim().is_empty())
-            .map(|p| {
-                let p = Path::new(p);
-                if p.is_absolute() {
-                    p.into()
-                } else {
-                    cwd.join(p)
-                }
-            })
-            .unwrap_or_else(|| {
-                input.with_extension(match request.mode {
-                    ScriptMode::Decompile => request.kind.extension(),
-                    ScriptMode::Compile => {
-                        if request.kind == TruthScriptKind::Std {
-                            "std"
-                        } else {
-                            "msg"
-                        }
-                    }
-                })
-            });
-        if output == input
-            || output
-                .canonicalize()
-                .ok()
-                .zip(input.canonicalize().ok())
-                .is_some_and(|(a, b)| a == b)
-        {
-            return Err("输出路径不能覆盖输入文件".into());
-        }
-        let exe = toolchain::resolve_tool_path(
+    let attempt = (|| {
+        let context = resolve_script_context(
             config,
-            request.kind.tool(),
-            &format!("{}.exe", request.kind.tool()),
-        );
-        let mut cmd = Command::new(exe);
-        cmd.arg(request.mode.as_str())
-            .arg(&input)
-            .args(["-g", &game.to_string(), "-o"])
-            .arg(&output)
-            .current_dir(cwd)
-            .env_remove("TRUTH_MAP_PATH");
-        for map in maps {
-            cmd.arg("-m").arg(map);
-        }
-        if request.kind == TruthScriptKind::Ending {
-            cmd.arg("--ending");
-        }
-        if request.kind != TruthScriptKind::Std {
-            let encoding = request
-                .encoding
-                .as_deref()
-                .filter(|s| !s.is_empty())
-                .or(project.map(|p| p.encoding.as_str()))
-                .unwrap_or("shift-jis");
-            if !crate::common::project_config::SUPPORTED_ENCODINGS.contains(&encoding) {
-                return Err(format!("不支持的游戏文本编码：{encoding}"));
-            }
-            cmd.args(["--encoding", encoding]);
-        }
-        #[cfg(windows)]
-        {
-            use std::os::windows::process::CommandExt;
-            cmd.creation_flags(0x08000000);
-        }
-        let process = cmd
-            .output()
-            .map_err(|e| format!("无法启动 {}：{e}", request.kind.tool()))?;
-        let stderr = String::from_utf8_lossy(&process.stderr);
-        let stdout = String::from_utf8_lossy(&process.stdout);
-        result.diagnostics = diagnostics::parse(&stderr, cwd);
-        result.message = format!("{stdout}\n{stderr}").trim().into();
-        result.success = process.status.success();
-        if result.success {
-            result.output_path = Some(output.to_string_lossy().into_owned());
-            if result.message.is_empty() {
-                result.message = "完成".into();
-            }
-        } else if result.message.is_empty() {
-            result.message = format!("{} 退出：{}", request.kind.tool(), process.status);
-        }
-        Ok(())
+            root,
+            project,
+            request.kind,
+            &request.input_path,
+            request.encoding.as_deref(),
+        )?;
+        script_check::run(
+            &context,
+            &script_check::ScriptRequest {
+                operation: match request.mode {
+                    ScriptMode::Compile => script_check::ScriptOperation::Compile,
+                    ScriptMode::Decompile => script_check::ScriptOperation::Decompile,
+                },
+                input_path: request.input_path.clone().into(),
+                output_path: request.output_path.as_ref().map(Into::into),
+                source_text: None,
+            },
+        )
     })();
-    if let Err(error) = attempt {
-        result.message = error;
+    match attempt {
+        Ok(result) => adapt_result(result),
+        Err(message) => ScriptResult {
+            success: false,
+            tool: request.kind.tool().into(),
+            mode: request.mode.as_str().into(),
+            script_kind: request.kind.as_str().into(),
+            input_path: request.input_path.clone(),
+            output_path: None,
+            message,
+            diagnostics: Vec::new(),
+        },
     }
-    result
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::fs;
 
     #[test]
-    #[ignore = "requires node scripts/build-truth.mjs for the host platform"]
-    fn bundled_tools_share_maps_encoding_and_diagnostics_with_lookup() {
+    fn project_and_pragma_maps_share_lookup_parameter_shapes() {
         let dir = tempfile::tempdir().unwrap();
         let root = dir.path().to_str().unwrap();
-        let config = AppConfig::default();
         for (kind, opcode, signature, args) in [
             (TruthScriptKind::Msg, 17, "z(bs=4;mask=0x77,7,16)", "\"汉\""),
             (
@@ -264,77 +264,6 @@ mod tests {
                 instruction.params.as_ref().unwrap().len(),
                 if kind == TruthScriptKind::Std { 5 } else { 1 }
             );
-            let mut request = ScriptRequest {
-                mode: ScriptMode::Compile,
-                kind,
-                input_path: input.to_string_lossy().into_owned(),
-                output_path: Some("built.bin".into()),
-                encoding: None,
-            };
-            let result = run(&config, Some(root), Some(&project), &request);
-            assert!(result.success, "{}", result.message);
-            let bytes = fs::read(dir.path().join("built.bin")).unwrap();
-            if kind != TruthScriptKind::Std {
-                assert!(bytes.windows(4).any(|w| w == [0xcd, 0xc4, 0x95, 0xbc]));
-            }
-            let decoded = run(
-                &config,
-                Some(root),
-                Some(&project),
-                &ScriptRequest {
-                    mode: ScriptMode::Decompile,
-                    kind,
-                    input_path: result.output_path.unwrap(),
-                    output_path: Some(format!("decoded.{}", kind.extension())),
-                    encoding: None,
-                },
-            );
-            assert!(decoded.success, "{}", decoded.message);
-            let text = fs::read_to_string(decoded.output_path.unwrap()).unwrap();
-            assert!(text.contains("projectName("));
-            if kind != TruthScriptKind::Std {
-                assert!(text.contains("汉"));
-            }
-            fs::write(&input, source.replace(args, "")).unwrap();
-            let failed = run(&config, Some(root), Some(&project), &request);
-            assert!(!failed.success);
-            assert!(
-                failed
-                    .diagnostics
-                    .iter()
-                    .any(|d| d.line == 4 && d.severity == "error"),
-                "{}",
-                failed.message
-            );
-            if kind == TruthScriptKind::Msg {
-                fs::write(&input, &source).unwrap();
-                crate::common::project_config::save_project_config(root, &project).unwrap();
-                let check = crate::modules::mcp::tools::run_script(
-                    &config,
-                    Some(root),
-                    kind,
-                    "check",
-                    input.to_string_lossy().into_owned(),
-                    None,
-                    None,
-                )
-                .unwrap();
-                assert_eq!(check["success"], true);
-                assert_eq!(check["checkOnly"], true);
-                assert!(check["outputPath"].is_null());
-                let lookup = crate::modules::mcp::tools::lookup_script(
-                    &config,
-                    Some(root),
-                    kind,
-                    input.to_str().unwrap(),
-                    "sourceName",
-                )
-                .unwrap();
-                assert_eq!(lookup["instructions"][0]["opcode"], opcode);
-                assert_eq!(lookup["instructions"][0]["name"], "sourceName");
-            }
-            request.output_path = Some(input.to_string_lossy().into_owned());
-            assert!(!run(&config, Some(root), Some(&project), &request).success);
         }
     }
 }

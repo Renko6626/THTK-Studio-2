@@ -213,16 +213,7 @@ pub const GAME_VERSIONS: [GameVersionInfo; 30] = [
 /// 解析用户/配置里的版本写法。接受 `18`、`th18`、`TH18`、前后空白。
 /// 不接受小数、负数、未知版本——thtk 按 %u 解析，非法值会变成 0 或直接失败。
 pub fn parse(raw: &str) -> Result<u32, String> {
-    let trimmed = raw.trim().to_lowercase();
-    let digits = trimmed.strip_prefix("th").unwrap_or(&trimmed);
-
-    if digits.is_empty() || !digits.chars().all(|c| c.is_ascii_digit()) {
-        return Err(format!("版本号非法: {raw:?}（应为 18 或 th18 这样的写法）"));
-    }
-
-    let id: u32 = digits
-        .parse()
-        .map_err(|_| format!("版本号超出范围: {raw:?}"))?;
+    let id = script_check::parse_game_version(raw)?;
 
     if find(id).is_none() {
         return Err(format!(

@@ -44,3 +44,11 @@ python3 scripts/import-truth-maps.py deps/.cache/truth
 这是维护时的显式生成步骤。运行时不解析 Rust 源码，也不运行此脚本。基线 map 内嵌进 Studio，首次使用释放到应用数据目录。默认 map、项目 `scriptMaps`、源码 `#pragma mapfile` 按顺序覆盖；编译器和 Studio 查询使用同一组文件。
 
 升级时同时审阅基线、编码补丁与生成 map，验证代表性编解码及编码行为，再构建目标平台产物。完整边界与验证证据见 [迁移设计](../docs/superpowers/specs/2026-11-09-truth-msg-std-migration-design.md)、[实施计划](../docs/superpowers/plans/2026-11-09-truth-msg-std-migration.md) 和 [验证记录](truth-integration-check-2026-11-09.md)。
+
+## Standalone script checker
+
+`node scripts/build-script-check.mjs [target-triple]` builds `thtk-check` with Studio's Rust toolchain. It also honors `TAURI_ENV_TARGET_TRIPLE`, uses cargo-xwin for cross MSVC builds, and stages only the selected platform in `src-tauri/resources/script-check/`. The crate lockfile is committed. Tauri's development/build hooks prepare truth and this checker before the frontend.
+
+Installed resources keep `script-check/thtk-check[.exe]` beside the `truth/` directory. The checker resolves bundled truth relative to its executable; raw Cargo outputs need `--truth-dir`. It can run after Studio exits and needs neither a graphical session nor MCP. No developer absolute paths are embedded.
+
+Studio terminals expose the absolute checker path as `THTK_CHECK`, independently of MCP. POSIX: `"$THTK_CHECK" check path/to/dialog.msgspec --json`. PowerShell: `& $env:THTK_CHECK check path/to/dialog.msgspec --json`. External terminals can use the full installed checker path. See `docs/agent/tooling.md` for configuration and exit codes.

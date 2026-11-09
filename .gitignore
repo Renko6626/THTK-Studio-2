@@ -48,3 +48,6 @@ reference/
 # Reproducible third-party builds and generated bundle resources
 /deps/.cache/
 /src-tauri/resources/truth/
+
+/crates/script-check/target/
+/src-tauri/resources/script-check/

@@ -1,4 +1,4 @@
-use crate::modules::ecl::error_parser::Diagnostic;
+use crate::Diagnostic;
 use std::path::Path;
 
 pub fn parse(stderr: &str, cwd: &Path) -> Vec<Diagnostic> {

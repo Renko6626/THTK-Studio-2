@@ -3557,6 +3557,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
+name = "script-check"
+version = "0.1.0"
+dependencies = [
+ "directories",
+ "regex",
+ "serde",
+ "serde_json",
+ "uuid",
+]
+
+[[package]]
 name = "selectors"
 version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4452,6 +4463,7 @@ dependencies = [
  "portable-pty",
  "regex",
  "rmcp",
+ "script-check",
  "serde",
  "serde_json",
  "tauri",

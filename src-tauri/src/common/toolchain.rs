@@ -140,6 +140,18 @@ pub fn bundled_truth_dir() -> PathBuf {
         .map(|p| p.join("truth"))
         .unwrap_or_default()
 }
+/// Locate the bundled standalone checker; callers decide whether it is available.
+pub fn bundled_checker_path() -> Option<PathBuf> {
+    let root = if cfg!(debug_assertions) {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources")
+    } else {
+        RESOURCE_DIR.get()?.clone()
+    };
+    Some(
+        root.join("script-check")
+            .join(format!("thtk-check{}", std::env::consts::EXE_SUFFIX)),
+    )
+}
 fn is_truth(tool: &str) -> bool {
     matches!(tool, "trumsg" | "trustd")
 }

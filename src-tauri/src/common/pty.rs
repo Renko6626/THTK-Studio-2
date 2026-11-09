@@ -280,7 +280,7 @@ pub async fn pty_create(
     let cols = cols.max(1);
     let rows = rows.max(1);
 
-    let envs = {
+    let mut envs = {
         let mcp = state.mcp_server.lock().unwrap_or_else(|e| e.into_inner());
         match mcp.as_ref() {
             Some(info) => vec![
@@ -296,6 +296,11 @@ pub async fn pty_create(
             None => Vec::new(),
         }
     };
+
+    if let Some(checker) = crate::common::toolchain::bundled_checker_path().filter(|p| p.is_file())
+    {
+        envs.push(("THTK_CHECK".into(), checker.to_string_lossy().into_owned()));
+    }
 
     let out_app = app.clone();
     let exit_app = app;
