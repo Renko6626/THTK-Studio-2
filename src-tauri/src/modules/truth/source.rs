@@ -50,6 +50,32 @@ pub fn without_comments(text: &str) -> String {
     String::from_utf8(out).expect("comments replaced with ASCII spaces")
 }
 
+/// Mask literals as well, retaining byte offsets and line numbers for structural analysis.
+pub fn code_mask(text: &str) -> String {
+    let clean = without_comments(text);
+    let mut code = clean.into_bytes();
+    let (mut quoted, mut escaped) = (false, false);
+    for byte in &mut code {
+        let original = *byte;
+        if quoted {
+            if original != b'\n' {
+                *byte = b' ';
+            }
+            if escaped {
+                escaped = false;
+            } else if original == b'\\' {
+                escaped = true;
+            } else if original == b'"' {
+                quoted = false;
+            }
+        } else if original == b'"' {
+            quoted = true;
+            *byte = b' ';
+        }
+    }
+    String::from_utf8(code).expect("literals replaced with ASCII spaces")
+}
+
 pub fn pragma_maps(text: &str, cwd: &Path) -> Result<Vec<PathBuf>, String> {
     let re = regex::Regex::new(r#"(?m)^\s*#pragma\s+mapfile\s+("(?:\\.|[^"\\])*")"#).unwrap();
     re.captures_iter(&without_comments(text))

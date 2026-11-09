@@ -37,4 +37,25 @@ export interface TruthAnalysis {
   events: { script: string; line: number; time: number | null; name: string; kind: string }[]
   labels: { script: string; name: string; line: number }[]
   jumps: { line: number; column: number; endColumn: number; targetLine: number | null }[]
+  timeline: TruthTimelineEntry[]
+}
+
+/** Source structure from Rust timeline.rs. Time names retain their original +/- spelling. */
+export interface TruthTimelineNode {
+  id: number
+  kind: 'time' | 'instruction' | 'loop' | 'branch' | 'block' | 'interrupt' | 'label' | 'jump'
+  name: string
+  source: string
+  line: number
+  endLine: number
+  /** Jump destination, or a loop's continuation/condition location. */
+  targetLine: number | null
+  children: TruthTimelineNode[]
+}
+
+export interface TruthTimelineEntry {
+  name: string
+  line: number
+  endLine: number
+  nodes: TruthTimelineNode[]
 }

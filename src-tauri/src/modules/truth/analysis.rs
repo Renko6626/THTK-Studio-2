@@ -33,6 +33,7 @@ pub struct ScriptAnalysis {
     pub events: Vec<ScriptEvent>,
     pub labels: Vec<LabelLocation>,
     pub jumps: Vec<ScriptJump>,
+    pub timeline: Vec<super::timeline::TimelineEntry>,
 }
 
 #[derive(Debug, Serialize)]
@@ -47,29 +48,7 @@ pub fn analyze(text: &str) -> ScriptAnalysis {
     let original_lines: Vec<&str> = text.lines().collect();
     let mut scripts: Vec<ScriptLocation> = Vec::new();
     let mut constants = Vec::new();
-    let clean = super::source::without_comments(text);
-    // Strings cannot introduce labels, scripts, calls or braces.
-    let mut code = clean.as_bytes().to_vec();
-    let (mut quote, mut escape) = (false, false);
-    for byte in &mut code {
-        let original = *byte;
-        if quote {
-            if original != b'\n' {
-                *byte = b' ';
-            }
-            if escape {
-                escape = false;
-            } else if original == b'\\' {
-                escape = true;
-            } else if original == b'"' {
-                quote = false;
-            }
-        } else if original == b'"' {
-            quote = true;
-            *byte = b' ';
-        }
-    }
-    let code = String::from_utf8(code).unwrap();
+    let code = super::source::code_mask(text);
     let script_re = regex::Regex::new(r"\bscript\s+(?:\d+\s+)?([A-Za-z_]\w*)\s*(?:\{|$)").unwrap();
     let time_re = regex::Regex::new(r"^\s*([+]?[-]?\d+)\s*:").unwrap();
     let const_re =
@@ -182,6 +161,7 @@ pub fn analyze(text: &str) -> ScriptAnalysis {
         events,
         labels,
         jumps,
+        timeline: super::timeline::analyze(text),
     }
 }
 #[tauri::command]
