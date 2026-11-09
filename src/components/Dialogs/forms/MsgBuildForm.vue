@@ -52,6 +52,7 @@
       <n-form-item label="脚本类型">
         <n-select
           :value="model.scriptKind"
+          :disabled="model.mode === 'compile' && /\.(msgspec|endspec)$/i.test(model.inputPath)"
           :options="MSG_SCRIPT_KIND_OPTIONS"
           @update:value="updateField('scriptKind', $event)"
         />

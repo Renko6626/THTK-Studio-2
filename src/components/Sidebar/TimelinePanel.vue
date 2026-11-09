@@ -22,12 +22,12 @@ import type { TruthAnalysis } from '../../types'
 import { dispatchEditorRevealLocation } from '../../composables/useEditorActionBridge'
 const editor = useEditorStore()
 const supported = computed(() => /\.(msgspec|endspec|stdspec)$/i.test(editor.activeTab?.path || ''))
-const analysis = ref<TruthAnalysis>({ events: [], labels: [], jumps: [] })
+const analysis = ref<TruthAnalysis>({ scripts: [], constants: [], events: [], labels: [], jumps: [] })
 const error = ref('')
 watch([() => editor.activeTab?.content, () => editor.activeTab?.path], async (_, __, onCleanup) => {
   let active = true
   onCleanup(() => { active = false })
-  analysis.value = { events: [], labels: [], jumps: [] }
+  analysis.value = { scripts: [], constants: [], events: [], labels: [], jumps: [] }
   error.value = ''
   if (!supported.value) return
   try { const value = await analyzeTruthSource(editor.activeTab?.content || ''); if (active) analysis.value = value }

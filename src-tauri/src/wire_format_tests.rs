@@ -433,3 +433,22 @@ fn game_version_view_keys_are_pinned() {
 
     assert_eq!(json_keys(&view), sorted(&["id", "code", "title", "tools"]));
 }
+
+#[test]
+fn truth_outline_preserves_symbol_ranges_and_frontend_keys() {
+    let data = crate::modules::truth::analysis::analyze(
+        "const int LIMIT = 3;\nscript main\n{\nstart:\ngoto start;\n}\n",
+    );
+    assert_eq!(
+        json_keys(&data),
+        sorted(&["scripts", "constants", "events", "labels", "jumps"])
+    );
+    let value = serde_json::to_value(&data).unwrap();
+    assert_eq!(
+        value["scripts"][0],
+        serde_json::json!({"name":"main","line":2,"endLine":6})
+    );
+    assert_eq!(value["constants"][0]["name"], "LIMIT");
+    assert_eq!(value["constants"][0]["script"], "");
+    assert_eq!(value["jumps"][0]["targetLine"], 4);
+}

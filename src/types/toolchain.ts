@@ -178,11 +178,19 @@ export interface MsgBuildPayload {
  * 只有最小载荷。等它们真正接上构建对话框时，各自补自己的 payload 类型。
  */
 export interface GenericBuildPayload {
-  tool: Exclude<ToolchainId, 'thecl' | 'trumsg'>
+  tool: Exclude<ToolchainId, 'thecl' | 'trumsg' | 'trustd'>
   inputPath: string
+}
+
+export interface StdBuildPayload {
+  tool: 'trustd'
+  mode: 'compile' | 'decompile'
+  inputPath: string
+  outputPath: string
 }
 
 export type BuildDialogPayload =
   | TheclBuildPayload
   | MsgBuildPayload
+  | StdBuildPayload
   | GenericBuildPayload

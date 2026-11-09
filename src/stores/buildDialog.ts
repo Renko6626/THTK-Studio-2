@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { createDefaultBuildPayload } from '../services/toolchains/registry'
-import type { BuildDialogPayload, TheclBuildPayload, ToolchainId } from '../types'
+import type { BuildDialogPayload, TheclBuildPayload } from '../types'
 
 interface BuildDialogState {
   visible: boolean
@@ -14,7 +14,7 @@ export const useBuildDialogStore = defineStore('buildDialog', {
   }),
 
   actions: {
-    openDialog(payload: Partial<TheclBuildPayload> & { tool?: ToolchainId } = {}) {
+    openDialog(payload: Partial<BuildDialogPayload> = {}) {
       const tool = payload.tool || 'thecl'
       // mapPaths 对非 thecl 的载荷其实是多余字段，但现有行为如此，
       // 迁移不改行为——等这些工具真正接上构建对话框时再收拾。
@@ -23,7 +23,7 @@ export const useBuildDialogStore = defineStore('buildDialog', {
       this.payload = {
         ...createDefaultBuildPayload(tool),
         ...payload,
-        mapPaths: [...(payload.mapPaths || [])]
+        mapPaths: [...(('mapPaths' in payload ? payload.mapPaths : []) || [])]
       } as BuildDialogPayload
       this.visible = true
     },

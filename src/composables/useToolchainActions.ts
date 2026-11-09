@@ -169,6 +169,8 @@ export function useToolchainActions({ message }: ToolchainActionsOptions = {}) {
   ) {
     if (!path) return
     const kind = scriptKind ?? inferMsgScriptKind(path)
+    if (editorStore.compiling) return
+    editorStore.compiling = true
     try {
       const result = await decompileMsgFile({ inputPath: path, outputPath, encoding, scriptKind: kind })
       publishToolchainResult({
@@ -193,7 +195,7 @@ export function useToolchainActions({ message }: ToolchainActionsOptions = {}) {
         success: false,
         message: String(error)
       })
-    }
+    } finally { editorStore.compiling = false }
   }
 
   async function runCompileMsg(
@@ -205,6 +207,8 @@ export function useToolchainActions({ message }: ToolchainActionsOptions = {}) {
     if (!tab?.path) return
     if (!(await ensureSavedIfDirty(tab))) return
     const kind = scriptKind ?? inferMsgScriptKind(tab.path)
+    if (editorStore.compiling) return
+    editorStore.compiling = true
     try {
       const result = await compileMsgFile({
         inputPath: tab.path,
@@ -222,6 +226,7 @@ export function useToolchainActions({ message }: ToolchainActionsOptions = {}) {
         diagnostics: result?.diagnostics || [],
         extra: kind === 'ending' ? '（结局/staff）' : ''
       })
+      if (result?.success) await refreshTree()
       return result
     } catch (error) {
       publishToolchainResult({
@@ -231,15 +236,17 @@ export function useToolchainActions({ message }: ToolchainActionsOptions = {}) {
         success: false,
         message: String(error)
       })
-    }
+    } finally { editorStore.compiling = false }
   }
 
   // ===== STD =====
 
-  async function runDecompileStd(path: string | null | undefined) {
+  async function runDecompileStd(path: string | null | undefined, outputPath: string | null = null) {
     if (!path) return
+    if (editorStore.compiling) return
+    editorStore.compiling = true
     try {
-      const result = await decompileStdFile({ inputPath: path })
+      const result = await decompileStdFile({ inputPath: path, outputPath })
       publishToolchainResult({
         tool: 'trustd',
         operation: 'decompile',
@@ -252,6 +259,7 @@ export function useToolchainActions({ message }: ToolchainActionsOptions = {}) {
       if (result?.success && result.outputPath && result.outputPath !== path) {
         await autoOpen(result.outputPath)
       }
+      return result
     } catch (error) {
       publishToolchainResult({
         tool: 'trustd',
@@ -260,14 +268,16 @@ export function useToolchainActions({ message }: ToolchainActionsOptions = {}) {
         success: false,
         message: String(error)
       })
-    }
+    } finally { editorStore.compiling = false }
   }
 
-  async function runCompileStd(tab: EditorTab | null | undefined) {
+  async function runCompileStd(tab: EditorTab | null | undefined, outputPath: string | null = null) {
     if (!tab?.path) return
     if (!(await ensureSavedIfDirty(tab))) return
+    if (editorStore.compiling) return
+    editorStore.compiling = true
     try {
-      const result = await compileStdFile({ inputPath: tab.path })
+      const result = await compileStdFile({ inputPath: tab.path, outputPath })
       publishToolchainResult({
         tool: 'trustd',
         operation: 'compile',
@@ -277,6 +287,8 @@ export function useToolchainActions({ message }: ToolchainActionsOptions = {}) {
         message: result?.message || '',
         diagnostics: result?.diagnostics || []
       })
+      if (result?.success) await refreshTree()
+      return result
     } catch (error) {
       publishToolchainResult({
         tool: 'trustd',
@@ -285,7 +297,7 @@ export function useToolchainActions({ message }: ToolchainActionsOptions = {}) {
         success: false,
         message: String(error)
       })
-    }
+    } finally { editorStore.compiling = false }
   }
 
   // ===== DAT =====

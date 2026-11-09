@@ -17,7 +17,8 @@
     </div>
 
     <div class="flex-1 min-h-0 min-w-0 overflow-hidden p-3">
-      <EclOutlinePanel v-if="workbenchPanelsStore.activeRightPanel === 'outline'" />
+      <TruthSymbolsPanel v-if="truthSource && workbenchPanelsStore.activeRightPanel !== 'timeline'" :mode="workbenchPanelsStore.activeRightPanel === 'outline' ? 'outline' : 'references'" />
+      <EclOutlinePanel v-else-if="workbenchPanelsStore.activeRightPanel === 'outline'" />
       <TimelinePanel v-else-if="workbenchPanelsStore.activeRightPanel === 'timeline'" />
       <EclReferencesPanel v-else />
     </div>
@@ -25,12 +26,18 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+import TruthSymbolsPanel from './TruthSymbolsPanel.vue'
+import { truthKindForPath } from '../../services/languages/truth/kinds'
+import { useEditorStore } from '../../stores/editor'
 import { useWorkbenchPanelsStore } from '../../stores/workbenchPanels'
 import type { RightPanelKey } from '../../stores/workbenchPanels'
 import EclOutlinePanel from './EclOutlinePanel.vue'
 import EclReferencesPanel from './EclReferencesPanel.vue'
 import TimelinePanel from './TimelinePanel.vue'
 
+const editor = useEditorStore()
+const truthSource = computed(() => truthKindForPath(editor.activeTab?.path))
 const workbenchPanelsStore = useWorkbenchPanelsStore()
 
 const panels: { key: RightPanelKey; label: string }[] = [

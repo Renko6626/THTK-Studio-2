@@ -1,3 +1,4 @@
+import { truthCallContext } from './callContext'
 import * as monaco from 'monaco-editor'
 import { getTruthSourceDefinitions, analyzeTruthSource } from '../../../api'
 import { dialectLanguageConfiguration } from '../dialect-config'
@@ -15,19 +16,16 @@ async function definitions(model: monaco.editor.ITextModel) {
   return getTruthSourceDefinitions(model.uri.fsPath, languageKinds[model.getLanguageId()], model.getValue())
 }
 
-export function ensureTruthLanguagesRegistered(): void {
-  for (const [id, extensions] of [[msgLanguageId, ['.msgspec']], [endingLanguageId, ['.endspec']], [stdLanguageId, ['.stdspec']]] as const) {
-    if (registered.has(id)) continue
-    monaco.languages.register({ id, extensions: [...extensions] })
-    monaco.languages.setLanguageConfiguration(id, dialectLanguageConfiguration)
-    monaco.languages.setMonarchTokensProvider(id, {
+export const truthTokens: monaco.languages.IMonarchLanguage = {
       defaultToken: '',
       keywords: ['meta', 'script', 'const', 'int', 'float', 'string', 'loop', 'while', 'times', 'if', 'else', 'goto', 'true', 'false'],
       tokenizer: {
         root: [
           [/\/\*/, 'comment', '@comment'], [/\/\/.*$/, 'comment'],
-          [/^\s*#pragma\b.*$/, 'keyword'], [/[+-]?\d+\s*:/, 'number'],
-          [/[a-zA-Z_]\w*(?=\s*:)/, 'type.identifier'],
+          [/^\s*#pragma\b.*$/, 'keyword'], [/(script)(\s+)([A-Za-z_]\w*)/, ['keyword', 'white', 'entity.name.function']], [/[+-]?\d+\s*:/, 'number'],
+          [/[a-zA-Z_]\w*(?=\s*:)/, 'entity.name.label'],
+          [/ins_\d+(?=\s*\()/, 'entity.name.function.unresolved'],
+          [/[a-zA-Z_]\w*(?=\s*\()/, { cases: { '@keywords': 'keyword', '@default': 'entity.name.function' } }],
           [/[a-zA-Z_]\w*/, { cases: { '@keywords': 'keyword', '@default': 'identifier' } }],
           [/"/, 'string', '@string'], [/0x[0-9a-fA-F]+|\d*\.\d+(?:f)?|\d+f?/, 'number'],
           [/[{}()[\]]/, '@brackets'], [/[,:;]/, 'delimiter'], [/[+\-*/%=<>!&|]+/, 'operator']
@@ -35,15 +33,27 @@ export function ensureTruthLanguagesRegistered(): void {
         comment: [[/[^/*]+/, 'comment'], [/\*\//, 'comment', '@pop'], [/[/*]/, 'comment']],
         string: [[/[^"\\]+/, 'string'], [/\\./, 'string.escape'], [/"/, 'string', '@pop']]
       }
-    })
+}
+
+export function ensureTruthLanguagesRegistered(): void {
+  for (const [id, extensions] of [[msgLanguageId, ['.msgspec']], [endingLanguageId, ['.endspec']], [stdLanguageId, ['.stdspec']]] as const) {
+    if (registered.has(id)) continue
+    monaco.languages.register({ id, extensions: [...extensions] })
+    monaco.languages.setLanguageConfiguration(id, dialectLanguageConfiguration)
+    monaco.languages.setMonarchTokensProvider(id, truthTokens)
     monaco.languages.registerCompletionItemProvider(id, {
       async provideCompletionItems(model, position) {
         try {
           const data = await definitions(model)
           const word = model.getWordUntilPosition(position)
           const range = new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, word.endColumn)
-          const suggestions: monaco.languages.CompletionItem[] = data.instructions.flatMap(i => i.aliases.map(name => ({ label: name, insertText: name, kind: monaco.languages.CompletionItemKind.Function, detail: docs(i), range })))
+          const suggestions: monaco.languages.CompletionItem[] = data.instructions.flatMap(i => (i.aliases.length ? i.aliases : [`ins_${i.opcode}`]).map(name => ({ label: name, insertText: `${name}(${(i.params || []).map((p, n) => '${' + (n + 1) + ':' + (p.enumName || p.type) + '}').join(', ')})`, insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet, kind: monaco.languages.CompletionItemKind.Function, detail: docs(i), range })))
           for (const [enumName, values] of Object.entries(data.enums)) for (const [name, value] of Object.entries(values)) suggestions.push({ label: name, insertText: name, kind: monaco.languages.CompletionItemKind.EnumMember, detail: `${enumName} = ${value}`, range })
+          suggestions.push(...['true', 'false'].map(name => ({ label: name, insertText: name, kind: monaco.languages.CompletionItemKind.EnumMember, range })))
+          const analysis = await analyzeTruthSource(model.getValue())
+          const scope = analysis.scripts.find(s => position.lineNumber >= s.line && position.lineNumber <= s.endLine)
+          for (const constant of analysis.constants.filter(c => !c.script || c.script === scope?.name)) suggestions.push({ label: constant.name, insertText: constant.name, kind: monaco.languages.CompletionItemKind.Constant, range })
+          for (const label of analysis.labels.filter(l => l.script === scope?.name)) suggestions.push({ label: label.name, insertText: label.name, kind: monaco.languages.CompletionItemKind.Reference, range })
           return { suggestions }
         } catch { return { suggestions: [] } }
       }
@@ -65,12 +75,12 @@ export function ensureTruthLanguagesRegistered(): void {
       signatureHelpTriggerCharacters: ['(', ','],
       async provideSignatureHelp(model, position) {
         const prefix = model.getValue().slice(0, model.getOffsetAt(position))
-        const call = /([A-Za-z_]\w*)\s*\(([^()]*)$/.exec(prefix)
+        const call = truthCallContext(prefix)
         if (!call) return null
         try {
-          const found = (await definitions(model)).instructions.find(i => i.aliases.includes(call[1]) || `ins_${i.opcode}` === call[1])
+          const found = (await definitions(model)).instructions.find(i => i.aliases.includes(call.name) || `ins_${i.opcode}` === call.name)
           if (!found?.params) return null
-          return { value: { activeSignature: 0, activeParameter: Math.min(call[2].split(',').length - 1, Math.max(0, found.params.length - 1)), signatures: [{ label: docs(found).split('\n')[0], documentation: found.description || '', parameters: found.params.map((p, n) => ({ label: `${p.enumName || p.type} arg${n + 1}` })) }] }, dispose() {} }
+          return { value: { activeSignature: 0, activeParameter: Math.min(call.parameter, Math.max(0, found.params.length - 1)), signatures: [{ label: docs(found).split('\n')[0], documentation: found.description || '', parameters: found.params.map((p, n) => ({ label: `${p.enumName || p.type} arg${n + 1}` })) }] }, dispose() {} }
         } catch { return null }
       }
     })
@@ -81,6 +91,24 @@ export function ensureTruthLanguagesRegistered(): void {
           const jump = analysis.jumps.find(j => j.line === position.lineNumber && position.column >= j.column && position.column <= j.endColumn)
           return jump?.targetLine ? { uri: model.uri, range: new monaco.Range(jump.targetLine, 1, jump.targetLine, 1) } : null
         } catch { return null }
+      }
+    })
+    monaco.languages.registerDocumentSymbolProvider(id, {
+      async provideDocumentSymbols(model) {
+        const data = await analyzeTruthSource(model.getValue())
+        return data.scripts.map(s => ({ name: s.name, detail: 'script', tags: [], kind: monaco.languages.SymbolKind.Module, range: new monaco.Range(s.line, 1, s.endLine, model.getLineMaxColumn(s.endLine)), selectionRange: new monaco.Range(s.line, 1, s.line, model.getLineMaxColumn(s.line)), children: data.labels.filter(l => l.script === s.name).map(l => ({ name: l.name, detail: 'label', tags: [], kind: monaco.languages.SymbolKind.Key, range: new monaco.Range(l.line, 1, l.line, model.getLineMaxColumn(l.line)), selectionRange: new monaco.Range(l.line, 1, l.line, model.getLineMaxColumn(l.line)) })) }))
+      }
+    })
+    monaco.languages.registerReferenceProvider(id, {
+      async provideReferences(model, position, context) {
+        const data = await analyzeTruthSource(model.getValue())
+        const scope = data.scripts.find(s => position.lineNumber >= s.line && position.lineNumber <= s.endLine)
+        const word = model.getWordAtPosition(position)?.word
+        const label = data.labels.find(l => l.script === scope?.name && l.name === word)
+        if (!label) return []
+        const refs = data.jumps.filter(j => j.targetLine === label.line).map(j => ({ uri: model.uri, range: new monaco.Range(j.line, j.column, j.line, j.endColumn) }))
+        if (context.includeDeclaration) refs.push({ uri: model.uri, range: new monaco.Range(label.line, 1, label.line, model.getLineMaxColumn(label.line)) })
+        return refs
       }
     })
     registered.add(id)

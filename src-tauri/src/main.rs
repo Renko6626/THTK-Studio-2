@@ -406,6 +406,7 @@ fn main() {
             compile_ecl_file,
             decompile_ecl_file,
             get_ecl_map_semantics,
+            modules::truth::check::check_truth_source,
             modules::truth::commands::get_truth_map_definitions,
             modules::truth::commands::get_truth_source_definitions,
             modules::truth::analysis::analyze_truth_source,

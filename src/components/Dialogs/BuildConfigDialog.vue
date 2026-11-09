@@ -9,6 +9,10 @@
     @cancel="closeDialog"
     @confirm="handleSubmit"
   >
+    <div v-if="formModel.tool === 'trumsg' || formModel.tool === 'trustd'" class="mb-4 flex items-center justify-between text-xs text-gray-400">
+      <span>项目版本：{{ projectStore.gameVersion || '使用全局默认' }}，map 使用项目设置</span>
+      <button class="text-blue-300 hover:underline" @click="projectSettings.open()">修改项目设置</button>
+    </div>
     <component
       :is="activeBuildFormComponent"
       v-if="activeBuildFormComponent"
@@ -28,6 +32,7 @@
 <script setup lang="ts">
 import { computed, reactive, watch } from 'vue'
 import { useMessage } from 'naive-ui'
+import { useProjectSettingsStore } from '../../stores/projectSettings'
 import { getSettings } from '../../api'
 import BuildDialogShell from './BuildDialogShell.vue'
 import { useEditorStore } from '../../stores/editor'
@@ -45,9 +50,10 @@ import { inferMsgScriptKind } from '../../services/toolchains/msgMetadata'
 const buildDialogStore = useBuildDialogStore()
 const editorStore = useEditorStore()
 const projectStore = useProjectStore()
+const projectSettings = useProjectSettingsStore()
 const message = useMessage()
 const { runTheclRequest } = useTheclActions()
-const { runDecompileMsg, runCompileMsg } = useToolchainActions({ message })
+const { runDecompileMsg, runCompileMsg, runDecompileStd, runCompileStd } = useToolchainActions({ message })
 
 const formModel = reactive(createDefaultBuildPayload())
 
@@ -120,7 +126,7 @@ function syncForm(payload: Partial<BuildDialogPayload> | null | undefined) {
   }
 }
 
-function updateFormModel(nextModel: TheclBuildPayload) {
+function updateFormModel(nextModel: BuildDialogPayload) {
   Object.assign(formModel, nextModel)
 }
 
@@ -135,7 +141,7 @@ async function handleSubmit() {
   }
 
   const descriptor = activeToolchain.value
-  const context = { runTheclRequest, runDecompileMsg, runCompileMsg }
+  const context = { runTheclRequest, runDecompileMsg, runCompileMsg, runDecompileStd, runCompileStd }
 
   // 自带执行入口的工具（thmsg）走这条：它的请求形状与 thecl 完全不同，
   // 强行套 TheclRequest 会让两边都别扭。

@@ -32,6 +32,8 @@ export interface TruthDefinitions {
 }
 
 export interface TruthAnalysis {
+  constants: { script: string; name: string; line: number }[]
+  scripts: { name: string; line: number; endLine: number }[]
   events: { script: string; line: number; time: number | null; name: string; kind: string }[]
   labels: { script: string; name: string; line: number }[]
   jumps: { line: number; column: number; endColumn: number; targetLine: number | null }[]

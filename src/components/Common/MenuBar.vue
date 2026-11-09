@@ -245,22 +245,24 @@ const menus = computed(() => [
     key: 'script',
     label: '脚本',
     options: [
-      // ECL
+      { label: 'ECL 敌机脚本', key: 'script.ecl', children: [
       eclItem('反编译当前 .ecl', 'script.decompileEclQuick', !activeIsEcl.value),
       eclItem('反编译当前 .ecl(高级…)', 'script.decompileEclAdvanced', !activeIsEcl.value),
       eclItem('编译当前 .decl', 'script.compileEclQuick', !activeIsDecl.value),
       eclItem('编译当前 .decl(高级…)', 'script.compileEclAdvanced', !activeIsDecl.value),
       eclItem('生成 ECL 头文件…', 'script.generateEclHeader', !activeIsDecl.value),
-      { type: 'divider', key: 'script-msg-div' },
-      // MSG
+      ] },
+      { label: 'MSG / END 对话与结局', key: 'script.msg', children: [
       toolItem('trumsg', '解包当前 .msg', 'script.decompileMsg', !activeIsMsg.value),
       toolItem('trumsg', '解包当前 .msg(高级…)', 'script.decompileMsgAdvanced', !activeIsMsg.value),
       toolItem('trumsg', '打包当前 MSG / END 源码', 'script.compileMsg', !activeIsMsgSource.value),
       toolItem('trumsg', '打包当前 MSG / END 源码(高级…)', 'script.compileMsgAdvanced', !activeIsMsgSource.value),
-      { type: 'divider', key: 'script-std-div' },
-      // STD
+      ] },
+      { label: 'STD 背景脚本', key: 'script.std', children: [
       toolItem('trustd', '反编译当前 .std', 'script.decompileStd', !activeIsStd.value),
       toolItem('trustd', '编译当前 .stdspec', 'script.compileStd', !activeIsStdSource.value),
+      toolItem('trustd', 'STD 构建选项…', 'script.stdOptions', !(activeIsStd.value || activeIsStdSource.value)),
+      ] },
       { label: '生成 truth Agent 指南', key: 'script.truthAssistPack' },
       { type: 'divider', key: 'script-dat-div' },
       // DAT
@@ -480,6 +482,9 @@ async function handleSelect(key: string) {
       break
     case 'script.truthAssistPack':
       generateTruthAssistPack().then(path => message.success(`已生成 ${path}`)).catch(e => message.error(String(e)))
+      break
+    case 'script.stdOptions':
+      buildDialogStore.openDialog({ tool: 'trustd', mode: activeIsStd.value ? 'decompile' : 'compile', inputPath: editorStore.activeTab?.path || '' })
       break
     case 'script.compileStd':
       tcActions.runCompileStd(editorStore.activeTab)

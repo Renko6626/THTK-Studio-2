@@ -1,3 +1,4 @@
+import StdBuildForm from '../../components/Dialogs/forms/StdBuildForm.vue'
 import type { Component } from 'vue'
 import TheclBuildForm from '../../components/Dialogs/forms/TheclBuildForm.vue'
 import { createTheclRequest, executeThecl, publishTheclResult } from './thecl'
@@ -25,6 +26,8 @@ import type {
  * 目前只需要 useTheclActions 的 runTheclRequest；其余工具接构建对话框时再扩。
  */
 export interface ToolchainExecuteContext {
+  runDecompileStd?: (path: string, outputPath?: string | null) => Promise<unknown>
+  runCompileStd?: (tab: EditorTab | null, outputPath?: string | null) => Promise<unknown>
   runTheclRequest: (
     request: TheclRequest,
     options?: { requireSave?: boolean; openOutput?: boolean; successMessage?: string }
@@ -92,7 +95,7 @@ function inferTheclSuccessMessage(mode: TheclMode | string): string {
 }
 
 /** 尚未接构建对话框的工具链的最小载荷 */
-function stubPayload(tool: Exclude<ToolchainId, 'thecl' | 'trumsg'>): () => BuildDialogPayload {
+function stubPayload(tool: Exclude<ToolchainId, 'thecl' | 'trumsg' | 'trustd'>): () => BuildDialogPayload {
   return () => ({ tool, inputPath: '' })
 }
 
@@ -174,8 +177,18 @@ export const TOOLCHAIN_REGISTRY: Record<ToolchainId, ToolchainDescriptor> = {
     id: 'trustd',
     label: 'Stage Data Tool',
     exeName: 'trustd.exe',
-    supportsBuildDialog: false,
-    defaultPayload: stubPayload('trustd')
+    supportsBuildDialog: true,
+    buildDialogTitle: 'STD 构建配置',
+    buildDialogSubtitle: '背景脚本编译与反编译',
+    buildFormComponent: StdBuildForm,
+    defaultPayload: () => ({ tool: 'trustd', mode: 'compile', inputPath: '', outputPath: '' }),
+    async runFromPayload(context, payload) {
+      if (payload.tool !== 'trustd') return null
+      const result = payload.mode === 'decompile'
+        ? await context.runDecompileStd?.(payload.inputPath, payload.outputPath || null)
+        : await context.runCompileStd?.({ path: payload.inputPath } as EditorTab, payload.outputPath || null)
+      return { success: Boolean((result as EclResult | undefined)?.success) }
+    }
   },
   thdat: {
     id: 'thdat',

@@ -28,12 +28,25 @@ pub struct ScriptJump {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScriptAnalysis {
+    pub scripts: Vec<ScriptLocation>,
+    pub constants: Vec<LabelLocation>,
     pub events: Vec<ScriptEvent>,
     pub labels: Vec<LabelLocation>,
     pub jumps: Vec<ScriptJump>,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScriptLocation {
+    pub name: String,
+    pub line: u32,
+    pub end_line: u32,
+}
+
 pub fn analyze(text: &str) -> ScriptAnalysis {
+    let original_lines: Vec<&str> = text.lines().collect();
+    let mut scripts: Vec<ScriptLocation> = Vec::new();
+    let mut constants = Vec::new();
     let clean = super::source::without_comments(text);
     // Strings cannot introduce labels, scripts, calls or braces.
     let mut code = clean.as_bytes().to_vec();
@@ -59,6 +72,8 @@ pub fn analyze(text: &str) -> ScriptAnalysis {
     let code = String::from_utf8(code).unwrap();
     let script_re = regex::Regex::new(r"\bscript\s+(?:\d+\s+)?([A-Za-z_]\w*)\s*(?:\{|$)").unwrap();
     let time_re = regex::Regex::new(r"^\s*([+]?[-]?\d+)\s*:").unwrap();
+    let const_re =
+        regex::Regex::new(r"^\s*const\s+(?:(?:int|float|string)\s+)?([A-Za-z_]\w*)\s*=").unwrap();
     let label_re = regex::Regex::new(r"^\s*([A-Za-z_]\w*)\s*:").unwrap();
     let call_re = regex::Regex::new(r"\b([A-Za-z_]\w*)\s*\(").unwrap();
     let jump_re = regex::Regex::new(r"\bgoto\s+([A-Za-z_]\w*)").unwrap();
@@ -70,10 +85,22 @@ pub fn analyze(text: &str) -> ScriptAnalysis {
         let number = index as u32 + 1;
         if let Some(c) = script_re.captures(line) {
             script = c[1].into();
+            scripts.push(ScriptLocation {
+                name: script.clone(),
+                line: number,
+                end_line: original_lines.len() as u32,
+            });
             opened = false;
             depth = 0;
             time = Some(0);
             uncertain = false;
+        }
+        if let Some(c) = const_re.captures(line) {
+            constants.push(LabelLocation {
+                script: script.clone(),
+                name: c[1].into(),
+                line: number,
+            });
         }
         if script.is_empty() {
             continue;
@@ -122,8 +149,8 @@ pub fn analyze(text: &str) -> ScriptAnalysis {
                 script.clone(),
                 c[1].to_string(),
                 number,
-                line[..m.start()].encode_utf16().count() as u32 + 1,
-                line[..m.end()].encode_utf16().count() as u32 + 1,
+                original_lines[index][..m.start()].encode_utf16().count() as u32 + 1,
+                original_lines[index][..m.end()].encode_utf16().count() as u32 + 1,
             ));
             uncertain = true;
         }
@@ -131,6 +158,9 @@ pub fn analyze(text: &str) -> ScriptAnalysis {
         depth += line.bytes().filter(|b| *b == b'{').count() as i32
             - line.bytes().filter(|b| *b == b'}').count() as i32;
         if opened && depth <= 0 {
+            if let Some(location) = scripts.last_mut() {
+                location.end_line = number;
+            }
             script.clear();
         }
     }
@@ -147,6 +177,8 @@ pub fn analyze(text: &str) -> ScriptAnalysis {
         })
         .collect();
     ScriptAnalysis {
+        scripts,
+        constants,
         events,
         labels,
         jumps,

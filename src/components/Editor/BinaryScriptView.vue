@@ -46,6 +46,10 @@
           </div>
 
           <div class="mt-6 space-y-3">
+            <div v-if="activeTab?.extension?.toLowerCase() === 'msg'">
+              <div class="text-gray-400 mb-2">脚本类型</div>
+              <n-select v-model:value="selectedKind" :options="MSG_SCRIPT_KIND_OPTIONS" size="small" />
+            </div>
             <div v-if="descriptor.needsEncoding">
               <div class="text-[11px] uppercase tracking-[0.12em] text-gray-500 mb-2">
                 游戏文本编码
@@ -63,7 +67,8 @@
             <n-button
               type="primary"
               block
-              :disabled="descriptor.disabled"
+              :disabled="descriptor.disabled || editorStore.compiling"
+              :loading="editorStore.compiling"
               @click="handleAction"
             >
               {{ descriptor.actionLabel }}
@@ -88,13 +93,18 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { NButton, NSelect } from 'naive-ui'
 import { useEditorStore } from '../../stores/editor'
 import type { EditorTab } from '../../stores/editor'
 import { useMessage } from 'naive-ui'
 import { useToolchainActions } from '../../composables/useToolchainActions'
 
+import { useBuildDialogStore } from '../../stores/buildDialog'
+import { inferMsgScriptKind, MSG_SCRIPT_KIND_OPTIONS } from '../../services/toolchains/msgMetadata'
+import type { MsgScriptKind } from '../../types'
+const buildDialog = useBuildDialogStore()
+const selectedKind = ref<MsgScriptKind>('stage')
 const editorStore = useEditorStore()
 const message = useMessage()
 const {
@@ -103,6 +113,7 @@ const {
 } = useToolchainActions({ message })
 
 const activeTab = computed(() => editorStore.activeTab)
+
 
 const formattedSize = computed(() => {
   const size = Number(activeTab.value?.size ?? 0)
@@ -148,7 +159,8 @@ const TOOL_DESCRIPTORS: Record<string, ToolDescriptor> = {
     disabled: false,
     // 游戏文本编码猜不出来：Shift-JIS 解任何字节都不报错，解错了只是满屏乱码
     needsEncoding: true,
-    action: async (tab, encoding) => { await runDecompileMsg(tab.path, encoding) }
+    action: async (tab, encoding) => { await runDecompileMsg(tab.path, encoding, selectedKind.value) },
+    advancedAction: tab => buildDialog.openDialog({ tool: 'trumsg', mode: 'decompile', inputPath: tab.path, scriptKind: selectedKind.value, encoding: selectedEncoding.value || '' })
   },
   std: {
     typeLabel: 'Touhou STD 二进制',
@@ -157,7 +169,8 @@ const TOOL_DESCRIPTORS: Record<string, ToolDescriptor> = {
     actionLabel: '反编译为 .stdspec',
     actionNote: '调用 trustd 反编译,产物 .stdspec 会自动在编辑器打开。',
     disabled: false,
-    action: async (tab) => { await runDecompileStd(tab.path) }
+    action: async (tab) => { await runDecompileStd(tab.path) },
+    advancedAction: tab => buildDialog.openDialog({ tool: 'trustd', mode: 'decompile', inputPath: tab.path })
   },
   dat: {
     typeLabel: 'Touhou DAT 容器',
@@ -186,6 +199,7 @@ const TOOL_DESCRIPTORS: Record<string, ToolDescriptor> = {
  * 翻译成中文后按 gbk 打包。项目配置只能记住一个默认值。
  */
 const selectedEncoding = ref<string | null>(null)
+watch(() => activeTab.value?.path, path => { selectedKind.value = inferMsgScriptKind(path); selectedEncoding.value = null }, { immediate: true })
 
 const ENCODING_OPTIONS = [
   { label: '跟随项目设置', value: '' },

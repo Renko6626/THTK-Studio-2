@@ -8,3 +8,5 @@ pub mod diagnostics;
 pub mod maps;
 mod signature;
 pub mod source;
+
+pub mod check;
