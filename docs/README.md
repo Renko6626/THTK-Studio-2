@@ -1,77 +1,20 @@
-# THTK-Studio Docs
+# THTK-Studio 文档
 
-这个目录用于放开发辅助文档，而不是用户使用说明。
+[项目路线图](../project.md)记录长期方向和后续工作，[项目首页](../README.md)记录当前可用功能。
 
-架构与参考资料：
+## ECL
 
-- [frontend-guidelines.md](./frontend-guidelines.md)
-  - 前端结构、状态管理、组件边界、Monaco 集成建议
-- [backend-guidelines.md](./backend-guidelines.md)
-  - Rust / Tauri 宿主、command、文件系统与工具链封装建议
-- [review-notes.md](./review-notes.md)
-  - 当前代码审阅结论、风险点、建议优先修复项
-- [thecl-integration.md](./thecl-integration.md)
-  - `thecl` 官方用法对应的 IDE 接入设计
-- [toolchain-platform.md](./toolchain-platform.md)
-  - `thtk` 工具链注册表、通用设置、状态检测和后续扩展约束
-- [ecl-highlighting-plan.md](./ecl-highlighting-plan.md)
-  - ECL 语法高亮、静态 marker 检查、`eclm` 动态语义层与分阶段实施方案
-- [ecl-signature-inference.md](./ecl-signature-inference.md)
-  - 基于 `eclm` 和真实 .decl 样本，对 `!ins_signatures` 缩写含义的当前推断
+- [TH16–18 映射研究状态](ecl/ecl-mapping-research-status.md)汇总原版 ECL 可用线，链接各作指令表、可靠度 CSV 和后续核查清单。
+- 编写脚本可查[入门与工作流](ecl/ecl-tutorial-overview-cn.md)、[语法速查](ecl/ecl-syntax-cheatsheet-cn.md)、[弹幕与脚本组织](ecl/ecl-patterns-and-organization-cn.md)以及 [Priw8 教程原稿](ecl/ecl-tutorial-source/README.md)。
+- 编辑器侧的研究见[语法高亮与静态检查](ecl/ecl-highlighting-plan.md)和 [ECLM 签名推断](ecl/ecl-signature-inference.md)。
 
-> **SHT 调研与引擎逆向已迁出本仓库。** 原 `research/` 与两份 `sht-*.md` 现在住在
-> 独立的 **renkolab** 仓库（东方引擎逆向工作台）：
->
-> - SHT 格式与工具分析 → `renkolab/engine/sht/{format-reference,tools-analysis}.md`
-> - 各引擎子系统结论 → `renkolab/engine/<子系统>/OVERVIEW.md`
-> - MSG 逆向 → `renkolab/engine/msg/`
->
-> 分开是因为逆向知识、mod 产物、Ghidra 工具链三者的寿命与本 IDE 的代码完全不同。
+## 架构与工具链
 
-## ECL 教程整理
+- [前端开发约定](architecture/frontend-guidelines.md)与[后端开发约定](architecture/backend-guidelines.md)涵盖 Vue、Monaco、Rust 和 Tauri 的职责。
+- 各格式的实现进度见[脚本支持现状](toolchains/script-support-status.md)。工具的选择、注册和调用见[工具链生态](toolchains/toolchain-ecosystem.md)、[平台约定](toolchains/toolchain-platform.md)和 [thecl 集成](toolchains/thecl-integration.md)。
+- MSG、END、STD 的当前接口见 [truth 迁移设计](superpowers/specs/2026-11-09-truth-msg-std-migration-design.md)和 [GBK 编码扩展](superpowers/specs/2026-11-09-truth-msg-encoding-design.md)。固定版本、构建与分发见[依赖说明](../deps/README.md)。
+- 引擎逆向在独立的 renkolab 仓库维护。SHT 的格式和工具研究在 `engine/sht/`，MSG 在 `engine/msg/`，各子系统的研究入口在对应目录的 `OVERVIEW.md`。
 
-基于 `docs/ecl-tutorial-source` 的原始教程，整理了三份更适合开发和查阅的中文精简文档：
+## 设计与历史记录
 
-- [ecl-tutorial-overview-cn.md](./ecl-tutorial-overview-cn.md)
-  - ECL 入门、工具链工作流、运行模型和对 IDE 的直接启发
-- [ecl-syntax-cheatsheet-cn.md](./ecl-syntax-cheatsheet-cn.md)
-  - ECL 常用语法、变量、控制流、栈和预处理速查
-- [ecl-patterns-and-organization-cn.md](./ecl-patterns-and-organization-cn.md)
-  - 敌机生成、弹幕管理器、坐标移动、多文件组织和 MERLIN 库摘要
-- [ecl-tutorial-source/README.md](./ecl-tutorial-source/README.md)
-  - Priw8 ECL 教程原始抓取稿与分页来源
-
-另外，根目录下还有一份阶段性状态文档：
-
-- [../editor-shell-status.md](../editor-shell-status.md)
-  - 当前 IDE 壳子已经做到哪一步、还缺哪些基础能力
-
-当前路线与计划：
-
-- [truth 迁移设计](superpowers/specs/2026-11-09-truth-msg-std-migration-design.md)：已落地的接口、Studio map 解析路线和旧格式退场要求。
-- [MSG/END 编码设计](superpowers/specs/2026-11-09-truth-msg-encoding-design.md)：已实施的 GBK 最小编码补丁。
-- [truth 迁移计划](superpowers/plans/2026-11-09-truth-msg-std-migration.md)：固定工具核对、编码、map、编译、编辑器、agent 和随包验收。
-- [依赖来源与分发](../deps/README.md)：固定提交、补丁、平台构建和生成产物说明。
-- [工具链生态](toolchain-ecosystem.md)、[脚本支持现状](script-support-status.md)：现有实现与目标路线分开记录。
-
-较早的计划与实施记录：
-
-- [superpowers/plans/2026-10-25-terminal-usability.md](./superpowers/plans/2026-10-25-terminal-usability.md)
-  - 终端调研与计划：保留 xterm.js + Rust PTY，以官方插件补搜索、网址及常用操作
-
-- [editor-usability-update.md](./editor-usability-update.md)
-  - Monaco 常用操作入口、显示选项和标签编辑状态完善
-
-- [dependency-management-plan-2026-10-23.md](./dependency-management-plan-2026-10-23.md)
-  - 历史依赖计划：ECL map 基线已经实现；thtk 安装/更新暂缓，MSG/STD 方向由新 truth 设计替代
-- [superpowers/plans/2026-07-13-mvp-project-workflow-closure.md](./superpowers/plans/2026-07-13-mvp-project-workflow-closure.md)
-  - 第一阶段 MVP 收尾：项目配置 UI、最近项目、欢迎流程与安全的项目切换
-
-建议维护方式：
-
-- 面向长期架构的约束，优先写进 `frontend-guidelines.md` 或 `backend-guidelines.md`
-- 面向当前阶段的阶段性问题，优先写进 `review-notes.md`
-- 面向“当前壳子完成度”的判断，优先更新根目录下的 `editor-shell-status.md`
-- 面向工具链平台层的共性约束，优先更新 `toolchain-platform.md`
-- 面向脚本语言理解和编辑器支持的知识整理，优先更新这些 ECL 中文整理稿和高亮计划
-- 功能规划和长期路线仍以根目录下的 [project.md](../project.md) 为准
+[设计规格](superpowers/specs/)与[实施计划](superpowers/plans/)按日期保存。[阶段记录](history/)收录早期的[编辑器完成度](history/editor-shell-status.md)、[项目审阅](history/review-notes.md)、[文件树审计](history/file-tree-audit-2026-06-07.md)和[依赖管理计划](history/dependency-management-plan-2026-10-23.md)等资料。

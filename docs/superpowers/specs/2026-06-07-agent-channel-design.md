@@ -72,7 +72,7 @@ MCP server 跑在 Tauri 主进程内(进程内 HTTP,方案 A),不做 sidecar(方
 - `TerminalPanel.vue` 用 `@xterm/xterm` + fit addon 重写,支持多终端 tab
   (新建/关闭/切换)
 - `stores/terminal.js` 改为会话模型(`sessions[]` / `activeSessionId`)
-- xterm scrollback 上限 5000 行(解决 editor-shell-status.md §6 记录的
+- xterm scrollback 上限 5000 行(解决 docs/history/editor-shell-status.md §6 记录的
   "终端 store 无内存上限"风险)
 - resize 经 fit addon → `pty_resize` 同步到 PTY
 

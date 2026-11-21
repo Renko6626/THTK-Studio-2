@@ -2191,10 +2191,10 @@ git commit -m "feat: generate project-level ECL modding skill + eclmap reference
 ### Task 11: 文档更新 + 手动验收清单
 
 **Files:**
-- Modify: `editor-shell-status.md`
+- Modify: `docs/history/editor-shell-status.md`
 - Modify: `CLAUDE.md`
 
-- [ ] **Step 1: 更新 editor-shell-status.md**
+- [ ] **Step 1: 更新 docs/history/editor-shell-status.md**
 
 - §3.1("当前终端不是完整终端")整节替换为已实现说明:真 PTY 终端(portable-pty + xterm.js,多会话,scrollback 5000)
 - §2 新增小节"2.8 Agent 通道":MCP server 六工具、.mcp.json 自动接线、AI 辅助包生成
@@ -2220,7 +2220,7 @@ git commit -m "feat: generate project-level ECL modding skill + eclmap reference
 - [ ] **Step 4: Commit**
 
 ```bash
-git add editor-shell-status.md CLAUDE.md
+git add docs/history/editor-shell-status.md CLAUDE.md
 git commit -m "docs: record agent channel (PTY + MCP + AI pack) in status docs"
 ```
 

@@ -12,7 +12,7 @@ THTK-Studio 是面向东方 Project 脚本与资源魔改的人机协作桌面 I
 
 ## 项目定位
 
-长期方向见 [project.md](./project.md)。语言知识和工具能力同时服务人类编辑器与 agent，AI 接入不再作为所有其他功能完成后的最后阶段。
+长期方向见[项目路线图](./project.md)，按主题查阅可从[文档索引](docs/README.md)进入。语言知识和工具能力同时服务人类编辑器与 agent，AI 接入不再作为所有其他功能完成后的最后阶段。
 
 当前工具路线：MSG/END/STD 完整迁入 **zero318 版 truth**，使用原生源码与 map；ECL/ANM/DAT 暂留 thtk。truth 固定版本随安装包分发，旧 `.dmsg/.dstd` 支持直接废弃，GBK 汉化能力必须保留。
 

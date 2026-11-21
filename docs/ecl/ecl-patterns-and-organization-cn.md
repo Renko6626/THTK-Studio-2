@@ -142,9 +142,9 @@ MERLIN 库在教程中的价值主要有两点：
 
 主要来源页：
 
-- [ecl-tutorial-source/pages/03-basic-enemy-spawning.md](./ecl-tutorial-source/pages/03-basic-enemy-spawning.md)
-- [ecl-tutorial-source/pages/04-bullet-managers-shooting-danmaku.md](./ecl-tutorial-source/pages/04-bullet-managers-shooting-danmaku.md)
-- [ecl-tutorial-source/pages/10-ecl-enemy-positioning.md](./ecl-tutorial-source/pages/10-ecl-enemy-positioning.md)
-- [ecl-tutorial-source/pages/11-ecl-global-definitions.md](./ecl-tutorial-source/pages/11-ecl-global-definitions.md)
-- [ecl-tutorial-source/pages/12-ecl-combining-multiple-ecl-files.md](./ecl-tutorial-source/pages/12-ecl-combining-multiple-ecl-files.md)
-- [ecl-tutorial-source/pages/13-ecl-extras-1-the-merlin-library.md](./ecl-tutorial-source/pages/13-ecl-extras-1-the-merlin-library.md)
+- [ecl-tutorial-source/pages/03-basic-enemy-spawning.md](ecl-tutorial-source/pages/03-basic-enemy-spawning.md)
+- [ecl-tutorial-source/pages/04-bullet-managers-shooting-danmaku.md](ecl-tutorial-source/pages/04-bullet-managers-shooting-danmaku.md)
+- [ecl-tutorial-source/pages/10-ecl-enemy-positioning.md](ecl-tutorial-source/pages/10-ecl-enemy-positioning.md)
+- [ecl-tutorial-source/pages/11-ecl-global-definitions.md](ecl-tutorial-source/pages/11-ecl-global-definitions.md)
+- [ecl-tutorial-source/pages/12-ecl-combining-multiple-ecl-files.md](ecl-tutorial-source/pages/12-ecl-combining-multiple-ecl-files.md)
+- [ecl-tutorial-source/pages/13-ecl-extras-1-the-merlin-library.md](ecl-tutorial-source/pages/13-ecl-extras-1-the-merlin-library.md)

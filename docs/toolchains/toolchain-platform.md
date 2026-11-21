@@ -16,4 +16,4 @@ Rust `common/toolchain.rs` 管理路径、状态和版本。truth 目录优先�
 
 `modules/truth/maps.rs` 解析原生 map 的名称、签名属性、枚举和 intrinsic；`catalog.rs` 选择并释放版本基线，叠加项目 map；`commands.rs` 继续叠加源码 pragma，并提供编辑器和 MCP 查询。编译器采用相同文件顺序。`analysis.rs` 只做源码结构提取，不承担真值编译或游戏仿真。
 
-truth 通过 Tauri `bundle.resources` 分发三个同目录程序、构建记录与许可。构建方法、固定来源和验证状态见 [依赖说明](../deps/README.md)。
+truth 通过 Tauri `bundle.resources` 分发三个同目录程序、构建记录与许可。构建方法、固定来源和验证状态见 [依赖说明](../../deps/README.md)。

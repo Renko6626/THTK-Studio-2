@@ -66,7 +66,7 @@ pub async fn bind_preferred(port: u16) -> Result<tokio::net::TcpListener, String
 
 ### Task 5: SKILL.md 模板自助注册节 + 文档
 
-**Files:** Modify `src-tauri/assets/ecl-skill-template.md`、`CLAUDE.md`(Agent channel 节补两句)、`editor-shell-status.md`(§2.8 补多客户端注册;验收清单加 spec §验收 5 条)。
+**Files:** Modify `src-tauri/assets/ecl-skill-template.md`、`CLAUDE.md`(Agent channel 节补两句)、`docs/history/editor-shell-status.md`(§2.8 补多客户端注册;验收清单加 spec §验收 5 条)。
 
 模板新增一节(放"注意事项"前):
 

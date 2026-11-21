@@ -1,7 +1,7 @@
 # 文件树 Batch 2:错误处理与边界
 
 日期:2026-06-07 状态:已批准
-审计原文:`docs/file-tree-audit-2026-06-07.md`
+审计原文:`docs/history/file-tree-audit-2026-06-07.md`
 前置:Batch 1 已完成(commit `f05dc47`)
 
 ## 目标

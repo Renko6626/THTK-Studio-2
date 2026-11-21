@@ -16,7 +16,7 @@ truth 是脚本编译器，目标不局限于 MSG/STD。其 ANM 脚本语言也�
 - `trumsg`、`trustd` 是启动包装程序，需要同目录 `truth-core`。不能仅随包复制两个包装程序。
 - 分支名用于追踪上游，构建使用固定提交；不能安装默认 main 或以 `0.5.1-pre1` 版本字符串判定分支能力。
 
-来源记录见 [依赖清单](../deps/manifest.source.json)，交付约定见 [deps/README.md](../deps/README.md)。
+来源记录见 [依赖清单](../../deps/manifest.source.json)，交付约定见 [deps/README.md](../../deps/README.md)。
 
 ## 统一的是什么
 

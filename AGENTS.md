@@ -74,6 +74,17 @@ Do not optimize for flashy UI at the cost of architecture.
 - Retire .dmsg/.dstd support and thmsg/thstd paths; do not build a converter or delete user files.
 - Runtime migration is implemented in `modules/truth`. Read `docs/superpowers/specs/2026-11-09-truth-msg-std-migration-design.md` and its linked encoding design for the established interfaces; further architecture changes still require review.
 
+## Reverse engineering workflow (last checked 2026-11-22)
+
+- Start game reverse engineering in the existing **renkolab Ghidra project for the exact game and patch**. This is the first priority, including for delegated research. In `/data/sunyunbo/www/renkolab`, use `games/<version>/INDEX.md` to identify the sample and project. Follow `METHOD.md` and `tooling/ghidra/README.md` for analysis and symbol maintenance.
+- Use the project's imported **th-re-data** function names, types and dispatch labels together with renkolab's own annotations. Start with the typed decompiler and cross-references. Consult the Ghidra Listing for focused questions such as signedness, floating-point argument passing or a branch the decompiler obscures. If the version has no project yet, use renkolab's existing bootstrap and th-re-data import workflow.
+
+## ECL map research status (2026-11-22)
+
+- Before continuing ECL map consolidation, read `docs/ecl/ecl-mapping-research-status.md` and its linked handoff.
+- TH16–18 on `Renko6626/TouhouMaps` branch `studio-ecl` meet the stock ECL coverage criterion. The 66 pending game/opcode pairs are future work. Studio continues to ship its pinned zero318 maps.
+- Do not treat compiler fallback entries, generated neutral names, or `__` prefixes as confirmed game-side unknowns; native thecl signature priority is also provisional. Do not integrate or expand automatic consolidation while this work is deferred.
+
 ## When changing features
 
 Before implementing, first identify which layer the task belongs to:

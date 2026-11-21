@@ -109,8 +109,8 @@ BuildConfigDialog 保留,仅在用户明确"高级选项"时打开。
 
 ### Task 4 — 验证 + 文档
 - npm run build / cargo test
-- 更新 editor-shell-status.md
-- 更新 docs/script-support-status.md 表格(措辞统一后表格里的描述也跟着改)
+- 更新 docs/history/editor-shell-status.md
+- 更新 docs/toolchains/script-support-status.md 表格(措辞统一后表格里的描述也跟着改)
 
 ## 不在范围
 

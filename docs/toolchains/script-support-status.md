@@ -23,7 +23,7 @@ MCP 新增 `run_script`（check/compile/decompile）和 `lookup_script_semantics
 - map 顺序：版本基线 → 项目 `scriptMaps.msg/ending/std` → 源码 pragma。ECL 继续使用 `mapPaths`。
 - truth 编译和反编译的工作目录为输入文件所在目录，不继承 `TRUTH_MAP_PATH`。工具失败不会回退旧后端。
 
-目标作品见 [设计中的覆盖基线](superpowers/specs/2026-11-09-truth-msg-std-migration-design.md#迁移覆盖基线)。53 份默认 map 通过真实 CLI 的最小源码编译，TH18 三类真实文件往返字节一致；这不等于所有游戏效果均已验收。Windows 实机安装、编辑器交互和游戏内效果仍需人工确认，详见 [验证记录](../deps/truth-integration-check-2026-11-09.md)。
+目标作品见 [设计中的覆盖基线](../superpowers/specs/2026-11-09-truth-msg-std-migration-design.md#迁移覆盖基线)。53 份默认 map 通过真实 CLI 的最小源码编译，TH18 三类真实文件往返字节一致；这不等于所有游戏效果均已验收。Windows 实机安装、编辑器交互和游戏内效果仍需人工确认，详见 [验证记录](../../deps/truth-integration-check-2026-11-09.md)。
 
 2026-06/08 的 MSG/STD 文档保留作历史记录，不再指导实现。
 

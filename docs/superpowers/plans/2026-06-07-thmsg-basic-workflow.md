@@ -47,7 +47,7 @@
 
 ### Task 5 — 验证 + 文档
 - 跑 cargo test(应 ~46 个:40 baseline + ~6 个新 msg);npm run build
-- 在 `editor-shell-status.md` 加 thmsg 工作流条目;在 `docs/script-support-status.md` 把 thmsg 行从 ❌ 改为 ✅(文本工作流)
+- 在 `docs/history/editor-shell-status.md` 加 thmsg 工作流条目;在 `docs/toolchains/script-support-status.md` 把 thmsg 行从 ❌ 改为 ✅(文本工作流)
 - 在 `CLAUDE.md` 的 `modules/` 描述里加 msg
 
 ## 注意点

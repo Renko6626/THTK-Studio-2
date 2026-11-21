@@ -33,7 +33,7 @@
 
 ## 2. 真实样本给出的约束
 
-以 [`tools/st01.decl`](../tools/st01.decl) 为例，真实反编译结果至少包含这些语法形态：
+以 [`tools/st01.decl`](../../tools/st01.decl) 为例，真实反编译结果至少包含这些语法形态：
 
 - 文件头：`anim { ... }`、`ecli { ... }`
 - 子程序声明和定义：`void MainBossSpell();`、`void GirlA01(var A)`
@@ -193,7 +193,7 @@ type EclMapSemanticData = {
 1. 注册 ECL 语言
 2. 加固定 Monarch 规则
 3. 正确高亮头部块、关键字、函数、变量、难度标签、栈访问
-4. 先让 [`tools/st01.decl`](../tools/st01.decl) 看起来基本正确
+4. 先让 [`tools/st01.decl`](../../tools/st01.decl) 看起来基本正确
 
 ### 第二阶段：接入 `eclm` 词表
 
@@ -230,7 +230,7 @@ type EclMapSemanticData = {
 基于这个计划，下一步最值得做的是：
 
 1. 先为 Monaco 注册第一版 ECL Monarch 语法
-2. 用 [`tools/st01.decl`](../tools/st01.decl) 做人工校验样本
+2. 用 [`tools/st01.decl`](../../tools/st01.decl) 做人工校验样本
 3. 再设计 Rust 侧 `eclm` 解析接口
 
 这样可以最快把编辑体验从“纯文本”提升到“有领域感的脚本编辑器”，同时不把架构写乱。

@@ -184,7 +184,7 @@ ProjectOpenResult {
 
 ## Task 7：文档与桌面验收
 
-**修改：** `README.md`、`editor-shell-status.md`、`docs/review-notes.md`、本计划
+**修改：** `README.md`、`docs/history/editor-shell-status.md`、`docs/history/review-notes.md`、本计划
 
 - 完成后把项目配置 UI、欢迎页和最近项目标为已完成，并记录实际测试数。
 - 删除“项目配置格式未实现”“终端仍是假终端”等残留说法。
@@ -208,14 +208,14 @@ Windows 手动验收：
 | 清单 | 项数 | 状态 |
 | --- | --- | --- |
 | 本文「Windows 手动验收」8 项 + TS 迁移回归 4 项 | 12 | ✅ 2026-08-03 走过一轮，未发现问题 |
-| `editor-shell-status.md` §9 手动验收清单 | 25 | ⚠️ 已完成 9 项（第 2–9、13），**余 16 项待执行** |
+| `docs/history/editor-shell-status.md` §9 手动验收清单 | 25 | ⚠️ 已完成 9 项（第 2–9、13），**余 16 项待执行** |
 | `2026-08-03-game-version-reliability.md` 的追加清单 | 7 | ❌ 待执行 |
 | 技术债与首次运行批次（见下） | 6 | ❌ 待执行 |
 | 面板 chrome 改版（见下） | 4 | ❌ 待执行 |
 | 文件树滚动、状态栏移除（见下） | 2 | ❌ 待执行 |
 | MSG 编码（见下） | 5 | ❌ 待执行 |
 
-`editor-shell-status.md` 那份已完成的 9 项覆盖了终端 / PTY 与 **claude code 的
+`docs/history/editor-shell-status.md` 那份已完成的 9 项覆盖了终端 / PTY 与 **claude code 的
 MCP 通道**（含 `check_ecl`、`report_to_user` 实际调用、AI 辅助包生成、重启后
 配置无 diff）。剩下 16 项集中在两处：
 

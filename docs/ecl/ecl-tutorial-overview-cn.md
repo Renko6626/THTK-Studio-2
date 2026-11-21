@@ -1,6 +1,6 @@
 # ECL 教程整理：入门与工作流
 
-这份文档基于 `docs/ecl-tutorial-source` 的原始教程整理，目标不是逐页翻译，而是提炼出对 THTK-Studio 开发和使用最有价值的 ECL 基础概念。
+这份文档基于 `docs/ecl/ecl-tutorial-source` 的原始教程整理，目标不是逐页翻译，而是提炼出对 THTK-Studio 开发和使用最有价值的 ECL 基础概念。
 
 ## 1. 工具链与基本流程
 
@@ -151,9 +151,9 @@ ECL 不只写弹幕逻辑，还承担敌机生成与资源驱动职责。
 
 原始教程页保存在：
 
-- [ecl-tutorial-source/README.md](./ecl-tutorial-source/README.md)
-- [ecl-tutorial-source/pages/01-ecl-preparing.md](./ecl-tutorial-source/pages/01-ecl-preparing.md)
-- [ecl-tutorial-source/pages/02-instructions-and-subroutines.md](./ecl-tutorial-source/pages/02-instructions-and-subroutines.md)
-- [ecl-tutorial-source/pages/03-basic-enemy-spawning.md](./ecl-tutorial-source/pages/03-basic-enemy-spawning.md)
-- [ecl-tutorial-source/pages/12-ecl-combining-multiple-ecl-files.md](./ecl-tutorial-source/pages/12-ecl-combining-multiple-ecl-files.md)
-- [ecl-tutorial-source/pages/13-ecl-extras-1-the-merlin-library.md](./ecl-tutorial-source/pages/13-ecl-extras-1-the-merlin-library.md)
+- [ecl-tutorial-source/README.md](ecl-tutorial-source/README.md)
+- [ecl-tutorial-source/pages/01-ecl-preparing.md](ecl-tutorial-source/pages/01-ecl-preparing.md)
+- [ecl-tutorial-source/pages/02-instructions-and-subroutines.md](ecl-tutorial-source/pages/02-instructions-and-subroutines.md)
+- [ecl-tutorial-source/pages/03-basic-enemy-spawning.md](ecl-tutorial-source/pages/03-basic-enemy-spawning.md)
+- [ecl-tutorial-source/pages/12-ecl-combining-multiple-ecl-files.md](ecl-tutorial-source/pages/12-ecl-combining-multiple-ecl-files.md)
+- [ecl-tutorial-source/pages/13-ecl-extras-1-the-merlin-library.md](ecl-tutorial-source/pages/13-ecl-extras-1-the-merlin-library.md)

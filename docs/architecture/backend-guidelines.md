@@ -56,7 +56,7 @@ Rust 侧不应该只是：
 
 ## 3. 文件系统模块建议
 
-[`src-tauri/src/common/fs_ops.rs`](../src-tauri/src/common/fs_ops.rs) 当前已经承载：
+[`src-tauri/src/common/fs_ops.rs`](../../src-tauri/src/common/fs_ops.rs) 当前已经承载：
 
 - 创建目录
 - 创建文件

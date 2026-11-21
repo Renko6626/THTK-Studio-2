@@ -2,8 +2,8 @@
 
 这份文档基于两类材料做谨慎推断：
 
-- [`tools/th20.eclm`](../tools/th20.eclm) 里的 `!ins_names` 和 `!ins_signatures`
-- [`tools/st01.decl`](../tools/st01.decl) 里的真实反编译调用形式
+- [`tools/th20.eclm`](../../tools/th20.eclm) 里的 `!ins_names` 和 `!ins_signatures`
+- [`tools/st01.decl`](../../tools/st01.decl) 里的真实反编译调用形式
 
 目标不是宣称“完全准确”，而是为 THTK-Studio 的参数模板、hover 和补全提供一份当前可用的解释层。
 

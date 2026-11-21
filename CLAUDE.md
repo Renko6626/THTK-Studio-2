@@ -121,7 +121,7 @@ line of dialogue in half — and dialogue is the whole point of a MSG file.
 `.decl` has no such problem — thecl understands eclmap names natively.
 
 Full decision record with the evidence (thtk source version tables, truth's coverage,
-thcrap's Unicode statement): `docs/toolchain-ecosystem.md`.
+thcrap's Unicode statement): `docs/toolchains/toolchain-ecosystem.md`.
 
 **Encoding matters**: `save_file`'s `is_source` flag decides UTF-8 (`.decl`/`.dmsg` source) vs Shift-JIS (raw game text). Don't lose this distinction.
 

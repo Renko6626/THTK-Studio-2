@@ -9,7 +9,7 @@
 
 **Goal:** 把 MSG / STD 的可读性从"自创 JSON + 静默回退"升级为"生态格式 mapfile + 显式版本分档 + IDE 层跳转导航"，并把 `.dmsg` / `.dstd` 是 IDE 方言这件事显式化。
 
-**Architecture:** thtk 作唯一编解码后端；语义数据改用 eclmap 家族的 `.msgm` / `.stdm`（含 gamemap 间接），直接复用既有的 eclmap 解析器；跳转标签不写入文件，改由 Monaco 提供导航。决策依据见 `docs/toolchain-ecosystem.md`。
+**Architecture:** thtk 作唯一编解码后端；语义数据改用 eclmap 家族的 `.msgm` / `.stdm`（含 gamemap 间接），直接复用既有的 eclmap 解析器；跳转标签不写入文件，改由 Monaco 提供导航。决策依据见 `docs/toolchains/toolchain-ecosystem.md`。
 
 **Tech Stack:** Rust（无新依赖，复用 `modules/ecl/map_parser` 与 `regex`）、Vue 3 + TypeScript、Monaco、vitest。
 
@@ -23,7 +23,7 @@
 
 ## 事实依据（实施前必读）
 
-完整证据链见 `docs/toolchain-ecosystem.md`，此处只列直接影响实现的：
+完整证据链见 `docs/toolchains/toolchain-ecosystem.md`，此处只列直接影响实现的：
 
 1. **thstd 的 th14–th20 共用 `formats_v2`，无 per-version 分支** → th17 的 STD 数据对 th20 正确。
 2. **thmsg 的签名表按版本组分开**：`th185_msg_fmts[]` 新增 id 37/38/39，`th19_msg_fmts[]` 新增 id 42–47、50–56。我们现有的 33 条（opcode 0–35）**对 th20 缺 16 条**。

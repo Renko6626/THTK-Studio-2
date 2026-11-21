@@ -110,4 +110,4 @@
 - `docs/superpowers/plans/2026-06-07-thmsg-basic-workflow.md`
 - `docs/superpowers/specs/2026-06-07-thstd-basic-workflow-design.md`
 - `docs/superpowers/specs/2026-06-07-thdat-basic-workflow-design.md`
-- `docs/script-support-status.md` ←总览状态表,以后改这个
+- `docs/toolchains/script-support-status.md` ←总览状态表,以后改这个

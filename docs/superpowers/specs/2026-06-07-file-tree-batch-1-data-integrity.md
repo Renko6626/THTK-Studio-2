@@ -1,7 +1,7 @@
 # 文件树 Batch 1:数据一致性 + 视图正确性
 
 日期:2026-06-07 状态:已批准
-审计原文:`docs/file-tree-audit-2026-06-07.md`
+审计原文:`docs/history/file-tree-audit-2026-06-07.md`
 
 ## 目标
 
@@ -110,7 +110,7 @@ refresh 并发守卫 + _collectLoadedDirs 修正。
 ### Step 6 — 验证 + 文档
 - cargo test(应 +6 ~ +8 个新测试)
 - npm run build
-- 更新 `editor-shell-status.md` 加 Batch 1 完成条目
+- 更新 `docs/history/editor-shell-status.md` 加 Batch 1 完成条目
 - 把 audit 报告里 Critical/High 划掉对应项
 
 ## 任务拆分(给 subagent-driven)

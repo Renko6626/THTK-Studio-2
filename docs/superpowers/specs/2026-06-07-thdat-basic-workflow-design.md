@@ -135,7 +135,7 @@ CLI 实跑测试在 Linux 不做(同 thmsg/thstd 原因),Windows 验收覆盖。
 ### Task 3 — 文档
 - `script-support-status.md` thdat 行(从 ❌ 改为 ✅,标注"无脚本语义,纯容器管理")
 - `CLAUDE.md` Backend structure 加 `modules/thdat/`(注明无 map_parser/translator)
-- `editor-shell-status.md` §2.10 加 thdat 工作流,验收清单 22-25
+- `docs/history/editor-shell-status.md` §2.10 加 thdat 工作流,验收清单 22-25
 
 ## 验收(Windows 单独跑)
 

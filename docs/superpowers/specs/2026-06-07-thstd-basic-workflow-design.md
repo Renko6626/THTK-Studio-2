@@ -80,7 +80,7 @@ fn swap_first_two_args(args: &str) -> String {
 - npm run build + cargo test 全套通过
 
 ### Task 3 — 文档
-- script-support-status.md thstd 行 ✅;CLAUDE.md backend 加 modules/std;editor-shell-status.md 加验收清单条目 18-21
+- script-support-status.md thstd 行 ✅;CLAUDE.md backend 加 modules/std;docs/history/editor-shell-status.md 加验收清单条目 18-21
 
 ## 验收(Windows 单独跑)
 

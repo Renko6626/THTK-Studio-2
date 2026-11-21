@@ -190,11 +190,11 @@ IDE 后续应优先支持：
 
 主要来源页：
 
-- [ecl-tutorial-source/pages/02-instructions-and-subroutines.md](./ecl-tutorial-source/pages/02-instructions-and-subroutines.md)
-- [ecl-tutorial-source/pages/05-ecl-variables.md](./ecl-tutorial-source/pages/05-ecl-variables.md)
-- [ecl-tutorial-source/pages/06-expressions-return-types.md](./ecl-tutorial-source/pages/06-expressions-return-types.md)
-- [ecl-tutorial-source/pages/07-ecl-the-stack.md](./ecl-tutorial-source/pages/07-ecl-the-stack.md)
-- [ecl-tutorial-source/pages/08-ecl-conditional-statements.md](./ecl-tutorial-source/pages/08-ecl-conditional-statements.md)
-- [ecl-tutorial-source/pages/09-ecl-loops.md](./ecl-tutorial-source/pages/09-ecl-loops.md)
-- [ecl-tutorial-source/pages/11-ecl-global-definitions.md](./ecl-tutorial-source/pages/11-ecl-global-definitions.md)
-- [ecl-tutorial-source/pages/12-ecl-combining-multiple-ecl-files.md](./ecl-tutorial-source/pages/12-ecl-combining-multiple-ecl-files.md)
+- [ecl-tutorial-source/pages/02-instructions-and-subroutines.md](ecl-tutorial-source/pages/02-instructions-and-subroutines.md)
+- [ecl-tutorial-source/pages/05-ecl-variables.md](ecl-tutorial-source/pages/05-ecl-variables.md)
+- [ecl-tutorial-source/pages/06-expressions-return-types.md](ecl-tutorial-source/pages/06-expressions-return-types.md)
+- [ecl-tutorial-source/pages/07-ecl-the-stack.md](ecl-tutorial-source/pages/07-ecl-the-stack.md)
+- [ecl-tutorial-source/pages/08-ecl-conditional-statements.md](ecl-tutorial-source/pages/08-ecl-conditional-statements.md)
+- [ecl-tutorial-source/pages/09-ecl-loops.md](ecl-tutorial-source/pages/09-ecl-loops.md)
+- [ecl-tutorial-source/pages/11-ecl-global-definitions.md](ecl-tutorial-source/pages/11-ecl-global-definitions.md)
+- [ecl-tutorial-source/pages/12-ecl-combining-multiple-ecl-files.md](ecl-tutorial-source/pages/12-ecl-combining-multiple-ecl-files.md)

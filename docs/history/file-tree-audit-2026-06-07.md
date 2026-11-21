@@ -2,7 +2,7 @@
 
 ## 对抗审阅后续(2026-06-07)
 
-Batch 1+2 落地后,做了一轮 adversarial review(外部 CVE / Tauri 官方文档 / notify-rs 文档对照实现)。结果又发现并修复了 5 条 Critical/Important/Minor 问题——主要是 main.rs 两个 MVP 时代的旁路命令(read_file/save_file 无路径守卫)和 tauri.conf.json CSP = null。详见 [`docs/superpowers/specs/2026-06-07-adversarial-audit-fixes.md`](superpowers/specs/2026-06-07-adversarial-audit-fixes.md)。
+Batch 1+2 落地后,做了一轮 adversarial review(外部 CVE / Tauri 官方文档 / notify-rs 文档对照实现)。结果又发现并修复了 5 条 Critical/Important/Minor 问题——主要是 main.rs 两个 MVP 时代的旁路命令(read_file/save_file 无路径守卫)和 tauri.conf.json CSP = null。详见 [`docs/superpowers/specs/2026-06-07-adversarial-audit-fixes.md`](../superpowers/specs/2026-06-07-adversarial-audit-fixes.md)。
 
 ---
 

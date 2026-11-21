@@ -47,7 +47,7 @@
 
 当前重点：
 
-- [`src/components/Sidebar/FileTree.vue`](../src/components/Sidebar/FileTree.vue)
+- [`src/components/Sidebar/FileTree.vue`](../../src/components/Sidebar/FileTree.vue)
   - 现在已经承载了创建、重命名、删除、多选、剪贴板、拖拽、根目录投放等多条链路
   - 后续再加复杂能力时，建议拆出：
     - 资源管理器拖拽逻辑
@@ -112,7 +112,7 @@ Monaco 目前已经承担了编辑器主体，后续建议保持“轻接线，�
 
 ### 5.1 `App.vue` 已经有继续膨胀的趋势
 
-[`src/App.vue`](../src/App.vue) 现在同时承担：
+[`src/App.vue`](../../src/App.vue) 现在同时承担：
 
 - 工作台布局
 - 快捷键分发
