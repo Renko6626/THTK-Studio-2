@@ -6,7 +6,8 @@ import {
 import { collectEclDocumentSymbols } from './document-symbols'
 import {
   buildInstructionDocumentation,
-  buildInstructionInsertText
+  buildInstructionInsertText,
+  describeInstruction
 } from './instruction-display'
 import {
   eclHeaderKeywords,
@@ -194,20 +195,22 @@ function buildSemanticCompletions(
   semanticData: NormalizedEclSemanticData,
   range: CompletionRange
 ): CompletionItem[] {
-  return semanticData.instructions.map((instruction) => createSimpleCompletion(
-    instruction.name,
-    monaco.languages.CompletionItemKind.Function,
-    range,
-    {
-      insertText: buildInstructionInsertText(instruction),
+  const references = new Map(semanticData.reference?.instructions.map(row => [row.opcode, row]))
+  return semanticData.instructions.map(instruction => {
+    const display = describeInstruction(instruction.name, instruction, references.get(instruction.opcode))
+    return createSimpleCompletion(instruction.name, monaco.languages.CompletionItemKind.Function, range, {
+      insertText: buildInstructionInsertText(display),
       insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+      command: display.params.length
+        ? { id: 'editor.action.triggerParameterHints', title: '显示参数提示' }
+        : undefined,
       detail: instruction.section
         ? `ECL 指令 · ${instruction.section} · opcode ${instruction.opcode}`
         : `ECL 指令 · opcode ${instruction.opcode}`,
-      documentation: buildInstructionDocumentation(instruction),
+      documentation: buildInstructionDocumentation(display),
       sortText: `2_${instruction.name}`
-    }
-  ))
+    })
+  })
 }
 
 function buildModelSymbolCompletions(

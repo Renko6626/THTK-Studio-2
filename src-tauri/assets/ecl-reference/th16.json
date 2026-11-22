@@ -1103,7 +1103,37 @@
       "stockVersion": "v1.00a",
       "stockExample": null,
       "dispatchAddress": "0x473896",
-      "evidence": "docs/ecl/topics/th15-th18-random-anm-position.md（TH16）"
+      "evidence": "docs/ecl/topics/th15-th18-random-anm-position.md（TH16）",
+      "params": [
+        {
+          "position": 1,
+          "name": "outX",
+          "direction": "out",
+          "unit": null,
+          "description": "写入随机点的 X 坐标。"
+        },
+        {
+          "position": 2,
+          "name": "outY",
+          "direction": "out",
+          "unit": null,
+          "description": "写入随机点的 Y 坐标。"
+        },
+        {
+          "position": 3,
+          "name": "a",
+          "direction": "in",
+          "unit": null,
+          "description": "有符号半径的中心值。"
+        },
+        {
+          "position": 4,
+          "name": "b",
+          "direction": "in",
+          "unit": null,
+          "description": "与 a 的差决定半径的随机幅度。"
+        }
+      ]
     },
     {
       "opcode": 300,
@@ -1503,7 +1533,30 @@
       "stockVersion": "v1.00a",
       "stockExample": null,
       "dispatchAddress": "0x42299d",
-      "evidence": "docs/ecl/th16/th16-zero318-style.md:174；docs/ecl/topics/th15-th18-random-anm-position.md（TH16 查询函数 0x41a9c0）"
+      "evidence": "docs/ecl/th16/th16-zero318-style.md:174；docs/ecl/topics/th15-th18-random-anm-position.md（TH16 查询函数 0x41a9c0）",
+      "params": [
+        {
+          "position": 1,
+          "name": "outX",
+          "direction": "out",
+          "unit": null,
+          "description": "写入查询结果的 X 坐标。"
+        },
+        {
+          "position": 2,
+          "name": "outY",
+          "direction": "out",
+          "unit": null,
+          "description": "写入查询结果的 Y 坐标。"
+        },
+        {
+          "position": 3,
+          "name": "id",
+          "direction": "in",
+          "unit": null,
+          "description": "目标敌人 ID。传 0 取调用者坐标。"
+        }
+      ]
     },
     {
       "opcode": 325,
@@ -3375,7 +3428,16 @@
       "stockVersion": "v1.00a",
       "stockExample": null,
       "dispatchAddress": "0x41ddd1",
-      "evidence": "docs/ecl/topics/th15-th18-random-anm-position.md（TH16）"
+      "evidence": "docs/ecl/topics/th15-th18-random-anm-position.md（TH16）",
+      "params": [
+        {
+          "position": 1,
+          "name": "layer",
+          "direction": "in",
+          "unit": null,
+          "description": "设置敌人的基础绘制层，供创建动画时读取。"
+        }
+      ]
     },
     {
       "opcode": 553,
@@ -4639,7 +4701,30 @@
       "stockVersion": "v1.00a",
       "stockExample": null,
       "dispatchAddress": "0x4228a2",
-      "evidence": "docs/ecl/th16/th16-zero318-style.md:395；docs/ecl/topics/th15-th18-random-anm-position.md（TH16 查询函数 0x41a9c0）"
+      "evidence": "docs/ecl/th16/th16-zero318-style.md:395；docs/ecl/topics/th15-th18-random-anm-position.md（TH16 查询函数 0x41a9c0）",
+      "params": [
+        {
+          "position": 1,
+          "name": "outX",
+          "direction": "out",
+          "unit": null,
+          "description": "写入查询结果的 X 坐标。"
+        },
+        {
+          "position": 2,
+          "name": "outY",
+          "direction": "out",
+          "unit": null,
+          "description": "写入查询结果的 Y 坐标。"
+        },
+        {
+          "position": 3,
+          "name": "id",
+          "direction": "in",
+          "unit": null,
+          "description": "传入已知存在的非零敌人 ID。"
+        }
+      ]
     },
     {
       "opcode": 802,

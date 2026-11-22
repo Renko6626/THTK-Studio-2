@@ -63,7 +63,23 @@
       "stockVersion": "v1.00a",
       "stockExample": null,
       "dispatchAddress": "0x48b66c",
-      "evidence": "docs/ecl/th18/th18-instructions.md:18"
+      "evidence": "docs/ecl/th18/th18-instructions.md:18",
+      "params": [
+        {
+          "position": 1,
+          "name": "sub",
+          "direction": "in",
+          "unit": null,
+          "description": "被调用的子程序名。"
+        },
+        {
+          "position": 2,
+          "name": "args",
+          "direction": "in",
+          "unit": null,
+          "description": "按值传给子程序的实参。"
+        }
+      ]
     },
     {
       "opcode": 12,
@@ -127,7 +143,23 @@
       "stockVersion": "v1.00a",
       "stockExample": null,
       "dispatchAddress": "0x48b4e1",
-      "evidence": "docs/ecl/th18/th18-instructions.md:18"
+      "evidence": "docs/ecl/th18/th18-instructions.md:18",
+      "params": [
+        {
+          "position": 1,
+          "name": "sub",
+          "direction": "in",
+          "unit": null,
+          "description": "被调用的子程序名。"
+        },
+        {
+          "position": 2,
+          "name": "args",
+          "direction": "in",
+          "unit": null,
+          "description": "按值传给子程序的实参。"
+        }
+      ]
     },
     {
       "opcode": 16,
@@ -143,7 +175,30 @@
       "stockVersion": "v1.00a",
       "stockExample": null,
       "dispatchAddress": "0x48b530",
-      "evidence": "docs/ecl/th18/th18-instructions.md:18"
+      "evidence": "docs/ecl/th18/th18-instructions.md:18",
+      "params": [
+        {
+          "position": 1,
+          "name": "sub",
+          "direction": "in",
+          "unit": null,
+          "description": "被调用的子程序名。"
+        },
+        {
+          "position": 2,
+          "name": "id",
+          "direction": "in",
+          "unit": null,
+          "description": "异步上下文 ID。"
+        },
+        {
+          "position": 3,
+          "name": "args",
+          "direction": "in",
+          "unit": null,
+          "description": "按值传给子程序的实参。"
+        }
+      ]
     },
     {
       "opcode": 17,
@@ -255,7 +310,16 @@
       "stockVersion": "v1.00a",
       "stockExample": null,
       "dispatchAddress": "0x48b727",
-      "evidence": "docs/ecl/th18/th18-instructions.md:19"
+      "evidence": "docs/ecl/th18/th18-instructions.md:19",
+      "params": [
+        {
+          "position": 1,
+          "name": "frames",
+          "direction": "in",
+          "unit": "frame",
+          "description": "从脚本时钟减去的帧数。"
+        }
+      ]
     },
     {
       "opcode": 24,
@@ -1103,7 +1167,37 @@
       "stockVersion": "v1.00a",
       "stockExample": null,
       "dispatchAddress": "0x48d024",
-      "evidence": "docs/ecl/topics/th15-th18-random-anm-position.md（TH18）"
+      "evidence": "docs/ecl/topics/th15-th18-random-anm-position.md（TH18）",
+      "params": [
+        {
+          "position": 1,
+          "name": "outX",
+          "direction": "out",
+          "unit": null,
+          "description": "写入随机点的 X 坐标。"
+        },
+        {
+          "position": 2,
+          "name": "outY",
+          "direction": "out",
+          "unit": null,
+          "description": "写入随机点的 Y 坐标。"
+        },
+        {
+          "position": 3,
+          "name": "a",
+          "direction": "in",
+          "unit": null,
+          "description": "有符号半径的中心值。"
+        },
+        {
+          "position": 4,
+          "name": "b",
+          "direction": "in",
+          "unit": null,
+          "description": "与 a 的差决定半径的随机幅度。"
+        }
+      ]
     },
     {
       "opcode": 94,
@@ -1519,7 +1613,30 @@
       "stockVersion": "v1.00a",
       "stockExample": null,
       "dispatchAddress": "0x43633e",
-      "evidence": "docs/ecl/th18/th18-instructions.md:40"
+      "evidence": "docs/ecl/th18/th18-instructions.md:40",
+      "params": [
+        {
+          "position": 1,
+          "name": "outX",
+          "direction": "out",
+          "unit": null,
+          "description": "写入查询结果的 X 坐标。"
+        },
+        {
+          "position": 2,
+          "name": "outY",
+          "direction": "out",
+          "unit": null,
+          "description": "写入查询结果的 Y 坐标。"
+        },
+        {
+          "position": 3,
+          "name": "id",
+          "direction": "in",
+          "unit": null,
+          "description": "目标敌人 ID。传 0 取调用者坐标。"
+        }
+      ]
     },
     {
       "opcode": 325,
@@ -1791,7 +1908,23 @@
       "stockVersion": "v1.00a",
       "stockExample": null,
       "dispatchAddress": "0x4319a7",
-      "evidence": "docs/ecl/th18/th18-instructions.md:41"
+      "evidence": "docs/ecl/th18/th18-instructions.md:41",
+      "params": [
+        {
+          "position": 1,
+          "name": "x",
+          "direction": "in",
+          "unit": "px",
+          "description": "绝对位置层的目标 X 坐标。"
+        },
+        {
+          "position": 2,
+          "name": "y",
+          "direction": "in",
+          "unit": "px",
+          "description": "绝对位置层的目标 Y 坐标。"
+        }
+      ]
     },
     {
       "opcode": 401,
@@ -1807,7 +1940,37 @@
       "stockVersion": "v1.00a",
       "stockExample": null,
       "dispatchAddress": "0x431b4c",
-      "evidence": "docs/ecl/th18/th18-instructions.md:42"
+      "evidence": "docs/ecl/th18/th18-instructions.md:42",
+      "params": [
+        {
+          "position": 1,
+          "name": "frames",
+          "direction": "in",
+          "unit": "frame",
+          "description": "插值持续帧数。"
+        },
+        {
+          "position": 2,
+          "name": "mode",
+          "direction": "in",
+          "unit": null,
+          "description": "插值模式编号。"
+        },
+        {
+          "position": 3,
+          "name": "x",
+          "direction": "in",
+          "unit": "px",
+          "description": "绝对位置层的目标 X 坐标。"
+        },
+        {
+          "position": 4,
+          "name": "y",
+          "direction": "in",
+          "unit": "px",
+          "description": "绝对位置层的目标 Y 坐标。"
+        }
+      ]
     },
     {
       "opcode": 402,
@@ -1823,7 +1986,23 @@
       "stockVersion": "v1.00a",
       "stockExample": null,
       "dispatchAddress": "0x4319a7",
-      "evidence": "docs/ecl/th18/th18-instructions.md:41"
+      "evidence": "docs/ecl/th18/th18-instructions.md:41",
+      "params": [
+        {
+          "position": 1,
+          "name": "x",
+          "direction": "in",
+          "unit": "px",
+          "description": "相对位置层的目标 X 坐标。"
+        },
+        {
+          "position": 2,
+          "name": "y",
+          "direction": "in",
+          "unit": "px",
+          "description": "相对位置层的目标 Y 坐标。"
+        }
+      ]
     },
     {
       "opcode": 403,
@@ -1839,7 +2018,37 @@
       "stockVersion": "v1.00a",
       "stockExample": null,
       "dispatchAddress": "0x431b4c",
-      "evidence": "docs/ecl/th18/th18-instructions.md:42"
+      "evidence": "docs/ecl/th18/th18-instructions.md:42",
+      "params": [
+        {
+          "position": 1,
+          "name": "frames",
+          "direction": "in",
+          "unit": "frame",
+          "description": "插值持续帧数。"
+        },
+        {
+          "position": 2,
+          "name": "mode",
+          "direction": "in",
+          "unit": null,
+          "description": "插值模式编号。"
+        },
+        {
+          "position": 3,
+          "name": "x",
+          "direction": "in",
+          "unit": "px",
+          "description": "相对位置层的目标 X 坐标。"
+        },
+        {
+          "position": 4,
+          "name": "y",
+          "direction": "in",
+          "unit": "px",
+          "description": "相对位置层的目标 Y 坐标。"
+        }
+      ]
     },
     {
       "opcode": 404,
@@ -1855,7 +2064,23 @@
       "stockVersion": "v1.00a",
       "stockExample": null,
       "dispatchAddress": "0x43205a",
-      "evidence": "docs/ecl/th18/th18-instructions.md:43"
+      "evidence": "docs/ecl/th18/th18-instructions.md:43",
+      "params": [
+        {
+          "position": 1,
+          "name": "angle",
+          "direction": "in",
+          "unit": "rad",
+          "description": "绝对速度层的方向角。"
+        },
+        {
+          "position": 2,
+          "name": "speed",
+          "direction": "in",
+          "unit": "px/frame",
+          "description": "绝对速度层的速率。"
+        }
+      ]
     },
     {
       "opcode": 405,
@@ -1887,7 +2112,23 @@
       "stockVersion": "v1.00a",
       "stockExample": null,
       "dispatchAddress": "0x43205a",
-      "evidence": "docs/ecl/th18/th18-instructions.md:43"
+      "evidence": "docs/ecl/th18/th18-instructions.md:43",
+      "params": [
+        {
+          "position": 1,
+          "name": "angle",
+          "direction": "in",
+          "unit": "rad",
+          "description": "相对速度层的方向角。"
+        },
+        {
+          "position": 2,
+          "name": "speed",
+          "direction": "in",
+          "unit": "px/frame",
+          "description": "相对速度层的速率。"
+        }
+      ]
     },
     {
       "opcode": 407,
@@ -3391,7 +3632,16 @@
       "stockVersion": "v1.00a",
       "stockExample": null,
       "dispatchAddress": "0x430e61",
-      "evidence": "docs/ecl/topics/th15-th18-random-anm-position.md（TH18）"
+      "evidence": "docs/ecl/topics/th15-th18-random-anm-position.md（TH18）",
+      "params": [
+        {
+          "position": 1,
+          "name": "layer",
+          "direction": "in",
+          "unit": null,
+          "description": "设置敌人的基础绘制层，供创建动画时读取。"
+        }
+      ]
     },
     {
       "opcode": 553,
@@ -4687,7 +4937,30 @@
       "stockVersion": "v1.00a",
       "stockExample": null,
       "dispatchAddress": "0x4361eb",
-      "evidence": "docs/ecl/th18/th18-instructions.md:135"
+      "evidence": "docs/ecl/th18/th18-instructions.md:135",
+      "params": [
+        {
+          "position": 1,
+          "name": "outX",
+          "direction": "out",
+          "unit": null,
+          "description": "写入查询结果的 X 坐标。"
+        },
+        {
+          "position": 2,
+          "name": "outY",
+          "direction": "out",
+          "unit": null,
+          "description": "写入查询结果的 Y 坐标。"
+        },
+        {
+          "position": 3,
+          "name": "id",
+          "direction": "in",
+          "unit": null,
+          "description": "传入已知存在的非零敌人 ID。"
+        }
+      ]
     },
     {
       "opcode": 802,

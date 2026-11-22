@@ -321,10 +321,8 @@ pub fn parse_ecl_map_content(path: &str, content: &str) -> Result<EclMapSemantic
 
     for instruction in &mut instructions {
         if let Some(signature) = signatures.get(&instruction.opcode) {
-            if !signature.is_empty() {
-                instruction.signature = Some(signature.clone());
-                instruction.params = build_signature_params(signature);
-            }
+            instruction.signature = Some(signature.clone());
+            instruction.params = build_signature_params(signature);
         }
     }
 
@@ -384,6 +382,14 @@ mod tests {
         let sample = "!gvar_names\n-1 X\n";
         let data = parse_ecl_map_content("maps/th17.eclm", sample).expect("parse");
         assert_eq!(data.globals[0].var_type, "unknown");
+    }
+
+    #[test]
+    fn explicit_empty_signature_is_distinct_from_an_undeclared_signature() {
+        let sample = "!ins_names\n1 noArgs\n2 unknownArgs\n!ins_signatures\n1\n";
+        let data = parse_ecl_map_content("custom.eclm", sample).unwrap();
+        assert_eq!(data.instructions[0].signature.as_deref(), Some(""));
+        assert_eq!(data.instructions[1].signature, None);
     }
 
     #[test]

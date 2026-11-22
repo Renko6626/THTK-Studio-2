@@ -21,6 +21,10 @@ TH13–18 共检查 134 份原版 ECL，剩余 99 条待核记录均未在对应
 
 ## 数据维护
 
+已整理的参数收在 [TouhouMaps 参数表](../../../TouhouMaps/data/ecl/parameters.csv)，按作品、opcode 和从 1 开始的参数位置查找。导出后可在指令参考的 `params` 数组中读取参数名、读写方向、单位和说明。条目可以只记录部分位置；判断参数个数应查看加载签名。
+
+编辑器用项目 map 的指令名补全调用，按 opcode 关联本作说明。输入调用或悬停在指令上即可查阅已整理的参数，原始写法如 `ins_324` 也支持悬停和输入提示。项目显式改写签名时，编辑器按项目签名生成模板；项目未声明签名时，提示中会标出采用的参考签名。
+
 评级、两套研究名称与逐条证据集中在 [TouhouMaps 总表](../../../TouhouMaps/data/ecl/instructions.csv)。总表保留完整双风格名称；Studio 随包提供可独立归因的拼法。项目自带的 map 也能提供查询别名。上游版本与归属见[来源说明](../../../TouhouMaps/SOURCES.md)。内置签名表的 [thtk 许可](../../src-tauri/assets/ecl-reference/thtk.COPYING)随应用提供。研究仓库使用 `Renko6626/TouhouMaps` 的 `studio-ecl` 分支。相对链接和以下命令假定两个仓库并排检出。
 
 在 TouhouMaps 根目录运行以下命令更新八作的 Studio 快照。加上 `--check` 可以检查已分发的数据与总表是否一致。

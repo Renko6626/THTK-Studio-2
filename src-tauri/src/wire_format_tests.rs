@@ -15,9 +15,10 @@ use serde::Serialize;
 fn ecl_instruction_reference_matches_frontend_contract() {
     use crate::modules::ecl::instruction_reference;
 
-    let instructions = instruction_reference::for_game(13).unwrap().unwrap();
+    let instructions = instruction_reference::for_game(18).unwrap().unwrap();
+    let movement = instructions.iter().find(|row| row.opcode == 404).unwrap();
     assert_eq!(
-        json_keys(&instructions[0]),
+        json_keys(movement),
         sorted(&[
             "opcode",
             "zero318Name",
@@ -25,6 +26,7 @@ fn ecl_instruction_reference_matches_frontend_contract() {
             "zero318SourceName",
             "zero318SourceGame",
             "signature",
+            "params",
             "reliability",
             "description",
             "assessment",
@@ -34,6 +36,10 @@ fn ecl_instruction_reference_matches_frontend_contract() {
             "dispatchAddress",
             "evidence",
         ])
+    );
+    assert_eq!(
+        json_keys(&movement.params[0]),
+        sorted(&["position", "name", "direction", "unit", "description"])
     );
 }
 

@@ -2,6 +2,15 @@ use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct ReferenceParameter {
+    pub position: u32,
+    pub name: String,
+    pub direction: Option<String>,
+    pub unit: Option<String>,
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InstructionReference {
     pub opcode: u32,
@@ -10,6 +19,8 @@ pub struct InstructionReference {
     pub zero318_source_name: Option<String>,
     pub zero318_source_game: Option<u32>,
     pub signature: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub params: Vec<ReferenceParameter>,
     pub reliability: String,
     pub description: Option<String>,
     pub assessment: String,
@@ -110,6 +121,7 @@ mod tests {
             zero318_source_name: Some("old_jump".into()),
             zero318_source_game: Some(15),
             signature: Some("ot".into()),
+            params: vec![],
             reliability: "已核查".into(),
             description: None,
             assessment: String::new(),

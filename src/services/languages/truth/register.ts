@@ -1,4 +1,4 @@
-import { truthCallContext } from './callContext'
+import { getCallContext } from '../callContext'
 import * as monaco from 'monaco-editor'
 import { getTruthSourceDefinitions, analyzeTruthSource } from '../../../api'
 import { dialectLanguageConfiguration } from '../dialect-config'
@@ -75,7 +75,7 @@ export function ensureTruthLanguagesRegistered(): void {
       signatureHelpTriggerCharacters: ['(', ','],
       async provideSignatureHelp(model, position) {
         const prefix = model.getValue().slice(0, model.getOffsetAt(position))
-        const call = truthCallContext(prefix)
+        const call = getCallContext(prefix)
         if (!call) return null
         try {
           const found = (await definitions(model)).instructions.find(i => i.aliases.includes(call.name) || `ins_${i.opcode}` === call.name)

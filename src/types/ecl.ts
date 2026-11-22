@@ -37,6 +37,14 @@ export interface EclInstructionReference {
   zero318Name: string | null
   priw8Name: string | null
   signature: string | null
+  /** 研究表已记录的参数。position 从 1 开始，允许只记录部分位置。 */
+  params?: {
+    position: number
+    name: string
+    direction: 'in' | 'out' | 'inout' | null
+    unit: string | null
+    description: string | null
+  }[]
   reliability: string
   description: string | null
   assessment: string

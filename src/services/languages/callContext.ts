@@ -1,5 +1,16 @@
-/** Read just the active call prefix. This is editor context, not a language parser. */
-export function truthCallContext(prefix: string): { name: string; parameter: number } | null {
+function nameBeforeParen(prefix: string, paren: number): string {
+  let end = paren
+  while (end > 0 && /\s/.test(prefix[end - 1])) end--
+  let start = end
+  while (start > 0 && /\w/.test(prefix[start - 1])) start--
+  if (start === end || !/[A-Za-z_]/.test(prefix[start])) return ''
+  // ECL @name(...) calls a script subroutine, even if a map uses the same name.
+  if (prefix[start - 1] === '@') start--
+  return prefix.slice(start, end)
+}
+
+/** Shared editing context for nested calls, quoted strings and comments. */
+export function getCallContext(prefix: string): { name: string; parameter: number } | null {
   const stack: { name: string; parameter: number }[] = []
   let quote = false, escaped = false, lineComment = false, blockComment = false
   for (let i = 0; i < prefix.length; i++) {
@@ -11,7 +22,7 @@ export function truthCallContext(prefix: string): { name: string; parameter: num
     if (ch === '/' && next === '*') { blockComment = true; i++; continue }
     if (ch === '"') { quote = true; continue }
     if (ch === '(' || ch === '[' || ch === '{') {
-      const name = ch === '(' ? /([A-Za-z_]\w*)\s*$/.exec(prefix.slice(0, i))?.[1] || '' : ''
+      const name = ch === '(' ? nameBeforeParen(prefix, i) : ''
       stack.push({ name, parameter: 0 })
     } else if (ch === ')' || ch === ']' || ch === '}') stack.pop()
     else if (ch === ',' && stack.length) stack[stack.length - 1].parameter++

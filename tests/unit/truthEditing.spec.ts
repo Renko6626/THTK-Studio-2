@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { truthCallContext } from '../../src/services/languages/truth/callContext'
+import { getCallContext } from '../../src/services/languages/callContext'
 import { truthTokens } from '../../src/services/languages/truth/register'
 import { createTokenizer } from '../helpers/monarch'
 
 describe('truth editing', () => {
   it('counts arguments outside strings, nested calls and array expressions', () => {
-    expect(truthCallContext('script main { text("a,b", nested(1, 2), ')).toEqual({ name: 'text', parameter: 2 })
-    expect(truthCallContext('foo([1, 2], ')).toEqual({ name: 'foo', parameter: 1 })
-    expect(truthCallContext('foo(1, /* , */ ')).toEqual({ name: 'foo', parameter: 1 })
-    expect(truthCallContext('foo(1); // bar(')).toBeNull()
+    expect(getCallContext('script main { text("a,b", nested(1, 2), ')).toEqual({ name: 'text', parameter: 2 })
+    expect(getCallContext('foo([1, 2], ')).toEqual({ name: 'foo', parameter: 1 })
+    expect(getCallContext('foo(1, /* , */ ')).toEqual({ name: 'foo', parameter: 1 })
+    expect(getCallContext('foo(1); // bar(')).toBeNull()
   })
   it('colors calls, raw opcodes, labels, strings and control keywords', () => {
     const tokenize = createTokenizer('truth', truthTokens)
