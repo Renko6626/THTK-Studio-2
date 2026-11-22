@@ -1,4 +1,4 @@
-import type { EclInstructionSpec, NormalizedEclSemanticData } from '../../../types'
+import type { EclGameReference, EclInstructionSpec, NormalizedEclSemanticData } from '../../../types'
 
 function normalizeStringList(values: unknown): string[] {
   return [...new Set(
@@ -41,7 +41,11 @@ export function normalizeEclSemanticData(data: unknown): NormalizedEclSemanticDa
         }))
     : []
 
+  const reference = source.reference as Partial<EclGameReference> | undefined
   return {
+    ...(typeof reference?.version === 'string' && Array.isArray(reference.instructions)
+      ? { reference: { version: reference.version, instructions: reference.instructions } }
+      : {}),
     version: typeof source.version === 'string' ? source.version : '',
     sourcePath: typeof source.sourcePath === 'string' ? source.sourcePath : '',
     instructions,

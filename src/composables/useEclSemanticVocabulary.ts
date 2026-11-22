@@ -35,13 +35,15 @@ export function useEclSemanticVocabulary({
 
       if (disposed || token !== loadingToken) return
 
-      if (semanticData?.instructions?.length) {
+      if (semanticData.referenceError) showReloadNotice?.(semanticData.referenceError)
+      if (semanticData.instructions.length || semanticData.reference) {
         updateEclSemanticVocabulary(scopeKey, semanticData)
-        showReloadNotice?.(`已加载 ECL 词表: ${semanticData.version || 'unknown'} (${semanticData.instructions.length} 条指令)`)
-        return
+        if (semanticData.instructions.length) {
+          showReloadNotice?.(`已加载 ECL 词表: ${semanticData.version || 'unknown'} (${semanticData.instructions.length} 条指令)`)
+        }
+      } else {
+        clearEclSemanticVocabulary(scopeKey)
       }
-
-      clearEclSemanticVocabulary(scopeKey)
       if (semanticData.error) showReloadNotice?.(semanticData.error)
     } catch (error) {
       if (disposed || token !== loadingToken) return

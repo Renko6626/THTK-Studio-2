@@ -23,8 +23,8 @@ use tauri::State;
 
 mod modules; // 确保 src-tauri/src/modules/mod.rs 存在且包含 pub mod ecl;
 use modules::ecl::commands::{
-    compile_ecl_file, decompile_ecl_file, generate_ai_assist_pack, get_ecl_map_semantics,
-    run_thecl_operation,
+    compile_ecl_file, decompile_ecl_file, generate_ai_assist_pack, get_ecl_instruction_reference,
+    get_ecl_map_semantics, run_thecl_operation,
 };
 use modules::msg::commands::{compile_msg_file, decompile_msg_file};
 use modules::thdat::commands::{extract_dat_file, pack_dat_file};
@@ -406,6 +406,7 @@ fn main() {
             compile_ecl_file,
             decompile_ecl_file,
             get_ecl_map_semantics,
+            get_ecl_instruction_reference,
             modules::truth::check::check_truth_source,
             modules::truth::commands::get_truth_map_definitions,
             modules::truth::commands::get_truth_source_definitions,

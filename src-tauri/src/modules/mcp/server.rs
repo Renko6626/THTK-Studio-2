@@ -68,6 +68,8 @@ pub struct DecompileParams {
 pub struct LookupParams {
     /// 指令名子串（如 "wait"）、精确 opcode（如 "23"）或寄存器名（如 "I0"）
     pub query: String,
+    /// 指定作品，例如 "18" 或 "th18"。省略时使用当前项目或应用的版本。
+    pub game_version: Option<String>,
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
@@ -202,7 +204,7 @@ impl ThtkMcp {
     }
 
     #[tool(
-        description = "按指令名子串、opcode 或寄存器名查询当前 eclmap 语义数据（签名、参数、全局寄存器）。写 ECL 前先查签名。"
+        description = "按指令名子串、opcode 或寄存器名查询 ECL。instructions、globals 来自实际 eclmap，写 ECL 时以此为准。instructionReferences 单独列出 TH13–20 内置研究资料，支持两套命名和本作的 zero318 上游原名；可用 game_version 指定作品。"
     )]
     async fn lookup_ecl_semantics(
         &self,
@@ -211,8 +213,13 @@ impl ThtkMcp {
         let config = self.config();
         let root = self.project_root();
         let value = tokio::task::spawn_blocking(move || {
-            let map_path = tools::resolve_map_path(&config, root.as_deref()).map_err(tool_error)?;
-            tools::lookup_semantics(&map_path, &params.query).map_err(tool_error)
+            tools::lookup_ecl_semantics(
+                &config,
+                root.as_deref(),
+                &params.query,
+                params.game_version.as_deref(),
+            )
+            .map_err(tool_error)
         })
         .await
         .map_err(|e| McpError::internal_error(format!("task join: {e}"), None))??;

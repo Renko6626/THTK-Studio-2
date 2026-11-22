@@ -31,6 +31,29 @@ export interface EclInstructionSpec {
   params: EclInstructionParameter[]
 }
 
+/** 随 Studio 分发的逐作指令参考，由 get_ecl_instruction_reference 返回。 */
+export interface EclInstructionReference {
+  opcode: number
+  zero318Name: string | null
+  priw8Name: string | null
+  signature: string | null
+  reliability: string
+  description: string | null
+  assessment: string
+  stockCount: number | null
+  stockVersion: string | null
+  stockExample: string | null
+  dispatchAddress: string | null
+  evidence: string | null
+  zero318SourceName: string | null
+  zero318SourceGame: number | null
+}
+
+export interface EclGameReference {
+  version: string
+  instructions: EclInstructionReference[]
+}
+
 /** 对应 map_parser.rs 的 `EclMapGlobalVar`（`rename_all = "camelCase"`） */
 export interface EclGlobalVar {
   id: number
@@ -60,6 +83,8 @@ export interface LoadedEclSemanticData extends Partial<EclMapSemanticData> {
   instructions: EclInstructionSpec[]
   builtins: string[]
   resolvedPath: string
+  reference?: EclGameReference
+  referenceError?: string
   error?: string
   /**
    * eclmap 文件名版本与项目版本不符时的提示。只是警告，不影响加载结果——
@@ -73,6 +98,7 @@ export interface LoadedEclSemanticData extends Partial<EclMapSemanticData> {
  * 注意它**不含** `globals`，且 `builtins` 已经并入了全部指令名。
  */
 export interface NormalizedEclSemanticData {
+  reference?: EclGameReference
   version: string
   sourcePath: string
   instructions: EclInstructionSpec[]

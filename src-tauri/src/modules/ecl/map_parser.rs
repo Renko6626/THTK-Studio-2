@@ -121,6 +121,54 @@ pub fn parse_ecl_map_file(path: &str) -> Result<EclMapSemanticData, String> {
     parse_ecl_map_content(path, &content)
 }
 
+pub(crate) fn parse_ecl_map_files(
+    first_path: &str,
+    overlay_paths: &[String],
+) -> Result<EclMapSemanticData, String> {
+    if overlay_paths.is_empty() {
+        return parse_ecl_map_file(first_path);
+    }
+
+    let mut combined = String::new();
+    for path in std::iter::once(first_path).chain(overlay_paths.iter().map(String::as_str)) {
+        let content = fs::read_to_string(path)
+            .map_err(|error| format!("Failed to read eclmap {path}: {error}"))?;
+        if !content
+            .lines()
+            .next()
+            .is_some_and(|line| line.starts_with("!eclmap"))
+        {
+            return Err(format!("Invalid eclmap header: {path}"));
+        }
+        // Each map starts in thecl's default instruction-name section.
+        let body = content.split_once('\n').map_or("", |(_, body)| body);
+        combined.push_str("!ins_names\n");
+        combined.push_str(body);
+        combined.push('\n');
+    }
+
+    let mut data = parse_ecl_map_content(first_path, &combined)?;
+    // thecl resolves a reused name to the most recent definition. Distinct names for
+    // the same opcode stay usable. Signatures and global types are keyed by number.
+    let mut names = std::collections::HashSet::new();
+    data.instructions.reverse();
+    data.instructions
+        .retain(|entry| names.insert(entry.name.clone()));
+    data.instructions.reverse();
+    data.builtins = data
+        .instructions
+        .iter()
+        .map(|entry| entry.name.clone())
+        .collect();
+
+    names.clear();
+    data.globals.reverse();
+    data.globals
+        .retain(|entry| names.insert(entry.name.clone()));
+    data.globals.reverse();
+    Ok(data)
+}
+
 pub fn parse_ecl_map_content(path: &str, content: &str) -> Result<EclMapSemanticData, String> {
     let mut in_instruction_names = false;
     let mut in_instruction_signatures = false;

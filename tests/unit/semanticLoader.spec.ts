@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type * as monaco from 'monaco-editor'
+import { createEclHoverProvider } from '../../src/services/languages/ecl/hover-provider'
 import {
   loadDefaultEclSemanticData,
   detectEclmapVersionMismatch
 } from '../../src/services/languages/ecl/semantic-loader'
-import { getEclMapSemantics as rawGetSemantics, getSettings as rawGetSettings, getDependencyStatus as rawGetDependencyStatus } from '../../src/api'
+import { getEclInstructionReference, getEclMapSemantics as rawGetSemantics, getSettings as rawGetSettings, getDependencyStatus as rawGetDependencyStatus } from '../../src/api'
 
 const getEclMapSemantics = vi.mocked(rawGetSemantics)
 const getSettings = vi.mocked(rawGetSettings)
@@ -15,6 +17,7 @@ import { makeAppConfig, makeProjectConfig } from '../helpers/fixtures'
 vi.mock('../../src/api', () => ({
   getSettings: vi.fn(),
   getEclMapSemantics: vi.fn(),
+  getEclInstructionReference: vi.fn(async () => []),
   getDependencyStatus: vi.fn()
 }))
 
@@ -71,20 +74,46 @@ describe('ECL 词表加载', () => {
     getDependencyStatus.mockResolvedValue(dependencyStatusWithBundledDir(''))
   })
 
+  it('没有编译 map 时仍按项目作品显示原始 opcode 的参考，保持补全词表为空', async () => {
+    getEclMapSemantics.mockRejectedValue(new Error('map missing'))
+    vi.mocked(getEclInstructionReference).mockResolvedValueOnce([{
+      opcode: 31, zero318Name: null, priw8Name: null, signature: null, stockCount: null,
+      reliability: '需要进一步核查', assessment: '尚缺本作签名', description: null,
+      stockVersion: null, stockExample: null, dispatchAddress: null, evidence: null,
+      zero318SourceName: '__debug_unknown_B', zero318SourceGame: 19
+    }])
+    const data = await loadDefaultEclSemanticData({
+      projectConfig: makeProjectConfig({ gameVersion: '19' })
+    })
+    expect(getEclInstructionReference).toHaveBeenCalledWith('19')
+    expect(data.instructions).toEqual([])
+    expect(data.builtins).toEqual([])
+
+    const provider = createEclHoverProvider(() => data)
+    const model: Pick<monaco.editor.ITextModel, 'getWordAtPosition'> = {
+      getWordAtPosition: () => ({ word: 'ins_31', startColumn: 1, endColumn: 7 })
+    }
+    const hover = await provider.provideHover(model as monaco.editor.ITextModel,
+      { lineNumber: 1, column: 3 } as monaco.Position, {} as monaco.CancellationToken)
+    const doc = hover?.contents.map(item => item.value).join(' ') || ''
+    expect(doc).toContain('TH19')
+    expect(doc).toContain('需要进一步核查')
+    expect(doc).toContain('未声明')
+    expect(doc).toContain('__debug_unknown_B')
+    expect(doc).not.toContain('出现 0 次')
+  })
+
   it('合并项目声明的全部 map，而不是只取第一条', async () => {
     // thecl 和 mcp 侧都是把整个 mapPaths 传下去的；只取 [0] 会让后面的 map
     // 里定义的指令在补全 / 悬停里查无此项。
-    getEclMapSemantics.mockImplementation(async (path) => {
-      if (path === '/proj/maps/base.eclm') return semanticsWith(['ins_a', 'ins_b'])
-      if (path === '/proj/maps/extra.eclm') return semanticsWith(['ins_c'])
-      throw new Error(`unexpected ${path}`)
-    })
+    getEclMapSemantics.mockResolvedValue(semanticsWith(['ins_a', 'ins_b', 'ins_c']))
 
     const result = await loadDefaultEclSemanticData({
       projectRoot: '/proj',
       projectConfig: makeProjectConfig({ mapPaths: ['maps/base.eclm', 'maps/extra.eclm'] })
     })
 
+    expect(getEclMapSemantics).toHaveBeenCalledWith('/proj/maps/base.eclm', ['/proj/maps/extra.eclm'])
     expect(result.instructions.map(i => i.name).sort()).toEqual(['ins_a', 'ins_b', 'ins_c'])
     expect(result.resolvedPath).toContain('base.eclm')
     expect(result.resolvedPath).toContain('extra.eclm')
@@ -205,10 +234,7 @@ describe('ECL 词表加载', () => {
   })
 
   it('项目 map 部分失效时不发布残缺词表', async () => {
-    getEclMapSemantics.mockImplementation(async (path) => {
-      if (path === '/proj/base.eclm') return semanticsWith(['base_ins'])
-      throw new Error('file missing')
-    })
+    getEclMapSemantics.mockRejectedValue(new Error('file missing: /proj/missing.eclm'))
     const result = await loadDefaultEclSemanticData({
       projectRoot: '/proj',
       projectConfig: makeProjectConfig({ mapPaths: ['base.eclm', 'missing.eclm'] })
@@ -254,11 +280,8 @@ describe('ECL 词表加载', () => {
     // 回归防线：builtins 是 string[]，曾被喂给按 name 去重的 dedupeByName，
     // 每个字符串取 .name 都是 undefined，结果整个数组被清空——
     // 内置函数（sin/cos 等）在补全与高亮里全部消失。
-    getEclMapSemantics.mockImplementation(async (path) => {
-      if (path === '/proj/a.eclm') {
-        return { ...semanticsWith(['ins_a']), builtins: ['sin', 'cos'] }
-      }
-      return { ...semanticsWith(['ins_b']), builtins: ['cos', 'tan'] }
+    getEclMapSemantics.mockResolvedValue({
+      ...semanticsWith(['ins_a', 'ins_b']), builtins: ['sin', 'cos', 'cos', 'tan']
     })
 
     return loadDefaultEclSemanticData({
@@ -284,9 +307,11 @@ describe('ECL 词表加载', () => {
   })
 
   it('同名指令后加载的覆盖先加载的', async () => {
-    getEclMapSemantics.mockImplementation(async (path) => {
-      const opcode = path === '/proj/a.eclm' ? 1 : 99
-      return { ...semanticsWith([]), instructions: [{ name: 'dup', opcode, section: null, signature: null, params: [] }] }
+    getEclMapSemantics.mockResolvedValue({
+      ...semanticsWith([]),
+      instructions: [1, 99].map(opcode => ({
+        name: 'dup', opcode, section: null, signature: null, params: []
+      }))
     })
 
     const result = await loadDefaultEclSemanticData({

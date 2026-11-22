@@ -4,7 +4,7 @@
 
 ## ECL
 
-- [TH16–18 映射研究状态](ecl/ecl-mapping-research-status.md)汇总原版 ECL 可用线，链接各作指令表、可靠度 CSV 和后续核查清单。
+- [TH13–20 ECL 指令参考](ecl/ecl-mapping-research-status.md)列出各作覆盖情况、Studio 查询入口和评级总表。
 - 编写脚本可查[入门与工作流](ecl/ecl-tutorial-overview-cn.md)、[语法速查](ecl/ecl-syntax-cheatsheet-cn.md)、[弹幕与脚本组织](ecl/ecl-patterns-and-organization-cn.md)以及 [Priw8 教程原稿](ecl/ecl-tutorial-source/README.md)。
 - 编辑器侧的研究见[语法高亮与静态检查](ecl/ecl-highlighting-plan.md)和 [ECLM 签名推断](ecl/ecl-signature-inference.md)。
 

@@ -81,8 +81,8 @@ Do not optimize for flashy UI at the cost of architecture.
 
 ## ECL map research status (2026-11-22)
 
-- Before continuing ECL map consolidation, read `docs/ecl/ecl-mapping-research-status.md` and its linked handoff.
-- TH16–18 on `Renko6626/TouhouMaps` branch `studio-ecl` meet the stock ECL coverage criterion. The 66 pending game/opcode pairs are future work. Studio continues to ship its pinned zero318 maps.
+- Before continuing ECL map consolidation, read `docs/ecl/ecl-mapping-research-status.md` and the linked canonical game/opcode table.
+- TH13–18 on `Renko6626/TouhouMaps` branch `studio-ecl` meet the stock ECL coverage criterion. The remaining game/opcode pairs are future work. Studio ships TH13–20 reference JSON for lookups. TH19 and TH20 inherit zero318 with uncertainties flagged. Compiler maps are pinned separately.
 - Do not treat compiler fallback entries, generated neutral names, or `__` prefixes as confirmed game-side unknowns; native thecl signature priority is also provisional. Do not integrate or expand automatic consolidation while this work is deferred.
 
 ## When changing features

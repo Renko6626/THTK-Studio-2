@@ -1,32 +1,32 @@
-# ECL 映射研究状态
+# TH13–20 ECL 指令参考
 
-最后核对：2026-11-22。TH16–18 已达到原版 ECL 可用线。三作各检查 22 份零售版 ECL，原版出现的不同 opcode 中，TH16 为 177/177、TH17 为 154/154、TH18 为 164/164 达标。Studio 自带的
-ECL map 仍来自固定的 zero318 快照；修订后的指令参考和 thecl 配置在独立资料库维护。
+Studio 按作品和 opcode 查询指令。编辑器中可以把鼠标停在当前 map 的指令名或 `ins_编号` 上，查看本作评级、参考签名和已有说明。MCP 工具 `lookup_ecl_semantics` 支持按编号或名称查询。例如，传入 `{"game_version":"18","query":"1001"}` 可查 TH18 的 1001 号，研究结果在 `instructionReferences` 中。项目 map 给出的名称、参数和签名仍用于编辑和编译。逐作研究数据随 Studio 分发，查阅时无需检出研究仓库。[内置数据](../../src-tauri/assets/ecl-reference/)
 
-在本地资料库中可查 [TH16 逐项参考](../../../TouhouMaps/docs/ecl/th16/th16-zero318-style.md)、
-[TH17 双名称参考](../../../TouhouMaps/docs/ecl/th17/th17-instructions.md)、
-[TH18 双名称参考](../../../TouhouMaps/docs/ecl/th18/th18-instructions.md)。
-[使用说明](../../../TouhouMaps/README.md)给出了两套拼法和编译命令。
-这些相对链接适用于 Studio 与 TouhouMaps 并排检出的本地目录。
+## 覆盖与待核项
 
-[可靠度 CSV](../../../TouhouMaps/docs/ecl/th16-th18-instruction-reliability.csv)按作品和 opcode 归档。原版使用的每个编号都已核查或可相对可靠地继承；其余 66 条待核记录涉及 27 个编号，留待后续按需核查。可从[待核分组与证据](../../../TouhouMaps/docs/research-handoff-2026-11-10.md#跨作继承与待核顺序)选题，或用[检查脚本](../../../TouhouMaps/scripts/check_stock_ecl.py)重新核对原版覆盖。
+“已核查”表示有本作证据，包括已确认直接返回的无行为指令。“相对可靠地继承”表示来源一致或 zero318 对用途有明确说明。“需要进一步核查”表示来源冲突、用途不明或仅有编译器回退等证据。原版可用线要求每个在本作零售 ECL 出现的 opcode 至少达到“相对可靠地继承”。
 
-完整交接保存在独立资料库：
+| 作品 | 收录 opcode | 已核查 | 相对可靠地继承 | 需要进一步核查 | 达标 / 原版出现的 opcode |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| TH13 | 272 | 216 | 44 | 12 | 177 / 177 |
+| TH14 | 290 | 229 | 49 | 12 | 176 / 176 |
+| TH15 | 291 | 52 | 220 | 19 | 169 / 169 |
+| TH16 | 295 | 131 | 146 | 18 | 177 / 177 |
+| TH17 | 295 | 52 | 225 | 18 | 154 / 154 |
+| TH18 | 298 | 177 | 101 | 20 | 164 / 164 |
+| TH19 | 435 | 0 | 250 | 185 | 未评估 |
+| TH20 | 435 | 0 | 254 | 181 | 未评估 |
 
-- [交接与研究入口](https://github.com/Renko6626/TouhouMaps/blob/studio-ecl/docs/research-handoff-2026-11-10.md)
-- 分叉 `Renko6626/TouhouMaps`，维护分支 `studio-ecl`。
-- 初始资料提交 `39a2956dd99f0a455e521a3832229234ed45e9d1`。
-- 本地位置 `/data/sunyunbo/www/TouhouMaps`。
+TH13–18 共检查 134 份原版 ECL，剩余 99 条待核记录均未在对应样本中出现。新脚本用到待核项时优先看本作证据，尤其注意同编号的作品专属机制。TH19、TH20 暂时继承 zero318 各自的正式版定义，已知疑点随条目标出。本作逆向与原版覆盖留待以后。
 
-11 月 10 日的初始导入建立了共用签名和两套名称目录。22 个版本都有文件、44 种
-组合能被 thtk 加载，不代表各作实际指令和语义已确认。记录中的 228 条签名差异
-主要比较 zero318 `_thtk` 文件与 thecl 内置表；6 条变量类型差异集中在 `-9961`。
-3,789 条中性名称包含风格缺名和编译器继承条目，不能直接当作待逆向规模。
+## 数据维护
 
-初始导入的“默认采用 thecl 内置签名”“所有双下划线名称不参与对应”等取舍
-尚未获得游戏语义验证。继续其他作品时先看完整交接中的修正说明，不能继续把这些
-导入规则当作事实。完整明细已随交接持久保存。
+评级、两套研究名称与逐条证据集中在 [TouhouMaps 总表](../../../TouhouMaps/data/ecl/instructions.csv)。总表保留完整双风格名称；Studio 随包提供可独立归因的拼法。项目自带的 map 也能提供查询别名。上游版本与归属见[来源说明](../../../TouhouMaps/SOURCES.md)。内置签名表的 [thtk 许可](../../src-tauri/assets/ecl-reference/thtk.COPYING)随应用提供。研究仓库使用 `Renko6626/TouhouMaps` 的 `studio-ecl` 分支。相对链接和以下命令假定两个仓库并排检出。
 
-当前不替换 Studio 默认 ECL map，不扩大自动名称归并，不批量转换用户源码。
-`deps/manifest.source.json` 与产品 map 保持现有来源；研究其他作品前先核对
-目标游戏版本、样本 hash、已有持久工程和参数读取／消费者路径。
+在 TouhouMaps 根目录运行以下命令更新八作的 Studio 快照。加上 `--check` 可以检查已分发的数据与总表是否一致。
+
+```bash
+python3 scripts/export_ecl_reference.py --output-dir ../THTK-Studio-2/src-tauri/assets/ecl-reference
+```
+
+原版可用线由[检查脚本](../../../TouhouMaps/scripts/check_stock_ecl.py)读取同一张总表核对。后续逆向优先复用 renkolab 中对应版本的 Ghidra 工程、th-re-data 符号和既有标注。默认编译 map 继续使用固定的 zero318 快照，切换来源单独评估。

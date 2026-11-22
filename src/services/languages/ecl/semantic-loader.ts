@@ -1,4 +1,4 @@
-import { getSettings, getEclMapSemantics, getDependencyStatus } from '../../../api'
+import { getSettings, getEclInstructionReference, getEclMapSemantics, getDependencyStatus } from '../../../api'
 import type {
   EclInstructionSpec,
   EclMapSemanticData,
@@ -219,32 +219,38 @@ export async function loadDefaultEclSemanticData({
     effectiveThtkDir ? joinPath(effectiveThtkDir, 'maps') : ''
   ]
 
+  const referenceData = version ? getEclInstructionReference(version).then(
+    instructions => instructions.length ? { reference: { version, instructions } } : {},
+    error => ({ referenceError: `加载 TH${version} ECL 指令参考失败：${String(error)}` })
+  ) : {}
+
   let lastError: unknown = null
 
   // 显式路径必须全部加载成功。与编译器保持相同输入，不发布残缺词表或静默换源。
-  async function loadExplicit(paths: string[]): Promise<LoadedMap[]> {
-    const loaded: LoadedMap[] = []
-    for (const path of paths) {
-      try {
-        loaded.push({ path, semantics: await getEclMapSemantics(path) })
-      } catch (error) {
-        lastError = `无法加载 ECL map ${path}：${String(error)}`
-        return []
-      }
+  async function loadExplicit(paths: string[]): Promise<LoadedMap | null> {
+    const path = paths.join(' + ')
+    try {
+      // 同一次解析中才能把签名层与名称层按 opcode 关联起来。
+      const semantics = paths.length === 1
+        ? await getEclMapSemantics(paths[0])
+        : await getEclMapSemantics(paths[0], paths.slice(1))
+      return { path, semantics }
+    } catch (error) {
+      lastError = `无法加载 ECL map ${path}：${String(error)}`
+      return null
     }
-    return loaded
   }
 
   /** 取第一个能加载的（推导出的候选是同一份 map 的不同可能位置，不是并列关系） */
-  async function loadFirst(paths: string[]): Promise<LoadedMap[]> {
+  async function loadFirst(paths: string[]): Promise<LoadedMap | null> {
     for (const path of paths) {
       try {
-        return [{ path, semantics: await getEclMapSemantics(path) }]
+        return { path, semantics: await getEclMapSemantics(path) }
       } catch (error) {
         lastError = error
       }
     }
-    return []
+    return null
   }
 
   const loaded = projectMapPaths.length
@@ -253,9 +259,10 @@ export async function loadDefaultEclSemanticData({
       ? await loadExplicit([globalMapPath])
       : await loadFirst(createCandidatePaths(version, candidateDirs))
 
-  if (!loaded.length) {
+  if (!loaded) {
     return {
       version,
+      ...await referenceData,
       sourcePath: '',
       resolvedPath: '',
       instructions: [],
@@ -265,13 +272,14 @@ export async function loadDefaultEclSemanticData({
     }
   }
 
-  const base = loaded[0].semantics
+  const base = loaded.semantics
   return {
     ...base,
-    instructions: dedupeByName(loaded.flatMap(item => item.semantics?.instructions || [])),
+    ...await referenceData,
+    instructions: dedupeByName(base.instructions),
     // builtins 是字符串数组，按值去重（dedupeByName 是给指令对象用的）
-    builtins: [...new Set(loaded.flatMap(item => item.semantics?.builtins || []))],
-    resolvedPath: loaded.map(item => item.path).join(' + '),
+    builtins: [...new Set(base.builtins)],
+    resolvedPath: loaded.path,
     version: base?.version || version,
     versionWarning: versionWarning || undefined
   }

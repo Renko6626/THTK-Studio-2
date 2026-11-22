@@ -39,7 +39,8 @@
       "icons/icon.ico"
     ],
     "resources": {
-      "resources/truth/": "truth/"
+      "resources/truth/": "truth/",
+      "assets/ecl-reference/thtk.COPYING": "licenses/ecl-reference/thtk.COPYING"
     }
   }
 }

@@ -12,6 +12,32 @@
 use serde::Serialize;
 
 #[test]
+fn ecl_instruction_reference_matches_frontend_contract() {
+    use crate::modules::ecl::instruction_reference;
+
+    let instructions = instruction_reference::for_game(13).unwrap().unwrap();
+    assert_eq!(
+        json_keys(&instructions[0]),
+        sorted(&[
+            "opcode",
+            "zero318Name",
+            "priw8Name",
+            "zero318SourceName",
+            "zero318SourceGame",
+            "signature",
+            "reliability",
+            "description",
+            "assessment",
+            "stockCount",
+            "stockVersion",
+            "stockExample",
+            "dispatchAddress",
+            "evidence",
+        ])
+    );
+}
+
+#[test]
 fn truth_map_definitions_match_frontend_contract() {
     use crate::modules::truth::maps::{load_truth_maps, TruthScriptKind};
     let map = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))

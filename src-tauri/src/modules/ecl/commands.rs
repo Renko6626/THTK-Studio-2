@@ -168,8 +168,19 @@ pub async fn run_thecl_operation(
 }
 
 #[tauri::command]
-pub async fn get_ecl_map_semantics(path: String) -> Result<map_parser::EclMapSemanticData, String> {
-    map_parser::parse_ecl_map_file(&path)
+pub async fn get_ecl_map_semantics(
+    path: String,
+    overlay_paths: Option<Vec<String>>,
+) -> Result<map_parser::EclMapSemanticData, String> {
+    map_parser::parse_ecl_map_files(&path, overlay_paths.as_deref().unwrap_or_default())
+}
+
+#[tauri::command]
+pub async fn get_ecl_instruction_reference(
+    version: String,
+) -> Result<&'static [super::instruction_reference::InstructionReference], String> {
+    let game = crate::common::game_version::parse(&version)?;
+    Ok(super::instruction_reference::for_game(game)?.unwrap_or_default())
 }
 
 #[tauri::command]
